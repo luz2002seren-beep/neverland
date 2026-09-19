@@ -133,6 +133,7 @@ const rules = [
   [/^تفعيل أو تعطيل أحداث (.+)$/, 'Enable or disable $1 events'],
   [/^(?:.+ )?\*\*(.+)\*\* — (\d+) أحداث$/, '**$1** — $2 events'],
   [/^عندي صلاحيات ناقصة في (.+)\..*$/, 'I am missing permissions in $1. I need: View Channel, Send Messages, Embed Links.'],
+  [/^ما عندي صلاحية كاملة في (.+?)\..*$/, 'I do not have full permissions in $1. I need: View Channel • Send Messages • Embed Links.'],
   [/^ما عندي صلاحية كاملة في (.+)\..*$/, 'I do not have full permissions in $1. I need: View Channel, Send Messages, Embed Links.'],
   [/^\*\*(.+)\*\* صار يروح إلى (.+)$/, '**$1** now goes to $2'],
   [/^\*\*(.+)\*\* رجع للقناة العامة.*$/, '**$1** is back to the general log channel.'],
