@@ -14,6 +14,11 @@
 
 /* ─────────────────────── قواعد للجُمل المتغيّرة ─────────────────────── */
 const rules = [
+  /* ── جُمل ديناميكية (مستوى · تقديمات · إجراءات) ── */
+  [/^وصل (.+) إلى المستوى \*\*(\d+)\*\*\.$/, '$1 reached level **$2**.'],
+  [/^🎉 (.+) \*\*لقد تم قبول عرضك!\*\*$/, '🎉 $1 **Your application was accepted!**'],
+  [/^❌ (.+) تم رفض تقديمك\.$/, '❌ $1 your application was rejected.'],
+  [/^إجراء إداري: (.+)$/, 'Moderation action: $1'],
   [/^✅ تمت إضافة (.+) — سيُرسل خط فاصل بعد كل رسالة فيها\.$/, '✅ Added $1 — a separator line will be sent after every message there.'],
   [/^✅ تمت إزالة (.+)\.$/, '✅ Removed $1.'],
   [/^✅ تمت إضافة (.+?)(?: — .*)?$/, '✅ Added $1'],
@@ -315,6 +320,43 @@ const exact = {
   '📭 لا توجد أي عقوبات مسجّلة لهذا العضو.': '📭 No punishments recorded for this member.',
   'سحب رتبة': 'Remove role',
   'إعطاء رتبة': 'Add role',
+  /* ── التذاكر: لوحة ونصوص داخل الغرفة ── */
+  'اختر نوع التذكرة بالأسفل وسيُفتح لك روم خاص مع فريق الدعم.': 'Choose a ticket type below and a private room opens with the support team.',
+  'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.': 'Pick a ticket type from the list below and a private room will open for you.',
+  'اختر نوع التذكرة لفتحها...': 'Choose a ticket type to open...',
+  'الدعم الفني': 'Technical support',
+  'التوثيق': 'Verification',
+  'الهدايا': 'Giveaways',
+  'تقديم إدارة': 'Staff application',
+  'اكتب مشكلتك بالتفصيل (وصف المشكلة • متى حدثت • أي صور إن وُجدت) وسيساعدك فريق الدعم الفني.': 'Describe your issue in detail (what happened • when • any screenshots) and the support team will help you.',
+  '🔒 غرفة خاصة': '🔒 Private room',
+  'رقم الحالة': 'Case number',
+  'رقم التذكرة': 'Ticket number',
+  'صاحب التذكرة': 'Ticket owner',
+  'تاريخ الفتح': 'Opened at',
+  'تاريخ الإغلاق': 'Closed at',
+  '[تنبيه] فشل إنشاء قناة التذكرة:': '[Alert] Failed to create the ticket channel:',
+  '[تنبيه] فشل بناء الأرشيف:': '[Alert] Failed to build the archive:',
+
+  /* ── التقديمات ── */
+  '📝 نموذج تقديم الإدارة': '📝 Staff application form',
+  '📝 املأ نموذج التقديم': '📝 Fill in the application form',
+  'عبّي الخانات بالأسفل ثم أرسل.': 'Fill in the fields below then submit.',
+  '🔁 إعادة إرسال النموذج': '🔁 Resend the form',
+  '🎉 تم قبول عرضك!': '🎉 Your application was accepted!',
+  '😔 تم رفض عرضك.': '😔 Your application was rejected.',
+  'الاسم والعمر': 'Name and age',
+
+  /* ── تجاوزات ومصادر الخبرة ── */
+  'تكرار نفس الكلام': 'Repeating the same text',
+  'رسائل سريعة متتالية': 'Rapid consecutive messages',
+  'حروف مكرّرة': 'Repeated characters',
+  'بلا تجديد': 'No renewal',
+  'الترتيب العام': 'Global rank',
+  'توب داي (اليوم)': 'Top day (today)',
+  'توب ويك (هذا الأسبوع)': 'Top week (this week)',
+  'مصادر الخبرة': 'XP sources',
+
   /* ── السجلات: أسماء الأحداث والمجموعات (38 حدثًا) ── */
   'حذف رسالة': 'Message deleted',
   'تعديل رسالة': 'Message edited',
@@ -424,7 +466,62 @@ const exact = {
 };
 
 /* ─────────────────────── كلمات مفردة (تسميات قصيرة) ─────────────────────── */
-const words = {
+const wordsExtra = {
+  /* ── أفعال وأسباب متكرّرة (للجُمل القصيرة واللوحات) ── */
+  'حظر': 'Ban',
+  'طرد': 'Kick',
+  'إسكات': 'Timeout',
+  'فك': 'Un',
+  'تحذير': 'Warn',
+  'تحذيرات': 'Warnings',
+  'سبام': 'spam',
+  'إعلانات': 'ads',
+  'إزعاج': 'harassment',
+  'شتائم': 'insults',
+  'عنصرية': 'racism',
+  'مخالفة': 'violation',
+  'مخالفات': 'violations',
+  'القوانين': 'the rules',
+  'إساءة': 'abuse',
+  'محتوى': 'content',
+  'غير': 'not',
+  'لائق': 'appropriate',
+  'ممنوع': 'forbidden',
+  'متكرّر': 'repeated',
+  'دقيقة': 'minute',
+  'دقائق': 'minutes',
+  'ساعة': 'hour',
+  'ساعات': 'hours',
+  'يوم': 'day',
+  'أيام': 'days',
+  'أسبوع': 'week',
+  'أسابيع': 'weeks',
+  'شهر': 'month',
+  'أشهر': 'months',
+  'سنة': 'year',
+  'سنوات': 'years',
+  'دائم': 'permanent',
+  'مؤقت': 'temporary',
+  'منتهي': 'expired',
+  'فعّال': 'active',
+  'مغلق': 'closed',
+  'مفتوح': 'open',
+  'جديد': 'new',
+  'قديم': 'old',
+  'سيرفر': 'server',
+  'روم': 'channel',
+  'غرفة': 'channel',
+  'رسالة': 'message',
+  'رسائل': 'messages',
+  'صورة': 'image',
+  'ملف': 'file',
+  'ملفات': 'files',
+  'رابط': 'link',
+  'روابط': 'links',
+  'اسم': 'name',
+  'أسماء': 'names',
+};
+const words = { ...wordsExtra,
   'العضو': 'Member',
   'الأعضاء': 'Members',
   'القناة': 'Channel',
@@ -557,5 +654,6 @@ const verbs = {
   'إزالة': 'Removed',
   'تجاهل': 'Skipped',
 };
+
 
 module.exports = { exact, rules, words, verbs };

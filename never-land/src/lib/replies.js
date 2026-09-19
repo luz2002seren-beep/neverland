@@ -18,6 +18,28 @@ const config = require('../config');
 const db = require('../database');
 const DICT = require('./en');
 
+/* جسر نظام الترجمة الداخلي (i18n): أي نص عربي ثابت عنده ترجمة إنجليزية جاهزة يدخل القاموس تلقائيًا */
+const I18N_EXACT = (() => {
+  try {
+    const { strings } = require('./i18n');
+    const flat = (node, prefix = '') =>
+      Object.entries(node || {}).flatMap(([k, v]) =>
+        v && typeof v === 'object' ? flat(v, `${prefix}${k}.`) : [[`${prefix}${k}`, v]],
+      );
+    const arMap = new Map(flat(strings.ar));
+    const out = {};
+    for (const [key, en] of flat(strings.en)) {
+      const source = arMap.get(key);
+      if (typeof source === 'string' && typeof en === 'string' && source !== en) {
+        if (!source.includes('{') && !en.includes('{')) out[source] = en;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+})();
+
 /* ────────────────────────── ١) الخط المزخرف ────────────────────────── */
 
 const MATH_BOLD_ITALIC_A = 0x1d468; // 𝑨
@@ -64,7 +86,7 @@ function translate(value) {
   const key = value.trim();
 
   /* ١) تطابق تام (الأسرع والأدق) */
-  const exact = DICT.exact[key];
+  const exact = DICT.exact[key] ?? I18N_EXACT[key];
   if (exact) return value.replace(key, exact);
 
   /* ٢) قواعد للجُمل المتغيّرة (أسماء · أرقام · قنوات) */
@@ -75,13 +97,22 @@ function translate(value) {
   /* ٣) النصوص القصيرة (تسميات الحقول) — ترجمة كلمة بكلمة إن عُرفت كل الكلمات */
   if (key.length <= 34) {
     const words = key.split(/\s+/);
-    const mapped = words.map((w) => DICT.words[w.replace(/[«»:"'.,!؟?…]/g, '')] ?? null);
-    if (mapped.every(Boolean)) {
-      return value.replace(key, words.map((w, i) => (mapped[i] === w ? w : w.replace(/[A-Za-z\u0600-\u06FF]+/u, () => mapped[i]))).join(' '));
+    const cleaned = words.map((w) => w.replace(/[\u00AB\u00BB:"'.,!\u061F?\u2026*_`()\[\]#@<>]/g, ''));
+    const mapped = cleaned.map((w) => DICT.words[w] ?? null);
+    const needMap = cleaned.map((w) => /[\u0600-\u06FF]/.test(w));
+    if (mapped.every((m, k) => !needMap[k] || m)) {
+      return value.replace(key, words.map((w, i) => (mapped[i] == null || mapped[i] === w ? w : w.replace(/[A-Za-z\u0600-\u06FF]+/u, () => mapped[i]))).join(' '));
     }
   }
 
-  /* ٤) «تم + فعل + باقي عربي» ⇒ فعل إنجليزي + ترجمة الباقي */
+  /* ٤) بادئة غير عربية/إنجليزية (إيموجي أو ⚠️ أو **) ⇒ نترجم الباقي ونرجّع البادئة كما هي */
+  const prefix = key.match(/^([^A-Za-z\u0600-\u06FF0-9]+)([\s\S]*)$/);
+  if (prefix && prefix[2] && /[\u0600-\u06FF]/.test(prefix[2])) {
+    const inner = translate(prefix[2]);
+    if (inner !== prefix[2]) return value.replace(key, prefix[1] + inner);
+  }
+
+  /* ٥) «تم + فعل + باقي عربي» ⇒ فعل إنجليزي + ترجمة الباقي */
   const parts = key.match(/^(?:تم|تمت)\s+(\S+)\s+(.+)$/);
   if (parts && DICT.verbs?.[parts[1]]) {
     const head = DICT.verbs[parts[1]];
@@ -89,7 +120,7 @@ function translate(value) {
     if (rest !== parts[2]) return value.replace(key, `${head} ${rest}`);
   }
 
-  /* ٥) غير مترجم بعد → يبقى كما هو (بلا كسر) */
+  /* ٦) غير مترجم بعد → يبقى كما هو (بلا كسر) */
   return value;
 }
 

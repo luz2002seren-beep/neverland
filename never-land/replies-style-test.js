@@ -78,6 +78,22 @@ function main() {
   assert.strictEqual(replies.translate('Hi there'), 'Hi there');
   ok('غير المترجَم يبقى كما هو بلا كسر · الإنجليزي ما يتغيّر');
 
+  /* جسر نظام الترجمة الداخلي: نصوص جاهزة تُترجم تلقائيًا */
+  assert.notStrictEqual(replies.translate('❌ ما عندك صلاحية لاستخدام هذا الأمر.'), '❌ ما عندك صلاحية لاستخدام هذا الأمر.');
+  ok('نصوص نظام الترجمة الداخلي تُترجم تلقائيًا (جسر i18n)');
+
+  /* إيموجي/رموز بالبداية + جُمل فيها أرقام ومنشنات */
+  assert.strictEqual(replies.translate('🔨 تم حظر **@user**'), '🔨 Banned **@user**');
+  assert.strictEqual(replies.translate('**السبب:**'), '**Reason:**');
+  assert.strictEqual(replies.translate('العضو: @user'), 'Member: @user');
+  ok('البادئة (إيموجي/نجوم) تبقى والمتن يُترجم · الأرقام والمنشنات ما تتأثر');
+
+  /* جُمل متغيّرة مهمة */
+  assert.strictEqual(replies.translate('وصل @user إلى المستوى **5**.'), '@user reached level **5**.');
+  assert.strictEqual(replies.translate('🎉 @user **لقد تم قبول عرضك!**'), '🎉 @user **Your application was accepted!**');
+  assert.strictEqual(replies.translate('الدعم الفني'), 'Technical support');
+  ok('المستويات · التقديمات · أنواع التذاكر');
+
   console.log('\n═══ ٤) التطبيق على الردود ═══');
   const embedPayload = replies.decorate(
     { embeds: [{ title: '⚠️ تحذير', description: 'العضو', footer: { text: 'تحذير' }, fields: [{ name: 'السبب', value: 'سبام في الشات' }] }] },
