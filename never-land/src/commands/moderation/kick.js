@@ -68,6 +68,8 @@ module.exports = {
       return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), actions.failure(lang, result.reason))] });
     }
 
+    interaction.__replyVars = { user: `${user}`, target: `${user}`, reason, case: String(result.caseId) };
+
     await interaction.editReply({
       embeds: [
         embeds.mod('👢 طرد', t(lang, 'mod.kicked', { user: `${user}`, reason, caseId: result.caseId }), {

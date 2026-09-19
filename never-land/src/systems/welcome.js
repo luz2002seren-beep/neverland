@@ -151,7 +151,9 @@ async function handleMemberAdd(client, member) {
       settings.welcome.dmMessage || (lang === 'ar' ? 'أهلاً بك في **{server}**! لا تنسَ قراءة القوانين 😊' : 'Welcome to **{server}**!'),
       { user: member.user, member, guild },
     );
-    await member.send({ content: dmText }).catch(() => {});
+    /* سياسة الخاص: ما نراسل الخاص إلا في الحالات المهمة (٣ حالات) — ترحيب الخاص يحتاج سماحًا صريحًا */
+    const dmPolicy = require('../lib/dmPolicy');
+    await dmPolicy.send(member, dmText, { kind: 'welcome', settings });
   }
 
   /* --------- 4) إحصاء --------- */

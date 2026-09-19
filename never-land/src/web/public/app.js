@@ -564,6 +564,7 @@ const SECTION_ICONS = {
   top: 'trophy',
   autoReply: 'bubbles',
   commandAliases: 'terminal',
+  commandReplies: 'messageEdit',
   commandGuide: 'book',
   audit: 'scroll',
   security: 'shield',
@@ -1542,6 +1543,117 @@ const SECTIONS = {
     },
   },
 
+  /* ------------------------------ ردود أوامر ------------------------------ */
+  commandReplies: {
+    group: 'الأوامر',
+    label: 'ردود أوامر',
+    title: 'ردود أوامر',
+    desc: 'شكل رد البوت على كل أمر: رسالة نصية عادية أو إمبد — وتكتب نص الرد بنفسك (متغيّرات: {user} · {reason} · {case} · {count} · {channel} · {moderator}).',
+    render() {
+      const wrap = el('div');
+      const box = el('div');
+      wrap.appendChild(box);
+
+      const MODES = [
+        { value: 'default', label: 'الافتراضي (زي برو بوت)' },
+        { value: 'text', label: 'رسالة نصية' },
+        { value: 'embed', label: 'إمبد (إطار)' },
+      ];
+
+      const paintPreview = (previewEl, preview) => {
+        previewEl.innerHTML = '';
+        const row = (cls, text) => {
+          const node = el('div', { class: `d-sample-row ${cls}` });
+          node.appendChild(el('span', { class: 'new', text: String(text || '—').slice(0, 400) }));
+          return node;
+        };
+        previewEl.appendChild(row('old', preview.before));
+        previewEl.appendChild(row('new', preview.after));
+      };
+
+      const load = async () => {
+        box.innerHTML = '';
+        box.appendChild(el('div', { class: 'd-empty', text: 'جارٍ تحميل الأوامر…' }));
+        try {
+          const data = await api(`/guilds/${state.guildId}/command-replies`);
+          box.innerHTML = '';
+
+          const bar = el('div', { class: 'guide-bar' });
+          bar.appendChild(el('div', { class: 'd-empty', text: `${data.items.length} أمر — كل أمر تختار شكله وتكتب نصه، واللي تكتبه ينحفظ مع شريط الحفظ السفلي.` }));
+          box.appendChild(bar);
+
+          const list = el('div', { class: 'cr-list' });
+          box.appendChild(list);
+
+          data.items.forEach((item) => {
+            const card = el('div', { class: 'd-card cr-card' });
+            const head = el('div', { class: 'd-card-head' });
+            head.appendChild(el('h3', { html: `<code>/${item.name}</code> ${item.label}` }));
+            head.appendChild(el('span', {
+              class: `tag ${item.audience === 'staff' ? 'lock' : 'ok'}`,
+              text: item.audience === 'staff' ? 'إدارة' : 'أعضاء',
+            }));
+            card.appendChild(head);
+
+            const body = el('div', { class: 'd-card-body cr-body' });
+
+            /* الوضع: افتراضي · نص · إمبد */
+            const modeSelect = el('select', { class: 'd-select' });
+            MODES.forEach((m) => {
+              const opt = el('option', { value: m.value, text: m.label });
+              if ((getPath(`commandReplies.${item.name}.mode`) || 'default') === m.value) opt.selected = true;
+              modeSelect.appendChild(opt);
+            });
+            modeSelect.value = getPath(`commandReplies.${item.name}.mode`) || 'default';
+
+            /* نص الرد المخصّص */
+            const textArea = el('textarea', { class: 'd-textarea', rows: '2', placeholder: 'اكتب نص الرد هنا (اختياري)…' });
+            textArea.value = getPath(`commandReplies.${item.name}.text`) || '';
+            textArea.addEventListener('input', () => {
+              setPath(`commandReplies.${item.name}.text`, textArea.value);
+              refresh();
+            });
+
+            modeSelect.addEventListener('change', () => {
+              if (modeSelect.value === 'default') setPath(`commandReplies.${item.name}.mode`, '');
+              else setPath(`commandReplies.${item.name}.mode`, modeSelect.value);
+              refresh();
+            });
+
+            const previewEl = el('div', { class: 'd-sample cr-preview' });
+            paintPreview(previewEl, { before: item.before, after: item.after });
+
+            let timer = null;
+            const refresh = () => {
+              clearTimeout(timer);
+              timer = setTimeout(async () => {
+                try {
+                  const mode = modeSelect.value === 'default' ? '' : modeSelect.value;
+                  const query = new URLSearchParams({ command: item.name, mode, text: textArea.value || '' }).toString();
+                  const live = await api(`/guilds/${state.guildId}/command-replies?${query}`);
+                  paintPreview(previewEl, live.preview);
+                } catch { /* المعاينة بس */ }
+              }, 250);
+            };
+
+            body.appendChild(dField('شكل الرد', 'افتراضي = نفس ما هو الآن (العقوبات نصية والبقية إمبد)', [modeSelect]));
+            body.appendChild(dField('نص الرد', 'لو كتبت نص هنا يُستخدم بدل النص الأصلي — المتغيّرات تُستبدل تلقائيًا', [textArea], { wide: true }));
+            body.appendChild(dField('معاينة', 'فوق: الافتراضي · تحت: بعد تعديلك', [previewEl], { wide: true }));
+
+            card.appendChild(body);
+            list.appendChild(card);
+          });
+        } catch (err) {
+          box.innerHTML = '';
+          box.appendChild(el('div', { class: 'd-empty', text: err.message || 'ما قدرت أجيب الأوامر.' }));
+        }
+      };
+
+      load();
+      return wrap;
+    },
+  },
+
   /* ------------------------------ مكتبة الأوامر ------------------------------ */
   commandGuide: {
     group: 'الأوامر',
@@ -2186,6 +2298,13 @@ const SECTIONS = {
       const typeCount = types.length;
       return [
         buttonsCard,
+        dCard('رسالة فتح التذكرة (كل شي من عندك)', 'هذه الرسالة تُرسل داخل غرفة التذكرة لحظة فتحها — اكتب العنوان والوصف بنفسك.', 'messageEdit', [
+          dField('عنوان الرسالة', 'متغيّرات: {emoji} · {id} · {type} · {user} · {server}', [dInput('tickets.openTitle', { full: true })], { wide: true }),
+          dField('الوصف', 'الأسطر الطويلة مدعومة (اضغط Enter لسطر جديد)', [dArea('tickets.openDescription')], { wide: true }),
+          dField('سطر إضافي', 'يُضاف أسفل الوصف مع تعليمات كل نوع', [dArea('tickets.openIntro')], { wide: true }),
+          dField('إظهار الحقول', 'صاحب التذكرة · النوع · الحالة', [dSwitch('tickets.openFields')]),
+          dField('التذييل', 'اتركه فارغًا لبلا تذييل', [dInput('tickets.openFooter', { full: true })], { wide: true }),
+        ]),
         dCard('الأساسيات', '', 'ticket', [
           dField('تفعيل التذاكر', '', [dSwitch('tickets.enabled')]),
           dField('القسم (Category)', 'تُنشأ فيه قنوات التذاكر', [dSelect('tickets.categoryId', categoryOptions())]),

@@ -27,6 +27,7 @@ const {
   ButtonStyle,
 } = require('discord.js');
 const db = require('../database');
+const dmPolicy = require('../lib/dmPolicy');
 const { base } = require('../lib/embeds');
 const { truncate } = require('../lib/utils');
 
@@ -373,17 +374,14 @@ async function reviewApplication(client, interaction, ticket, decision, opts = {
 
     // 5) رسالة خاصة للمتقدّم
     if (applicantUser && cfg.onAccept.dmApplicant) {
-      const dmEmbed = base({
-        color: 0x2ecc71,
-        title: '🎉 تم قبول عرضك',
-        description: render(cfg.acceptMessage, vars),
-        fields: [
-          { name: 'السيرفر', value: guild.name, inline: true },
-          { name: 'رقم الملف', value: `#${number}`, inline: true },
-        ],
-        footer: 'تقديم الإدارة',
-      });
-      result.dmSent = await applicantUser.send({ embeds: [dmEmbed] }).then(() => true).catch(() => false);
+      /* ✅ الخاص مسموح هنا — رسالة نصية بلا إمبد */
+      const dmText = [
+        '🎉 تم قبول تقديمك!',
+        render(cfg.acceptMessage, vars),
+        `السيرفر: ${guild.name}`,
+        `رقم الطلب: #${number}`,
+      ].filter(Boolean).join('\n');
+      result.dmSent = await dmPolicy.send(applicantUser, dmText, { kind: 'applicationAccepted', settings });
     }
   } else {
     // ❌ الرفض
@@ -408,17 +406,14 @@ async function reviewApplication(client, interaction, ticket, decision, opts = {
     }
 
     if (applicantUser && cfg.onReject.dmApplicant) {
-      const dmEmbed = base({
-        color: 0xe74c3c,
-        title: '😔 تم رفض عرضك',
-        description: render(cfg.rejectMessage, vars),
-        fields: [
-          { name: 'السيرفر', value: guild.name, inline: true },
-          ...(opts.reason ? [{ name: 'سبب الرفض', value: truncate(opts.reason, 1000), inline: false }] : []),
-        ],
-        footer: 'تقديم الإدارة',
-      });
-      result.dmSent = await applicantUser.send({ embeds: [dmEmbed] }).then(() => true).catch(() => false);
+      /* ❌ الخاص مسموح هنا — رسالة نصية بلا إمبد */
+      const dmText = [
+        '😔 تم رفض تقديمك.',
+        render(cfg.rejectMessage, vars),
+        `السيرفر: ${guild.name}`,
+        opts.reason ? `سبب الرفض: ${truncate(opts.reason, 900)}` : '',
+      ].filter(Boolean).join('\n');
+      result.dmSent = await dmPolicy.send(applicantUser, dmText, { kind: 'applicationRejected', settings });
     }
 
     // إغلاق التذكرة تلقائيًا (اختياري)

@@ -65,12 +65,14 @@ module.exports = {
     if (sub === 'channel') {
       const channel = interaction.options.getChannel('القناة') || interaction.channel;
       await applyLock(channel, true);
+      interaction.__replyVars = { channel: `${channel}`, reason, action: 'قفل' };
       return interaction.editReply({ embeds: [embeds.success('قفل القناة', t(lang, 'mod.channelLocked', { channel: `${channel}` }))] });
     }
 
     if (sub === 'unlock') {
       const channel = interaction.options.getChannel('القناة') || interaction.channel;
       await applyLock(channel, false);
+      interaction.__replyVars = { channel: `${channel}`, reason, action: 'فتح' };
       return interaction.editReply({ embeds: [embeds.success('فتح القناة', t(lang, 'mod.channelUnlocked', { channel: `${channel}` }))] });
     }
 

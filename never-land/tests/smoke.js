@@ -379,16 +379,19 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(String(renamed[0]).startsWith('إدارة-'), 'الترقيم في اسم القناة ناقص');
     assert.deepStrictEqual(movedTo, ['100000000000000030'], 'لم تُنقل التذكرة لقسم الإدارة');
     assert.deepStrictEqual(rolesGiven, ['100000000000000031'], 'لم تُعطَ رتبة القبول');
-    assert.ok(sentTo.dm.some((p) => p.embeds?.[0]?.data?.title?.includes('قبول')), 'لم تُرسل رسالة قبول على الخاص');
+    /* الخاص صار **نصًا عاديًا بلا إمبد** (سياسة الرسائل الخاصة) */
+    assert.ok(sentTo.dm.some((p) => typeof p.content === 'string' && p.content.includes('قبول')), 'لم تُرسل رسالة قبول على الخاص');
+    assert.ok(sentTo.dm.every((p) => !p.embeds), 'رسالة القبول لازم تكون نصية بلا إمبد');
     assert.ok(reviewMsgMock.edited?.components?.[0]?.components?.[0]?.data?.disabled, 'لم تُعطّل أزرار المراجعة بعد القرار');
 
     // الرفض مع السبب
     sentTo.dm.length = 0;
     const rejected = await applications.reviewApplication(client16, interaction16, appTicket, 'reject', { reason: 'تحتاج خبرة أكبر' });
-    const rejectDm = sentTo.dm[0]?.embeds?.[0]?.data;
+    const rejectDm = sentTo.dm[0]?.content || '';
     assert.strictEqual(rejected.decision, 'reject');
-    assert.ok(rejectDm?.title?.includes('رفض'), 'لم تُرسل رسالة رفض على الخاص');
-    assert.ok(rejectDm?.fields?.some((f) => f.value.includes('تحتاج خبرة أكبر')), 'سبب الرفض غير مذكور في الخاص');
+    assert.ok(String(rejectDm).includes('رفض'), 'لم تُرسل رسالة رفض على الخاص');
+    assert.ok(String(rejectDm).includes('تحتاج خبرة أكبر'), 'سبب الرفض غير مذكور في الخاص');
+    assert.ok(!sentTo.dm[0]?.embeds, 'رسالة الرفض لازم تكون نصية بلا إمبد');
   console.log('  [تم] النموذج 5 خانات + القبول (تسمية/ترقيم/نقل/رتبة/خاص) + الرفض بالسبب');
   }
 
@@ -1703,7 +1706,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ٦) الاختبار العملي الكامل (١٠ مجموعات)
     const { execFileSync } = require('node:child_process');
     const out41 = execFileSync('node', [path41.join(root41, 'text-commands-test.js')], { cwd: root41, encoding: 'utf8' });
-    for (const needle of ['١) أمر مباشر بلا بريفيكست', '٢) الأوامر الفرعية', '٣) الكلمات العربية', '٤) الاختصارات', '٥) الإيقاف والتشغيل', '٦) الصلاحيات', '٧) حد الاستخدام', '٨) مكتبة الشرح', '٩) ', '١٠) التصويت']) {
+    for (const needle of ['١) أمر مباشر بلا بريفيكست', '٢) الأوامر الفرعية', '٣) الكلمات العربية', '٤) الاختصارات', '٥) الإيقاف والتشغيل', '٦) الصلاحيات', '٧) الكولداون مشيل', '٨) مكتبة الشرح', '٩) ', '١٠) التصويت']) {
       assert.ok(out41.includes(needle), `اختبار الأوامر النصية ينقصه: ${needle}`);
     }
     assert.ok(out41.includes('🎉'), 'اختبار الأوامر النصية ما نجح');
@@ -2211,6 +2214,57 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     /* أوامر الشات: خيار العضو يقبل آيدي */
     const tc50 = read50('src/systems/textCommands.js');
     assert.ok(tc50.includes('resolveIdArguments'), 'دعم الآيدي في أوامر الشات ناقص');
+  }
+
+ console.log('[اختبار] 51: التوب زي برو بوت + ٣ حالات خاص + تذكير + ردود أوامر قابلة للتعديل');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path51 = require('node:path');
+    const fs51 = require('node:fs');
+    const root51 = path51.join(__dirname, '..');
+    const read51 = (rel) => fs51.readFileSync(path51.join(root51, rel), 'utf8');
+
+    const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8' });
+    assert.ok(out51.includes('f42 كامل'), 'اختبار f42 فشل');
+
+    /* التوب: فترة الشهر + شكل برو بوت + الاختصاص t */
+    const periods51 = read51('src/lib/periods.js');
+    assert.ok(periods51.includes('monthKey'), 'مفتاح الشهر ناقص');
+    assert.ok(periods51.includes('توب منث'), 'اسم «توب منث» ناقص');
+    assert.ok(read51('src/commands/general/top.js').includes('proBotTopEmbed'), 'التوب ما صار بشكل برو بوت');
+    const tc51 = read51('src/systems/textCommands.js');
+    assert.ok(tc51.includes('توب منث'), 'كلمة «توب منث» بالشات ناقصة');
+
+    /* سياسة الخاص: ٣ حالات فقط */
+    const dm51 = read51('src/lib/dmPolicy.js');
+    assert.ok(dm51.includes("['warn', 'applicationAccepted', 'applicationRejected']"), 'قائمة حالات الخاص الـ٣ ناقصة');
+    assert.ok(!read51('src/systems/leveling.js').includes('dmPolicy'), 'الترقية لازم تكون بلا رسالة خاصة');
+    assert.ok(read51('src/systems/leveling.js').includes('proBotTopEmbed'), 'شكل توب برو بوت ناقص من نظام الخبرة');
+
+    /* شكل الردود: نص أو إمبد لكل أمر */
+    assert.ok(read51('src/lib/replyFormat.js').includes('TEXT_BY_DEFAULT'), 'قائمة العقوبات النصية ناقصة');
+    assert.ok(read51('src/lib/replies.js').includes('replyFormat.apply'), 'المحرّك ما انربط بالردود');
+    const app51 = read51('src/web/public/app.js');
+    assert.ok(app51.includes("label: 'ردود أوامر'"), 'صفحة «ردود أوامر» ناقصة من اللوحة');
+    assert.ok(app51.includes('command-replies'), 'اللوحة ما تتصل بمسار ردود الأوامر');
+    assert.ok(read51('src/web/routes/api.js').includes('command-replies'), 'مسارات ردود الأوامر ناقصة من الـ API');
+
+    /* تذكير التذكرة: خاص نصي بلا إمبد + داخل التذكرة فقط */
+    const tk51 = read51('src/systems/tickets.js');
+    assert.ok(tk51.includes('async function remind'), 'دالة تذكير التذكرة ناقصة');
+    assert.ok(/remind[\s\S]{0,900}content: lines\.join/.test(tk51), 'التذكير لازم يبعت نصًا بلا إمبد');
+    assert.ok(read51('src/commands/config/tickets.js').includes("sub === 'remind'"), 'أمر /tickets remind ناقص');
+
+    /* إضافة الأعضاء للتذكرة (إصلاح قائمة الأعضاء) */
+    const ic51 = read51('src/events/interactionCreate.js');
+    assert.ok(ic51.includes('isAnySelectMenu?.()'), 'إصلاح قائمة الأعضاء (UserSelect) ناقص');
+
+    /* رسالة فتح التذكرة من الموقع */
+    assert.ok(tk51.includes('cfg.openTitle') && tk51.includes('cfg.openFooter'), 'رسالة فتح التذكرة ما صارت من الإعدادات');
+    assert.ok(read51('src/config.js').includes('openTitle'), 'إعدادات رسالة الفتح الافتراضية ناقصة');
+    for (const key51 of ['tickets.openTitle', 'tickets.openDescription', 'tickets.openIntro', 'tickets.openFields', 'tickets.openFooter']) {
+      assert.ok(app51.includes(key51), `حقل ${key51} ناقص من اللوحة`);
+    }
   }
 
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');

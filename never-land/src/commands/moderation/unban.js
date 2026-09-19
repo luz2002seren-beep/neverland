@@ -66,6 +66,8 @@ module.exports = {
       return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), actions.failure(lang, result.reason))] });
     }
 
+    interaction.__replyVars = { user: entry.user.tag, target: `${entry.user}`, reason, case: String(result.caseId) };
+
     await interaction.editReply({
       embeds: [
         embeds.success(t(lang, 'mod.unbanned', { user: entry.user.tag }), `**السبب:** ${reason}`, {

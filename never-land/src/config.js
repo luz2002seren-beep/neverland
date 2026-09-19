@@ -145,6 +145,7 @@ const config = {
       embed: false,
       /** النص الذي يُرسم على صورة الترحيب نفسها */
       cardMessage: 'أهلاً بك {displayName} في {server}',
+      /** ترحيب الخاص: مطفّي افتراضيًا — سياسة الخاص بالبوت = تحذير · قبول تقديم · رفض تقديم فقط */
       dm: false,
       dmMessage: 'أهلاً بك في **{server}**. يُرجى الاطلاع على قوانين السيرفر قبل المشاركة.',
       autoDeleteAfter: 0,
@@ -359,6 +360,17 @@ const config = {
       ignoredRoles: [],
       silent: false,
     },
+    /**
+     * سياسة الرسائل الخاصة (DM):
+     * البوت ما يراسل الخاص إلا في ٣ حالات: تحذير عضو · قبول تقديم الإدارة · رفض تقديم الإدارة.
+     * أي إشعار ثاني (لفل · تذكرة · حظر · ترحيب…) مكانه الروم أو اللوق.
+     * extraKinds للطوارئ فقط: أضف نوعًا مثل 'welcome' أو 'levelUp' لو أردت السماح به صراحة.
+     */
+    dm: {
+      extraKinds: [],
+      /** إجراءات يطلبها إداري صريح (مثل «تذكير بتذكرة») — مسموحة افتراضيًا */
+      manual: true,
+    },
     tickets: {
       enabled: false,
       categoryId: null,
@@ -407,6 +419,19 @@ const config = {
       ],
       maxOpenPerUser: 3,
       transcriptOnClose: true,
+      /**
+       * رسالة فتح التذكرة داخل الغرفة — كل شي قابل للكتابة من الموقع:
+       *   openTitle       : عنوان الرسالة   ({id} · {type} · {emoji} · {user} · {server})
+       *   openDescription : الوصف           (بلا نص = النص الافتراضي)
+       *   openIntro       : سطر إضافي يُلحق بالوصف (شرح كل نوع له حقل intro مستقل)
+       *   openFields      : إظهار حقول (صاحب التذكرة · النوع · الحالة)
+       *   openFooter      : التذييل (فارغ = بلا تذييل)
+       */
+      openTitle: '{emoji} تذكرة رقم #{id} — {type}',
+      openDescription: 'أهلاً {user}! فتحت تذكرة **{type}** في **{server}**.\nاكتب طلبك بالتفصيل وسيساعدك فريق الدعم بأسرع وقت.',
+      openIntro: '',
+      openFields: true,
+      openFooter: 'تذكرة #{id}',
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).
        * تُعدّل من الموقع (قسم التذاكر) أو بالأمر /tickets button.

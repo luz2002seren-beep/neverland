@@ -297,20 +297,42 @@ async function createTicket(client, guild, user, typeId) {
   const ticket = db.createTicket({ guildId: guild.id, channelId: channel.id, userId: user.id, type: typeId });
 
   const mentions = [...supportRoles.map((r) => `<@&${r}>`), `<@${user.id}>`].join(' ');
+
+  /* رسالة فتح التذكرة — كل شي فيها قابل للكتابة من الموقع (config → لوحة التحكم → التذاكر) */
+  const openVars = {
+    id: ticket.id,
+    type: type.label,
+    emoji: type.emoji || '🎫',
+    user: `<@${user.id}>`,
+    username: user.username,
+    server: guild.name,
+    panel: cfg.panelTitle || 'مركز الدعم',
+  };
+  const fill = (template) => String(template || '').replace(/\{(\w+)\}/g, (m, key) => (openVars[key] !== undefined ? String(openVars[key]) : m));
+  const openTitle = fill(cfg.openTitle) || `${type.emoji || '🎫'} تذكرة رقم #${ticket.id} — ${type.label}`;
+  const introBase = cfg.openDescription
+    ? fill(cfg.openDescription)
+    : `${t(lang, 'tickets.intro', { user: `<@${user.id}>`, type: type.label })}`;
+  const introExtra = cfg.openIntro ? fill(cfg.openIntro) : (type.intro || '');
+  const openFields = cfg.openFields === false
+    ? []
+    : [
+      { name: 'صاحب التذكرة', value: `<@${user.id}>`, inline: true },
+      { name: 'النوع', value: type.label, inline: true },
+      { name: 'الحالة', value: '🟢 مفتوحة', inline: true },
+    ];
+  const openFooter = cfg.openFooter ? fill(cfg.openFooter) : undefined;
+
   await channel
     .send({
       content: mentions,
       embeds: [
         base({
           color: 0x5865f2,
-          title: `${type.emoji || '🎫'} تذكرة رقم #${ticket.id} — ${type.label}`,
-          description: `${t(lang, 'tickets.intro', { user: `<@${user.id}>`, type: type.label })}\n\n${type.intro || ''}`.trim(),
-          fields: [
-            { name: 'صاحب التذكرة', value: `<@${user.id}>`, inline: true },
-            { name: 'النوع', value: type.label, inline: true },
-            { name: 'الحالة', value: '🟢 مفتوحة', inline: true },
-          ],
-          footer: `تذكرة #${ticket.id}`,
+          title: openTitle.slice(0, 256),
+          description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
+          fields: openFields,
+          footer: openFooter,
         }),
       ],
       components: [ticketControls(ticket.id, false, cfg)],
@@ -327,6 +349,30 @@ async function createTicket(client, guild, user, typeId) {
   db.updateGuildSettings(guild.id, {});
 
   return { ok: true, ticket, channel, duplicateType: Boolean(sameType), applicationSent, type };
+}
+
+/**
+ * 🔔 تذكير عضو بخصوص تذكرة مفتوحة — رسالة خاصة **نصية بلا إمبد**.
+ * تُستدعى من أمر «تذكير» (يعمل داخل غرفة التذكرة فقط) ومن الأزرار إن لزم.
+ * @returns {Promise<{ok:boolean, reason?:string, ticket?:object}>}
+ */
+async function remind(client, { channel, guild, ticket, target, note = '', by = null }) {
+  const open = ticket || db.getTicketByChannel(channel?.id);
+  if (!open) return { ok: false, reason: 'notATicket' };
+
+  const settings = db.getGuildSettings(guild.id);
+  const user = target?.user || target;
+
+  const lines = [
+    `🔔 تذكير بخصوص تذكرة **#${open.id}** في سيرفر **${guild.name}**`,
+    `الروم: <#${open.channel_id}>`,
+    note ? `الرسالة: ${note}` : 'فريق الدعم ينتظر ردّك هناك.',
+    by ? `من: ${by.tag || by.username || by.id}` : '',
+  ].filter(Boolean);
+
+  let sent = false;
+  if (user?.send) sent = await user.send({ content: lines.join('\n') }).then(() => true).catch(() => false);
+  return { ok: true, sent, ticket: open };
 }
 
 /** إغلاق تذكرة مع حفظ أرشيف نصي */
@@ -377,8 +423,7 @@ async function closeTicket(client, channel, closedBy, { reason = null, deleteCha
 
   await channel.send({ embeds: [embed] }).catch(() => {});
 
-  const owner = await guild.members.fetch(ticket.user_id).catch(() => null);
-  if (owner) await owner.send({ embeds: [embed] }).catch(() => {});
+  /* بلا رسالة خاصة عند إغلاق التذكرة — الملخص يُرسل في الروم وقناة اللوق فقط */
 
   db.updateTicket(ticket.id, { status: 'closed', closed_at: Date.now() });
 
@@ -406,6 +451,7 @@ module.exports = {
   buildTypeSelect,
   ticketControls,
   cleanupOldPanels,
+  remind,
   buttonConfig,
   buttonRaw,
   DEFAULT_BUTTONS,

@@ -95,6 +95,8 @@ module.exports = {
       if (old) notes.push(`⚠️ تم تجاهل ${old} رسالة أقدم من 14 يومًا.`);
       if (!targets.length) notes.push('ما لقيت رسائل مطابقة.');
 
+      interaction.__replyVars = { count: String(deleted), channel: `${interaction.channel}`, notes: notes.join(' ') };
+
       return interaction.editReply({
         embeds: [embeds.success('تنظيف القناة', `${t(lang, 'mod.cleared', { count: deleted })}${notes.length ? `\n${notes.join('\n')}` : ''}`)],
       });

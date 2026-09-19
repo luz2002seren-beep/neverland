@@ -40,7 +40,7 @@ const AR_TRIGGERS = {
   serverinfo: ['السيرفر'],
   userinfo: ['معلوماتي'],
   avatar: ['افتار', 'صورتي'],
-  top: ['توب', 'المتصدرين'],
+  top: ['توب', 'المتصدرين', 't'],
   leveling: ['لفل'],
   poll: ['تصويت'],
   remind: ['تذكير'],
@@ -62,7 +62,7 @@ const AR_TRIGGERS = {
   autoreact: ['تفاعلات'],
   automod: ['حماية'],
   logs: ['سجلات', 'لوق'],
-  tickets: ['تذاكر'],
+  tickets: ['تذاكر', 'تكت'],
   setup: ['اعداد', 'تهيئة'],
 };
 
@@ -87,6 +87,22 @@ const SUB_TRIGGERS = {
     اظهار: 'show',
     اظهر: 'show',
     اظهرو: 'show',
+  },
+  /* التوب: يقبل القيم بشكل برو بوت — t day · t week · t month · t text week 2 */
+  top: {
+    'توب داي': { sub: null, defaults: { الفترة: 'day' } },
+    'توب ويك': { sub: null, defaults: { الفترة: 'week' } },
+    'توب منث': { sub: null, defaults: { الفترة: 'month' } },
+    داي: { sub: null, defaults: { الفترة: 'day' } },
+    ويك: { sub: null, defaults: { الفترة: 'week' } },
+    منث: { sub: null, defaults: { الفترة: 'month' } },
+  },
+  /* التذاكر: «تذكير» داخل الغرفة = remind */
+  tickets: {
+    تذكير: { sub: 'remind' },
+    ذكر: { sub: 'remind' },
+    اضف: { sub: 'add' },
+    أضف: { sub: 'add' },
   },
   /* «مسح» لحالها تنظّف ١٠٠ رسالة — زي أمر التنظيف في البوتات المعروفة */
   purge: {
@@ -504,6 +520,16 @@ function bindArguments(interaction, guild, message, tokens, defs) {
     /* النصوص: نتركها للمرحلة الثانية */
   }
 
+  /* ١ب) النصوص اللي عندها خيارات محدّدة: نطابق القيمة بخياراتها (t day · t text week 2) */
+  for (const def of defs) {
+    if (kindOf(def) !== 'text' || !def.choices?.length) continue;
+    const idx = tokens.findIndex((t, i) => !claimed[i] && def.choices.includes(String(t).toLowerCase()));
+    if (idx >= 0) {
+      claimed[idx] = true;
+      store.set(def.name, { raw: tokens[idx], string: String(tokens[idx]).toLowerCase() });
+    }
+  }
+
   /* ٢) النصوص: الباقي غير المطالب به */
   const textDefs = defs.filter((d) => kindOf(d) === 'text');
   if (textDefs.length) {
@@ -524,7 +550,7 @@ function bindArguments(interaction, guild, message, tokens, defs) {
   }
 
   /* المتغيّر الشائع «العملية» (add/remove/enable…) إن جاء كأول كلمة ولم يُلتقط */
-  const opName = defs.find((d) => ['العملية', 'عملية', 'الحماية', 'النوع', 'النمط', 'الوضع', 'اللغة', 'الفترة', 'الحالة'].includes(d.name));
+  const opName = defs.find((d) => ['العملية', 'عملية', 'الحماية', 'النوع', 'النمط', 'الوضع', 'اللغة', 'الفترة', 'الحالة'].includes(d.name) && !store.has(d.name));
   if (opName && !store.has(opName.name) && tokens.length && !claimed[0]) {
     claimed[0] = true;
     store.set(opName.name, { raw: tokens[0], string: tokens[0] });
@@ -568,7 +594,12 @@ function optionDefs(command, sub) {
   const collect = (options) => {
     for (const option of options || []) {
       if (option.type === 1 || option.type === 2) continue;
-      map.set(option.name, { type: option.type, required: Boolean(option.required) });
+      map.set(option.name, {
+        type: option.type,
+        required: Boolean(option.required),
+        /* الخيارات المسموحة (choices) — تُستخدم لمطابقة القيم زي برو بوت: t day · t text week 2 */
+        choices: Array.isArray(option.choices) ? option.choices.map((c) => String(c.value).toLowerCase()) : null,
+      });
     }
   };
   if (sub) {
@@ -604,6 +635,12 @@ async function handleMessage(client, message) {
   if (!name && parts.length > 1) {
     const two = resolveCommand(guildId, `${parts[0]}${parts[1]}`);
     if (two) { name = two; usedWords = 2; }
+  }
+  /* «تذكير» داخل غرفة تذكرة ⇒ تذكير صاحب التذكرة (وإلا = تذكيرك الشخصي العادي) */
+  const firstKey = aliasKey(parts[0]);
+  if (['تذكير', 'ذكر', 'ذكرني'].includes(firstKey) && db.getTicketByChannel(message.channel?.id)) {
+    name = 'tickets';
+    usedWords = 1;
   }
   if (!name) return false;
 

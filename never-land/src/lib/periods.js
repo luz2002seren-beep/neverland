@@ -42,9 +42,15 @@ function weekKey(date = new Date(), cfg) {
   return `${target.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+/** مفتاح الشهر: YYYY-MM */
+function monthKey(date = new Date(), cfg) {
+  return shifted(date, cfg).toISOString().slice(0, 7);
+}
+
 /** مفتاح الفترة المطلوبة */
 function periodKey(period, date = new Date(), cfg) {
   if (period === 'week') return weekKey(date, cfg);
+  if (period === 'month') return monthKey(date, cfg);
   if (period === 'day') return dayKey(date, cfg);
   return null; // 'all' = كل الأوقات (بلا مفتاح)
 }
@@ -61,6 +67,11 @@ function periodRange(period, date = new Date(), cfg) {
     const startLocal = base - (dayNum - 1) * 86400000;
     return { start: startLocal - back, end: startLocal + 7 * 86400000 - back };
   }
+  if (period === 'month') {
+    const startLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1);
+    const endLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth() + 1, 1);
+    return { start: startLocal - back, end: endLocal - back };
+  }
   if (period === 'day') {
     return { start: base - back, end: base + 86400000 - back };
   }
@@ -69,7 +80,7 @@ function periodRange(period, date = new Date(), cfg) {
 
 /** كم بقي حتى تجديد الفترة (بالمللي ثانية) */
 function msUntilReset(period, date = new Date(), cfg) {
-  if (period !== 'day' && period !== 'week') return null;
+  if (period !== 'day' && period !== 'week' && period !== 'month') return null;
   const { end } = periodRange(period, date, cfg);
   const nowMs = date instanceof Date ? date.getTime() : Number(date) || Date.now();
   return Math.max(0, end - nowMs);
@@ -93,6 +104,7 @@ function resetLabel(period, date = new Date(), cfg) {
 /** الفترات المتاحة (تُستخدم في البوت واللوحة) */
 const PERIODS = {
   day: { key: 'day', label: 'اليوم', short: 'توب داي', desc: 'المتصدّرون منذ بداية اليوم', icon: 'clock' },
+  month: { key: 'month', label: 'هذا الشهر', short: 'توب منث', desc: 'المتصدّرون منذ بداية الشهر', icon: 'calendar' },
   week: { key: 'week', label: 'هذا الأسبوع', short: 'توب ويك', desc: 'المتصدّرون من الإثنين حتى الآن', icon: 'activity' },
   all: { key: 'all', label: 'كل الأوقات', short: 'كل الأوقات', desc: 'الترتيب العام للمستويات', icon: 'crown' },
 };
@@ -117,6 +129,7 @@ module.exports = {
   offsetHours,
   dayKey,
   weekKey,
+  monthKey,
   periodKey,
   periodRange,
   msUntilReset,

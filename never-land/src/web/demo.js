@@ -257,6 +257,7 @@ function seed() {
 
   const dayKey = periods.dayKey(new Date(), {});
   const weekKey = periods.weekKey(new Date(), {});
+  const monthKey = periods.monthKey(new Date(), {});
 
   DEMO_MEMBERS.forEach((demoMemberRow, i) => {
     const userId = demoMemberRow.id;
@@ -305,6 +306,7 @@ function seed() {
     const weekXp = Math.round(6200 / (i + 1)) + Math.round(Math.random() * 700);
     seedPeriod('day', dayKey, dayXp, Math.max(1, Math.round(messages / 22)), Math.max(0, Math.round(voiceMinutes / 30)), Math.max(1, 12 - i));
     seedPeriod('week', weekKey, weekXp, Math.max(1, Math.round(messages / 6)), Math.max(0, Math.round(voiceMinutes / 6)), Math.max(1, 60 - i * 4));
+    seedPeriod('month', monthKey, Math.round(weekXp * 4.2), Math.max(1, Math.round(messages / 4)), Math.max(0, Math.round(voiceMinutes / 3)), Math.max(1, 200 - i * 6));
   });
 
   // إحصائيات يومية لآخر 14 يومًا (للرسم البياني في لوحة التحكم)

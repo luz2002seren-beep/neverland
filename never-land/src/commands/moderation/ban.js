@@ -75,6 +75,15 @@ module.exports = {
       return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), actions.failure(lang, result.reason))] });
     }
 
+    /* قيم جاهزة لقالب «ردود أوامر» في الموقع: {user} · {reason} · {case} · {duration} */
+    interaction.__replyVars = {
+      user: `${user}`,
+      target: `${user}`,
+      reason,
+      case: String(result.caseId),
+      duration: durationMs ? String(durationInput) : 'دائم',
+    };
+
     const embed = embeds.mod(
       '🔨 حظر',
       t(lang, 'mod.banned', {

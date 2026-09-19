@@ -17,6 +17,7 @@
 const config = require('../config');
 const db = require('../database');
 const DICT = require('./en');
+const replyFormat = require('./replyFormat');
 
 /* عدّادات تشخيصية (تظهر في /api/status) — تبين أي خطأ إرسال مباشرة */
 const STATS = {
@@ -348,8 +349,18 @@ function wrapInteraction(interaction) {
       STATS.lastInteractionAt = Date.now();
       let decorated = options;
       try {
-        if (typeof options === 'string') decorated = decorate(options, current);
-        else if (options && typeof options === 'object' && !(options instanceof Promise)) decorated = decorate(options, current);
+        /* ١) شكل الرد المطلوب من الموقع (صفحة «ردود أوامر»): رسالة نصية أو إمبد + نص مخصّص */
+        if (options && typeof options === 'object' && !(options instanceof Promise) && interaction.commandName) {
+          const shaped = replyFormat.apply(options, {
+            commandName: interaction.commandName,
+            settings: current,
+            vars: replyFormat.varsFromInteraction(interaction),
+          });
+          /* ٢) ثم الترجمة + الخط المزخرف */
+          decorated = decorate(shaped, current);
+        } else if (typeof options === 'string') {
+          decorated = decorate(options, current);
+        }
       } catch (err) {
         noteError(err);
         decorated = options;
@@ -463,4 +474,5 @@ module.exports = {
   installSendDecorators,
   DICTIONARY: DICT,
   decorateStats,
+  replyFormat,
 };

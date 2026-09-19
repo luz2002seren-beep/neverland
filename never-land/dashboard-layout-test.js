@@ -245,7 +245,11 @@ module.exports = { run };
 if (require.main === module) {
   console.log('\n[اختبار] تخطيط لوحة التحكم بمتصفح حقيقي\n');
   run()
-    .then(() => console.log('\n🎉 تخطيط اللوحة سليم في المتصفح\n'))
+    .then(() => {
+      console.log('\n🎉 تخطيط اللوحة سليم في المتصفح\n');
+      /* نقفل العملية بنفسنا: بعض مسارات التخطّي (بلا متصفح) تترك مقبضًا مفتوحًا */
+      process.exit(0);
+    })
     .catch((err) => {
       console.error('❌', err.message);
       process.exit(1);

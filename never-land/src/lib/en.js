@@ -50,6 +50,34 @@ const rules = [
   [/^تم فك الحظر عن (.+)$/, 'Unbanned $1'],
   [/^تم فك الإسكات عن (.+)$/, 'Removed the timeout from $1'],
   [/^تم طرد (.+) من السيرفر\.?$/, 'Kicked $1 from the server.'],
+  /* ── 🔔 التذكير وإضافة الأعضاء للتذكرة ── */
+  [/^🔔 تذكير بخصوص تذكرة \*\*(#?\d+)\*\* في سيرفر \*\*(.+)\*\*$/, '🔔 A reminder about ticket **$1** in **$2** server'],
+  [/^🔔 تذكير بخصوص تذكرة \*\*(#?\d+)\*\*$/, '🔔 A reminder about ticket **$1**'],
+  [/^الرسالة: (.+)$/, 'Message: $1'],
+  [/^من: (.+)$/, 'From: $1'],
+  [/^➕ تمت إضافة (.+) إلى التذكرة بواسطة (.+)$/, '➕ Added $1 to the ticket by $2'],
+  [/^✅ تمت إضافة (.+) للتذكرة\.$/, '✅ Added $1 to the ticket.'],
+  [/^🔔 أُرسل تذكير لـ (<@!?\d+>) على الخاص \(رسالة نصية بلا إمبد\)\.$/, '🔔 Reminder sent to $1 in DMs (plain text, no embed).'],
+  [/^⚠️ فشل: (\d+)$/, '⚠️ Failed: $1'],
+  [/^⚠️ فشل: (.+)$/, '⚠️ Failed: $1'],
+
+  /* ── 🏆 لوحة التوب (توب داي/ويك/منث) ── */
+  [/^(🥇|🥈|🥉)?\s*<@(\d+)> — \*\*(.+)\*\* XP · مستوى \*\*(\d+)\*\*(?: · م:(.+) ص:(.+))?$/, (m, medal, id, xp, lvl, t, v) =>
+    `${medal ? medal + ' ' : ''}<@${id}> — **${xp}** XP · level **${lvl}**${t !== undefined && t !== '' ? ` · T:${t} V:${v}` : ''}`],
+  [/^\*\*#(\d+)\*\* <@(\d+)> — \*\*(.+)\*\* XP · مستوى \*\*(\d+)\*\*(?: · م:(.+) ص:(.+))?$/, (m, pos, id, xp, lvl, t, v) =>
+    `**#${pos}** <@${id}> — **${xp}** XP · level **${lvl}**${t !== undefined && t !== '' ? ` · T:${t} V:${v}` : ''}`],
+  [/^صفحة (\d+)\/(\d+) · استخدم `(.+)`$/, 'Page $1/$2 · use `$3`'],
+  [/^يتجدّد بعد (.+)$/, (m, parts) =>
+    'Resets in ' + String(parts)
+      .replace(/أيام|يوم/g, 'd')
+      .replace(/ساعات|ساعة/g, 'h')
+      .replace(/دقائق|دقايق|دقيقة/g, 'm')
+      .replace(/\s*و\s*/g, ', ')
+      .replace(/(\d+)\s*(d|h|m)\b/g, '$1$2')],
+  [/^يتجدّد الآن$/, 'Resets now'],
+  [/^يتجدّد تلقائيًا$/, 'Resets automatically'],
+  [/^ما في بيانات لهذه الفترة بعد — خلّوا الأعضاء يكتبون ويتكلمون في الرومات الصوتية!$/, 'No data for this period yet — get members chatting and talking in voice channels!'],
+
   /* ── جُمل ديناميكية (مستوى · تقديمات · إجراءات) ── */
   [/^وصل (.+) إلى المستوى \*\*(\d+)\*\*\.$/, '$1 reached level **$2**.'],
   [/^🎉 (.+) \*\*لقد تم قبول عرضك!\*\*$/, '🎉 $1 **Your application was accepted!**'],
@@ -556,10 +584,68 @@ const exact = {
   'اختر القسم': 'Choose a category',
   'اختر نوع التذكرة': 'Choose a ticket type',
   'الأعضاء المميزون': 'Boosters',
+
+  /* ── 🏆 التوب (شكل ProBot) ── */
+  'توب': 'Top',
+  'توب داي': 'Top day',
+  'توب ويك': 'Top week',
+  'توب منث': 'Top month',
+  'هذا الشهر': 'This month',
+  'كل الأوقات': 'All time',
+  'المشاركون': 'Participants',
+  'مجموع الخبرة': 'Total XP',
+  'التجديد': 'Resets',
+  '🏆 توب — توب داي': '🏆 Top — Top day',
+  '🏆 توب — توب داي · كتابي': '🏆 Top — Top day · Text',
+  '🏆 توب — توب داي · صوتي': '🏆 Top — Top day · Voice',
+  '🏆 توب — توب داي · تفاعل': '🏆 Top — Top day · Interactions',
+  '🏆 توب — توب ويك': '🏆 Top — Top week',
+  '🏆 توب — توب ويك · كتابي': '🏆 Top — Top week · Text',
+  '🏆 توب — توب ويك · صوتي': '🏆 Top — Top week · Voice',
+  '🏆 توب — توب ويك · تفاعل': '🏆 Top — Top week · Interactions',
+  '🏆 توب — توب منث': '🏆 Top — Top month',
+  '🏆 توب — توب منث · كتابي': '🏆 Top — Top month · Text',
+  '🏆 توب — توب منث · صوتي': '🏆 Top — Top month · Voice',
+  '🏆 توب — توب منث · تفاعل': '🏆 Top — Top month · Interactions',
+  '🏆 توب — كل الأوقات': '🏆 Top — All time',
+  '🏆 توب — كل الأوقات · كتابي': '🏆 Top — All time · Text',
+  '🏆 توب — كل الأوقات · صوتي': '🏆 Top — All time · Voice',
+  '🏆 توب — كل الأوقات · تفاعل': '🏆 Top — All time · Interactions',
+  'متصدّر اليوم': 'Top of the day',
+  'لا يوجد متصدّرون بعد — ابدأوا الكلام!': 'No leaderboard entries yet — start chatting!',
+  'لا يوجد متصدّرون في هذه الفترة.': 'No leaderboard entries for this period.',
+
+  /* ── 🔔 التذكير (رسالة خاصة نصية) ── */
+  'تذكير': 'Reminder',
+  'ذكر': 'Remind',
+  'ذكرني': 'Remind me',
+  '🔔 تذكير بخصوص تذكرة': '🔔 A reminder about your ticket',
+  'الروم': 'Channel',
+  'الرسالة': 'Message',
+  'فريق الدعم ينتظر ردّك هناك.': 'The support team is waiting for your reply there.',
+  'ليست تذكرة': 'Not a ticket',
+  'أمر **تذكير** يشتغل داخل غرفة تذكرة مفتوحة فقط.': '**remind** only works inside an open ticket channel.',
+  'تم إرسال التذكير': 'Reminder sent',
+  'ما وصلت الرسالة': 'Message not delivered',
+  'مغلق الخاص — ما قدرت أوصله. جرّب تذكّره بالروم.': 'Their DMs are closed — I could not reach them. Try reminding them in the channel.',
+
+  /* ── 🎫 إضافة أعضاء للتذكرة ── */
+  'تمت إضافة': 'Added',
+  'إلى التذكرة': 'to the ticket',
+  'للتذكرة': 'to the ticket',
+  'تذكرة غير موجودة': 'Ticket not found',
+  '❌ تذكرة غير موجودة.': '❌ Ticket not found.',
+  '➕ اختر العضو:': '➕ Choose the member:',
+  'ما قدرت أضيف — تأكد إن عندي صلاحية **إدارة الرومات/الصلاحيات**.': 'I could not add them — make sure I have the **Manage Channels / Permissions** permission.',
+  'هذا الشخص مو بالسيرفر': 'This user is not in the server',
+  'صاحب التذكرة': 'Ticket owner',
+  'مركز الدعم': 'Support center',
 };
 
 /* ─────────────────────── كلمات مفردة (تسميات قصيرة) ─────────────────────── */
 const wordsExtra = {
+  'للتذكرة': 'to the ticket',
+  'لـ': 'to',
   /* ── أفعال وأسباب متكرّرة (للجُمل القصيرة واللوحات) ── */
   'حظر': 'Ban',
   'طرد': 'Kick',

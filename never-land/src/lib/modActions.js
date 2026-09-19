@@ -13,6 +13,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const db = require('../database');
 const logging = require('../systems/logging');
 const { canModerate, modPermissions } = require('./permissions');
+const dmPolicy = require('./dmPolicy');
 const { formatDuration } = require('./utils');
 const { t } = require('./i18n');
 
@@ -96,7 +97,7 @@ async function ban(client, { guild, executor, target, reason, lang = 'ar', delet
     active: 1,
   });
 
-  if (!silent) await dm(user, t(lang, 'mod.banDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }));
+  /* بلا رسالة خاصة للحظر — السياسة: الخاص للتحذير والقبول/الرفض فقط */
   await logging.logModAction(client, guild, {
     action: 'حظر',
     moderator: executor,
@@ -159,7 +160,7 @@ async function kick(client, { guild, executor, target, reason, lang = 'ar', sile
     reason: reason || t(lang, 'common.reasonNone'),
   });
 
-  if (!silent) await dm(target.user, t(lang, 'mod.kickDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }));
+  /* بلا رسالة خاصة للطرد */
   await logging.logModAction(client, guild, { action: 'طرد', moderator: executor, target: target.user, reason, caseId: record.id });
   return { ok: true, caseId: record.id };
 }
@@ -191,13 +192,7 @@ async function timeout(client, { guild, executor, target, reason, durationMs, la
     duration: durationMs,
   });
 
-  if (!silent) {
-    await dm(target.user, t(lang, 'mod.timeoutDm', {
-      server: guild.name,
-      duration: formatDuration(durationMs, lang),
-      reason: reason || t(lang, 'common.reasonNone'),
-    }));
-  }
+  /* بلا رسالة خاصة للإسكات — السياسة: تحذير · قبول · رفض فقط */
   await logging.logModAction(client, guild, {
     action: 'إسكات',
     moderator: executor,
@@ -269,8 +264,14 @@ async function warn(client, { guild, executor, target, reason, lang = 'ar', sile
     }
   }
 
+  /* ✅ التحذير: من الحالات الثلاث المسموح بها للخاص — نص عادي بلا إمبد */
   if (!silent) {
-    await dm(target.user, t(lang, 'mod.warnedDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }));
+    const settings = db.getGuildSettings(guild.id);
+    await dmPolicy.send(
+      target.user,
+      t(lang, 'mod.warnedDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }),
+      { kind: 'warn', settings },
+    );
   }
 
   await logging.logModAction(client, guild, {

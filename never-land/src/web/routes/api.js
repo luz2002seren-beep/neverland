@@ -738,6 +738,62 @@ router.get('/guilds/:guildId/members', async (req, res) => {
   return res.json({ members });
 });
 
+/* ------------------------- ردود الأوامر (صفحة «ردود أوامر») ------------------------- */
+/**
+ * GET /api/guilds/:guildId/command-replies
+ * يرجّع كل أوامر البوت + شكل ردها الحالي (رسالة نصية / إمبد) + معاينة قبل/بعد.
+ * مع ?command=ban&mode=text&text=... يرجّع معاينة حيّة بدون حفظ (للمعاينة الفورية في اللوحة).
+ */
+router.get('/guilds/:guildId/command-replies', async (req, res) => {
+  const { guildId } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+
+  const replyFormat = require('../../lib/replyFormat');
+  const catalog = require('../../data/commandCatalog');
+  const settings = db.getGuildSettings(guildId);
+
+  /* معاينة مباشرة لأمر واحد بقيم غير محفوظة (المعاينة الفورية في اللوحة) */
+  if (req.query.command) {
+    const command = String(req.query.command);
+    const meta = catalog.COMMANDS[command] || { label: command };
+    const override = JSON.parse(JSON.stringify(settings));
+    override.commandReplies = {
+      ...(settings.commandReplies || {}),
+      [command]: {
+        mode: req.query.mode === 'text' || req.query.mode === 'embed' ? req.query.mode : undefined,
+        text: typeof req.query.text === 'string' ? req.query.text : '',
+      },
+    };
+    const config = replyFormat.configFor(override, command);
+    return res.json({
+      command,
+      label: meta.label,
+      defaultMode: replyFormat.defaultMode(command),
+      mode: config.mode,
+      text: config.text,
+      preview: replyFormat.preview(command, override, { label: meta.label }),
+    });
+  }
+
+  const items = Object.entries(catalog.COMMANDS).map(([name, meta]) => {
+    const config = replyFormat.configFor(settings, name);
+    const preview = replyFormat.preview(name, settings, { label: meta.label });
+    return {
+      name,
+      label: meta.label,
+      category: meta.category || 'general',
+      audience: meta.audience || 'member',
+      defaultMode: replyFormat.defaultMode(name),
+      mode: config.mode,
+      text: config.text,
+      before: preview.before,
+      after: preview.after,
+    };
+  });
+
+  return res.json({ items, textByDefault: replyFormat.TEXT_BY_DEFAULT });
+});
+
 /* ------------------------- إجراءات تجريبية من اللوحة ------------------------- */
 /**
  * POST /api/guilds/:guildId/actions/:action

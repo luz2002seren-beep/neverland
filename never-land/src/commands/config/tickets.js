@@ -93,8 +93,16 @@ module.exports = {
       .addBooleanOption((o) => o.setName('الافتراضية').setDescription('استرجاع الأنواع الأربعة الافتراضية (دعم فني، توثيق، هدايا، تقديم إدارة)')));
 
     builder.addSubcommand(
-      sub('add', 'إضافة عضو إلى التذكرة الحالية').addUserOption((o) =>
-        o.setName('العضو').setDescription('العضو').setRequired(true)),
+      sub('add', 'إضافة عضو إلى التذكرة الحالية (منشن أو آيدي)')
+        .addUserOption((o) => o.setName('العضو').setDescription('العضو المطلوب').setRequired(false))
+        .addStringOption((o) => o.setName('آيدي').setDescription('آيدي العضو — يشتغل حتى لو برّا السيرفر').setRequired(false)),
+    );
+
+    /* 🔔 تذكير: يشتغل داخل غرفة التذكرة فقط — يبعت رسالة خاصة نصية للعضو */
+    builder.addSubcommand(
+      sub('remind', '🔔 تذكير عضو بتذكرته (رسالة خاصة نصية — يعمل داخل غرفة التذكرة فقط)')
+        .addUserOption((o) => o.setName('العضو').setDescription('العضو المطلوب تذكيره').setRequired(true))
+        .addStringOption((o) => o.setName('الرسالة').setDescription('سطر إضافي يظهر بالرسالة').setRequired(false)),
     );
 
     builder.addSubcommand(
@@ -408,15 +416,65 @@ module.exports = {
     }
 
     if (sub === 'add') {
-      const user = interaction.options.getUser('العضو');
+      const picked = interaction.options.getUser('العضو');
+      const idInput = String(interaction.options.getString('آيدي') || '').trim();
+      const targetId = picked?.id || (/\d{17,20}/.exec(idInput) || [])[0] || null;
+      if (!targetId) {
+        return interaction.reply({ embeds: [embeds.error('❌ حدّد العضو', 'اكتب منشن العضو أو آيديه.')], flags: 64 });
+      }
+
       const ticket = db.getTicketByChannel(interaction.channelId);
       if (!ticket) {
         return interaction.reply({ embeds: [embeds.error('ليست تذكرة', 'هذا الأمر يعمل داخل قناة تذكرة فقط.')], flags: 64 });
       }
-      await interaction.channel.permissionOverwrites
-        .edit(user.id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true }, { reason: `إضافة بواسطة ${interaction.user.tag}` })
-        .catch(() => {});
-      return interaction.reply({ embeds: [embeds.success('إضافة عضو', `✅ تمت إضافة ${user} إلى التذكرة.`)] });
+
+      const member = await interaction.guild.members.fetch(targetId).catch(() => null);
+      const user = picked || member?.user || (await interaction.client.users.fetch(targetId).catch(() => null)) || { id: targetId, toString: () => `<@${targetId}>`, username: targetId };
+
+      if (member) {
+        const added = await interaction.channel.permissionOverwrites
+          .edit(targetId, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, AttachFiles: true }, { reason: `إضافة بواسطة ${interaction.user.tag}` })
+          .then(() => true)
+          .catch(() => false);
+        if (!added) {
+          return interaction.reply({ embeds: [embeds.error('تعذّرت الإضافة', 'تأكد إن عندي صلاحية **إدارة الرومات/الصلاحيات**.')], flags: 64 });
+        }
+        await interaction.channel.send({ content: `➕ تمت إضافة ${user} إلى التذكرة بواسطة ${interaction.user}` }).catch(() => {});
+        return interaction.reply({ embeds: [embeds.success('إضافة عضو', `✅ تمت إضافة ${user} إلى التذكرة.`)] });
+      }
+
+      /* برّا السيرفر: ما يمكن فتح صلاحياته — نوضّح السبب */
+      return interaction.reply({
+        embeds: [embeds.error('❌ هذا الشخص مو بالسيرفر', 'ما يمكن إضافته للتذكرة وهو مو موجود بالسيرفر — لازم يدخل السيرفر أولًا.')],
+        flags: 64,
+      });
+    }
+
+    if (sub === 'remind') {
+      const target = interaction.options.getUser('العضو');
+      const note = interaction.options.getString('الرسالة') || '';
+      const ticket = db.getTicketByChannel(interaction.channelId);
+      if (!ticket) {
+        return interaction.reply({
+          embeds: [embeds.error('ليست تذكرة', 'أمر **تذكير** يشتغل داخل غرفة تذكرة مفتوحة فقط.')],
+          flags: 64,
+        });
+      }
+      const result = await tickets.remind(interaction.client, {
+        channel: interaction.channel,
+        guild: interaction.guild,
+        ticket,
+        target,
+        note,
+        by: interaction.user,
+      });
+      return interaction.reply({
+        embeds: [
+          result.sent
+            ? embeds.success('تذكير', `🔔 أُرسل تذكير لـ ${target} على الخاص (رسالة نصية بلا إمبد).`)
+            : embeds.error('ما وصلت الرسالة', `${target} مغلق الخاص — ما قدرت أوصله. جرّب تذكّره بالروم.`),
+        ],
+      });
     }
 
     /* ----------------- ✍️ التحكم بأزرار التذكرة (نص + إيموجي + لون) ----------------- */

@@ -126,26 +126,44 @@ module.exports = {
         return;
       }
 
-      /* ======================= قوائم الاختيار ======================= */
-      if (interaction.isStringSelectMenu()) {
+      /* ======================= قوائم الاختيار =======================
+       * ملاحظة مهمة: قوائم الأعضاء/الرتب/القنوات أنواعها مختلفة عن قائمة النصوص،
+       * فـ isStringSelectMenu() ترجع false لها — كان هذا سبب تعطّل «إضافة عضو» للتذكرة.
+       * isAnySelectMenu() تشمل كل الأنواع (نصوص · أعضاء · رتب · قنوات · منشنات).
+       */
+      if (interaction.isAnySelectMenu?.() || interaction.isStringSelectMenu()) {
         const [scope, action] = interaction.customId.split(':');
 
         if (scope === 'ticket' && action === 'open') {
           return openTicket(client, interaction, lang, interaction.values[0]);
         }
 
-        // إضافة عضو للتذكرة عبر قائمة الأعضاء
+        // إضافة عضو/أعضاء للتذكرة عبر قائمة الأعضاء (نوع القائمة: UserSelect)
         if (scope === 'ticket' && action === 'adduser') {
           const ticket = db.getTicketById(Number(interaction.customId.split(':')[2]))
             ?? db.getTicketByChannel(interaction.channelId);
           if (!ticket) return safeReply(interaction, { content: '❌ تذكرة غير موجودة.', flags: MessageFlags.Ephemeral });
 
-          const selected = interaction.values[0];
-          await interaction.channel.permissionOverwrites
-            .edit(selected, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, AttachFiles: true }, { reason: `إضافة بواسطة ${interaction.user.tag}` })
-            .catch(() => {});
-          await interaction.channel.send({ content: `➕ تمت إضافة <@${selected}> إلى التذكرة بواسطة ${interaction.user}` }).catch(() => {});
-          return safeReply(interaction, { content: `✅ تمت إضافة <@${selected}> للتذكرة.`, flags: MessageFlags.Ephemeral });
+          const selected = interaction.values || [];
+          const added = [];
+          const failed = [];
+          for (const id of selected) {
+            const ok = await interaction.channel.permissionOverwrites
+              .edit(id, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true, AttachFiles: true }, { reason: `إضافة بواسطة ${interaction.user.tag}` })
+              .then(() => true)
+              .catch(() => false);
+            if (ok) added.push(id); else failed.push(id);
+          }
+
+          if (added.length) {
+            await interaction.channel
+              .send({ content: `➕ تمت إضافة ${added.map((id) => `<@${id}>`).join(' ')} إلى التذكرة بواسطة ${interaction.user}` })
+              .catch(() => {});
+          }
+          const text = added.length
+            ? `✅ تمت إضافة ${added.map((id) => `<@${id}>`).join(' ')} للتذكرة.${failed.length ? `\n⚠️ فشل: ${failed.length}` : ''}`
+            : '❌ ما قدرت أضيف — تأكد إن عندي صلاحية **إدارة الرومات/الصلاحيات**.';
+          return safeReply(interaction, { content: text, flags: MessageFlags.Ephemeral });
         }
 
         // قوائم إعدادات أخرى (setup wizard) تُوجَّه إلى المعالج
@@ -296,9 +314,9 @@ module.exports = {
             const row = new ActionRowBuilder().addComponents(
               new UserSelectMenuBuilder()
                 .setCustomId(`ticket:adduser:${ticket.id}`)
-                .setPlaceholder('اختر العضو لإضافته للتذكرة...')
+                .setPlaceholder('اختر الأعضاء لإضافتهم للتذكرة...')
                 .setMinValues(1)
-                .setMaxValues(1),
+                .setMaxValues(5),
             );
             return interaction.reply({ content: '➕ اختر العضو:', components: [row], flags: MessageFlags.Ephemeral });
           }

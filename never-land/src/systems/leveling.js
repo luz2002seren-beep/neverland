@@ -192,7 +192,7 @@ function sourceEnabled(cfg, source) {
 
 /** توزيع الخبرة على المصادر في الفترات */
 function bumpPeriods(guildId, userId, amount, source, counters, cfg, at = Date.now()) {
-  for (const period of ['day', 'week']) {
+  for (const period of ['day', 'week', 'month']) {
     const key = periods.periodKey(period, new Date(at), cfg);
     if (!key) continue;
     db.addPeriodXp(guildId, userId, period, key, { xp: amount, source, ...counters, at });
@@ -291,8 +291,8 @@ async function handleLevelUp(client, member, level, cfg) {
   const channel = cfg.announceChannelId ? guild.channels.cache.get(cfg.announceChannelId) : null;
   const payload = { content: text };
 
-  if (channel?.isTextBased?.()) await channel.send(payload).catch(() => {});
-  else if (!cfg.silent) await member.send({ content: text }).catch(() => {});
+  /* بلا رسالة خاصة للفل — التنبيه للروم المحدّد فقط (السياسة: الخاص = تحذير · قبول · رفض) */
+  if (channel?.isTextBased?.() && !cfg.silent) await channel.send(payload).catch(() => {});
 }
 
 /** XP القنوات الصوتية — تُنادى كل دقيقة من المؤقت العام */
@@ -621,6 +621,61 @@ function leaderboardEmbed(guildId, rowsOrOptions = [], lang = 'ar', pageArg = 1,
   });
 }
 
+/**
+ * 🏆 لوحة المتصدّرين بتنظيم ProBot حرفيًا:
+ *   • العنوان: توب — الفترة · النوع (مثال: توب — توب داي · كتابي)
+ *   • كل سطر: ميدالية/رقم + المنشن + الخبرة + المستوى
+ *   • الفوتر: الصفحة من المجموع + وقت التجديد
+ * تُستخدم في /top (سلاش) وفي أوامر الشات: t day · t week · t month · t text week 2
+ */
+function proBotTopEmbed(guildId, { period = 'day', source = 'all', page = 1, perPage = 10 } = {}, lang = 'ar') {
+  const ar = lang === 'ar';
+  const pageNum = Math.max(1, Number(page) || 1);
+  const board = getBoard(guildId, { period, source, page: pageNum, perPage });
+  const periodMeta = periods.PERIODS[board.period] || periods.PERIODS.day;
+  const sourceMeta = periods.SOURCES[board.source] || periods.SOURCES.all;
+  const pages = Math.max(1, Math.ceil(board.total / perPage));
+  const title = `🏆 ${ar ? 'توب' : 'Top'} — ${ar ? periodMeta.short : periodMeta.key}${board.source === 'all' ? '' : ` · ${sourceMeta.label}`}`;
+
+  if (!board.rows.length) {
+    return base({
+      color: 0x5865f2,
+      title,
+      description: ar
+        ? 'ما في بيانات لهذه الفترة بعد — خلّوا الأعضاء يكتبون ويتكلمون في الرومات الصوتية!'
+        : 'No data for this period yet.',
+      footer: ar ? 'يتجدّد تلقائيًا' : 'Resets automatically',
+    });
+  }
+
+  const medals = ['🥇', '🥈', '🥉'];
+  const start = (pageNum - 1) * perPage;
+  const lines = board.rows.map((row, i) => {
+    const position = start + i + 1;
+    const badge = position <= 3 ? medals[position - 1] : `**#${position}**`;
+    const xp = humanize(row.board_xp ?? row.xp ?? 0);
+    const level = row.level ?? 0;
+    const extra = board.source === 'all'
+      ? ` · ${ar ? 'م' : 'T'}:${humanize(row.text_xp || 0)} ${ar ? 'ص' : 'V'}:${humanize(row.voice_xp || 0)}`
+      : '';
+    return `${badge} <@${row.user_id}> — **${xp}** XP · ${ar ? 'مستوى' : 'lvl'} **${level}**${extra}`;
+  });
+
+  const reset = board.period === 'all' ? (ar ? 'بلا تجديد' : 'All time') : board.reset;
+
+  return base({
+    color: board.period === 'week' ? 0x57f287 : board.period === 'month' ? 0xeb459e : board.period === 'day' ? 0xfee75c : 0x5865f2,
+    title,
+    description: lines.join('\n'),
+    fields: [
+      { name: ar ? 'المشاركون' : 'Participants', value: `**${board.total}**`, inline: true },
+      { name: ar ? 'مجموع الخبرة' : 'Total XP', value: `**${humanize(board.totals?.xp || 0)}**`, inline: true },
+      { name: ar ? 'التجديد' : 'Resets', value: reset, inline: true },
+    ],
+    footer: `${ar ? 'صفحة' : 'Page'} ${pageNum}/${pages} · ${ar ? 'استخدم' : 'use'} ${ar ? '`t ' : '`'}${board.source === 'all' ? '' : `${sourceMeta.key} `}${periodMeta.key} ${Math.min(pageNum + 1, pages)}${'`'}`,
+  });
+}
+
 /** embed بسيط لملخص المصادر (نظرة سريعة) */
 function sourcesEmbed(guildId, lang = 'ar') {
   const ar = lang === 'ar';
@@ -633,6 +688,10 @@ function sourcesEmbed(guildId, lang = 'ar') {
     week: (() => {
       const cfg = db.getGuildSettings(guildId).leveling || {};
       return db.getXpTotals(guildId, 'week', periods.weekKey(new Date(), cfg));
+    })(),
+    month: (() => {
+      const cfg = db.getGuildSettings(guildId).leveling || {};
+      return db.getXpTotals(guildId, 'month', periods.monthKey(new Date(), cfg));
     })(),
   };
   const cfg = db.getGuildSettings(guildId).leveling || {};
@@ -670,6 +729,7 @@ module.exports = {
   getBoard,
   rankEmbed,
   leaderboardEmbed,
+  proBotTopEmbed,
   sourcesEmbed,
   levelFromXp,
   PERIODS: periods.PERIODS,

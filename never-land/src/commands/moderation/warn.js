@@ -76,6 +76,8 @@ module.exports = {
         fields.push({ name: '⚙️ عقوبة تلقائية', value: `تم تطبيق: **${result.autoAction}** (تجاوز حد التحذيرات)`, inline: false });
       }
 
+      interaction.__replyVars = { user: `${user}`, target: `${user}`, reason, count: String(result.count) };
+
       return interaction.editReply({
         embeds: [
           embeds.warning('تحذير', t(lang, 'mod.warned', { user: `${user}`, reason, count: result.count }), {
