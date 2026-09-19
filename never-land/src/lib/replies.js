@@ -22,16 +22,42 @@ const DICT = require('./en');
 const STATS = {
   decorated: 0,
   plainFallback: 0,
+  plainFallbackFailed: 0,
   sendErrors: 0,
   lastError: null,
   lastErrorAt: 0,
+  lastErrorPayload: null,
+  lastErrorStack: null,
   lastInteractionAt: 0,
   lastSendAt: 0,
 };
-function noteError(err) {
+function describePayload(payload) {
+  if (typeof payload === 'string') return `نص(${payload.length}): ${payload.slice(0, 60)}`;
+  if (!payload || typeof payload !== 'object') return String(payload);
+  const keys = Object.keys(payload);
+  const shape = {
+    keys,
+    content: typeof payload.content === 'string' ? payload.content.length : payload.content ?? null,
+    embeds: Array.isArray(payload.embeds) ? payload.embeds.length : payload.embeds ?? null,
+    components: Array.isArray(payload.components) ? payload.components.length : payload.components ?? null,
+    files: Array.isArray(payload.files) ? payload.files.length : payload.files ?? null,
+    builder: typeof payload.toJSON === 'function' ? payload.constructor?.name : null,
+  };
+  return JSON.stringify(shape).slice(0, 300);
+}
+
+function noteError(err, payload, stage = 'decorated') {
   STATS.sendErrors += 1;
-  STATS.lastError = String(err?.message || err).slice(0, 300);
+  STATS.lastError = `[${stage}] ${String(err?.message || err)}`.slice(0, 300);
   STATS.lastErrorAt = Date.now();
+  STATS.lastErrorPayload = payload === undefined ? null : describePayload(payload);
+  STATS.lastErrorStack = String(new Error('trace').stack || '')
+    .split('\n')
+    .slice(2, 7)
+    .map((l) => l.trim().replace(/^\(|\)$/g, ''))
+    .join(' | ')
+    .slice(0, 400);
+  console.error('[ردود] فشل إرسال:', STATS.lastError, '·', STATS.lastErrorPayload, '·', STATS.lastErrorStack);
 }
 function decorateStats() {
   return { ...STATS, cfgDefaults: config.defaults.replies || null };
@@ -236,6 +262,15 @@ function decorate(payload, settings) {
   if (!payload || typeof payload !== 'object') return payload;
 
   const out = { ...payload };
+  /* حمولة بلا محتوى ولا إمبدات ولا مكوّنات = خطأ 50006 — نرجّع الأصل كما هو */
+  const looksEmpty =
+    (out.content === undefined || out.content === '' || out.content === null) &&
+    !(Array.isArray(out.embeds) ? out.embeds.length : out.embeds) &&
+    !(Array.isArray(out.components) ? out.components.length : out.components) &&
+    !(Array.isArray(out.files) ? out.files.length : out.files) &&
+    !out.sticker &&
+    !out.poll;
+  if (looksEmpty && Object.keys(out).length <= 3) return payload;
   if (typeof out.content === 'string') out.content = decorateText(out.content, cfg);
   if (Array.isArray(out.embeds)) out.embeds = out.embeds.map((e) => decorateEmbed(e, cfg));
   if (out.embeds && !Array.isArray(out.embeds)) out.embeds = decorateEmbed(out.embeds, cfg);
@@ -276,9 +311,13 @@ function wrapInteraction(interaction) {
         /* أخطاء ديسكورد تجي كرفض للـ promise: لو فشل المزيّن نرسل الأصل بدل ما يضيع الرد */
         if (result && typeof result.catch === 'function' && payload !== options) {
           return result.catch((err) => {
-            noteError(err);
+            noteError(err, payload, 'interaction-decorated');
             STATS.plainFallback += 1;
-            return original.call(interaction, options, ...rest);
+            return Promise.resolve(original.call(interaction, options, ...rest)).catch((err2) => {
+              noteError(err2, options, 'interaction-plain');
+              STATS.plainFallbackFailed += 1;
+              throw err2;
+            });
           });
         }
         return result;
@@ -346,9 +385,13 @@ function installSendDecorators() {
         }
         if (result && typeof result.catch === 'function' && decorated !== options) {
           return result.catch((err) => {
-            noteError(err);
+            noteError(err, decorated, 'send-decorated');
             STATS.plainFallback += 1;
-            return original.call(this, options, ...rest);
+            return Promise.resolve(original.call(this, options, ...rest)).catch((err2) => {
+              noteError(err2, options, 'send-plain');
+              STATS.plainFallbackFailed += 1;
+              throw err2;
+            });
           });
         }
         return result;
