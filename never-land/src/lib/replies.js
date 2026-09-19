@@ -81,7 +81,7 @@ function fancy(text) {
 const ARABIC = /[\u0600-\u06FF]/;
 
 /** يترجم نصًا مفردًا باستخدام القاموس ثم القواعد ثم الكلمات المفردة */
-function translate(value) {
+function translate(value, depth = 0) {
   if (!value || typeof value !== 'string' || !ARABIC.test(value)) return value;
   const key = value.trim();
 
@@ -91,7 +91,11 @@ function translate(value) {
 
   /* ٢) قواعد للجُمل المتغيّرة (أسماء · أرقام · قنوات) */
   for (const [re, en] of DICT.rules) {
-    if (re.test(key)) return value.replace(key, key.replace(re, en));
+    if (re.test(key)) {
+      const mapped = key.replace(re, en);
+      /* لو بقيت كلمات عربية داخل النص الناتج (متغيّرات) نكمل ترجمتها — بحد أقصى مرّتين */
+      return value.replace(key, depth < 2 && ARABIC.test(mapped) ? translate(mapped, depth + 1) : mapped);
+    }
   }
 
   /* ٣) النصوص القصيرة (تسميات الحقول) — ترجمة كلمة بكلمة إن عُرفت كل الكلمات */
@@ -116,8 +120,11 @@ function translate(value) {
   const parts = key.match(/^(?:تم|تمت)\s+(\S+)\s+(.+)$/);
   if (parts && DICT.verbs?.[parts[1]]) {
     const head = DICT.verbs[parts[1]];
-    const rest = translate(parts[2]);
-    if (rest !== parts[2]) return value.replace(key, `${head} ${rest}`);
+    const rest = translate(parts[2], depth + 1);
+    if (rest !== parts[2]) {
+      const out = `${head} ${rest}`;
+      return value.replace(key, depth < 2 && ARABIC.test(out) ? translate(out, depth + 1) : out);
+    }
   }
 
   /* ٦) غير مترجم بعد → يبقى كما هو (بلا كسر) */

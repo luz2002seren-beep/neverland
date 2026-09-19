@@ -94,6 +94,13 @@ function main() {
   assert.strictEqual(replies.translate('الدعم الفني'), 'Technical support');
   ok('المستويات · التقديمات · أنواع التذاكر');
 
+  /* المتغيّرات داخل الجملة تُكمل ترجمتها (مرور ثاني) */
+  assert.strictEqual(replies.translate('سبب: سبام في الشات'), 'Reason: spam in chat');
+  assert.strictEqual(replies.translate('تم حظر العضو لمدة 1h'), 'Banned Member for 1h');
+  assert.strictEqual(replies.translate('🔨 تم حظر **@user**'), '🔨 Banned **@user**');
+  assert.strictEqual(replies.translate('⛔ لا يوجد سبب مذكور'), '⛔ No reason provided');
+  ok('جُمل مختلطة (إنجليزي + عربي) تُكمَل بلا كسر');
+
   console.log('\n═══ ٤) التطبيق على الردود ═══');
   const embedPayload = replies.decorate(
     { embeds: [{ title: '⚠️ تحذير', description: 'العضو', footer: { text: 'تحذير' }, fields: [{ name: 'السبب', value: 'سبام في الشات' }] }] },
