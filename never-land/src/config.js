@@ -357,7 +357,8 @@ const config = {
       logChannelId: null,
       panelTitle: 'مركز الدعم',
       panelDescription: 'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.',
-      panelFooter: 'Never Land — فريق الدعم',
+      /** بلا فوتر افتراضي — اكتب نصًا هنا فقط إذا بدك فوتر مخصّص */
+      panelFooter: '',
       responseTime: '24 ساعة',
       /** select = قائمة منسدلة • buttons = أزرار (حتى 5 أنواع) */
       panelMode: 'buttons',

@@ -21,6 +21,24 @@ const ICONS = {
   level: '📈',
 };
 
+/**
+ * تنظيف التذييل من اسم المشروع: «Never Land — فريق الدعم» ⇒ «فريق الدعم» · «Never Land» ⇒ بلا تذييل.
+ * يحمي من أي نص محفوظ قديم في إعدادات السيرفرات.
+ * @param {string|null|undefined} text
+ * @returns {string|null}
+ */
+function cleanFooter(text) {
+  if (!text) return null;
+  const brand = String(config.bot.siteName || 'Never Land');
+  let out = String(text).split(brand).join(' ');
+  out = out
+    .replace(/[•·|\-–—]+\s*(?=[•·|\-–—]|$)/g, ' ') // فواصل متروكة في الآخر
+    .replace(/^\s*[•·|\-–—]+\s*/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return out || null;
+}
+
 /** Embed أساسي مع الهوية البصرية للمشروع */
 function base({ color = config.bot.colors.primary, title, description, footer, thumbnail, fields, author, image } = {}) {
   const embed = new EmbedBuilder().setColor(color).setTimestamp();
@@ -30,8 +48,9 @@ function base({ color = config.bot.colors.primary, title, description, footer, t
   if (image) embed.setImage(image);
   if (author) embed.setAuthor(author);
   if (fields?.length) embed.addFields(fields);
-  /* بلا أي تذييل افتراضي — الردود تطلع نضيفة، والتذييل بس إذا انطلب صراحةً */
-  if (footer) embed.setFooter({ text: footer });
+  /* بلا أي تذييل افتراضي — الردود تطلع نضيفة، والتذييل بس إذا انطلب صراحةً وبلا اسم المشروع */
+  const footerText = cleanFooter(footer);
+  if (footerText) embed.setFooter({ text: footerText });
   return embed;
 }
 
@@ -67,4 +86,4 @@ const mark = {
   off: '🔴',
 };
 
-module.exports = { base, success, error, warning, info, mod, settingsEmbed, ICONS, mark };
+module.exports = { base, cleanFooter, success, error, warning, info, mod, settingsEmbed, ICONS, mark };

@@ -1921,7 +1921,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const read46 = (rel) => fs46.readFileSync(path46.join(root46, rel), 'utf8');
     const embeds46 = read46('src/lib/embeds.js');
     assert.ok(!embeds46.includes('لوحة تحكم وبوت متكامل'), 'التذييل الافتراضي لسا موجود في embeds.js');
-    assert.ok(embeds46.includes('if (footer) embed.setFooter'), 'التذييل ما صار اختياريًا');
+    assert.ok(/if \(footerText\) embed\.setFooter/.test(embeds46) || embeds46.includes('if (footer) embed.setFooter'), 'التذييل ما صار اختياريًا');
+    assert.ok(embeds46.includes('function cleanFooter('), 'تنظيف التذييل من اسم المشروع ناقص');
 
     // ردود الأوامر ما تختفي: بلا حذف تلقائي افتراضي
     const text46 = read46('src/systems/textCommands.js');
@@ -1935,6 +1936,38 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(!/footer[^\n]*Never Land/.test(read46(rel)), `لسا في تذييل باسم المشروع في ${rel}`);
     }
     const { execFileSync } = require('node:child_process');
+    /* فوتر بنل التذاكر: بلا اسم المشروع، وبلا فوتر افتراضي */
+    const cfg46 = require(path46.join(root46, 'src/config'));
+    assert.strictEqual(cfg46.defaults.tickets.panelFooter, '', 'فوتر بنل التذاكر لازم يكون فاضي افتراضيًا');
+    const outPanel = execFileSync('node', ['-e', [
+      "const t=require('./src/systems/tickets');",
+      "const c=require('./src/config');",
+      "const s={tickets:{...c.defaults.tickets,types:[{id:'x',label:'اختبار',emoji:'🎫',buttonStyle:'Primary'}]}};",
+      "const p=t.buildPanelPayloads(s,{id:'g',iconURL:()=>null});",
+      "const f=p[p.length-1].embeds[0].data.footer;",
+      "if(f) throw new Error('بنل التذاكر لسا فيه فوتر: '+f.text);",
+      "const s2={tickets:{...c.defaults.tickets,panelFooter:'Never Land — فريق الدعم'}};",
+      "const p2=t.buildPanelPayloads(s2,{id:'g',iconURL:()=>null});",
+      "const f2=p2[p2.length-1].embeds[0].data.footer;",
+      "if(f2 && /Never Land/.test(f2.text)) throw new Error('اسم المشروع لسا يطلع في الفوتر');",
+      "console.log('OK');",
+    ].join('')], { cwd: root46, encoding: 'utf8' });
+    assert.ok(outPanel.includes('OK'), 'فحص فوتر بنل التذاكر فشل');
+
+    /* ما في أي ملف يكتب اسم المشروع في تذييل */
+    const badFooters = [];
+    const walk46 = (dir) => require('node:fs').readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? (e.name === 'public' ? [] : walk46(path46.join(dir, e.name))) : (e.name.endsWith('.js') ? [path46.join(dir, e.name)] : []));
+    for (const file of walk46(path46.join(root46, 'src'))) {
+      const src = require('node:fs').readFileSync(file, 'utf8');
+      for (const line of src.split('\n')) {
+        if (/footer[^\n]*Never Land/.test(line) && !/cleanFooter|تعليق|\*/.test(line)) {
+          badFooters.push(`${path46.relative(root46, file)}: ${line.trim().slice(0, 70)}`);
+        }
+      }
+    }
+    assert.deepStrictEqual(badFooters, [], `في تذييل يحمل اسم المشروع:\n${badFooters.join('\n')}`);
+
     const out46 = execFileSync('node', ['-e', [
       "const e=require('./src/lib/embeds');",
       "if(e.success('عنوان','وصف').data.footer) throw new Error('تذييل افتراضي لسا موجود');",

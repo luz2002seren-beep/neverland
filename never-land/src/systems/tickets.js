@@ -91,7 +91,8 @@ function buildPanelPayloads(settings, guild, client = null) {
       value: type.description || '—',
       inline: true,
     })),
-    footer: cfg.panelFooter || 'نظام التذاكر',
+    /* بلا فوتر افتراضي: يظهر فقط إذا كتب المدير نصًا في «فوتر البنل» */
+    footer: cfg.panelFooter ? String(cfg.panelFooter).trim() || null : null,
   });
 
   const components = cfg.panelMode === 'select' ? [buildTypeSelect(types)] : buildTypeButtons(types);

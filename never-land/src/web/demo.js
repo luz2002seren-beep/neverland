@@ -221,7 +221,7 @@ function seed() {
       logChannelId: '100000000000000013',
       panelMode: 'buttons',
       panelSeparateInfo: true,
-      panelFooter: 'Never Land • فريق الدعم جاهز لمساعدتك',
+      panelFooter: '',
       types: require('../config').defaults.tickets.types,
     },
     moderation: { warnThreshold: 3, warnAction: 'timeout' },

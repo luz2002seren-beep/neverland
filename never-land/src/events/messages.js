@@ -35,7 +35,7 @@ module.exports = [
           { name: 'القناة', value: `${message.channel}`, inline: true },
           ...(executor ? [{ name: 'حُذفت بواسطة', value: `${executor}`, inline: true }] : []),
         ],
-        footer: `Never Land • ID: ${message.id}`,
+        footer: `ID: ${message.id}`,
         channelId: message.channelId,
         member: message.member,
       });
