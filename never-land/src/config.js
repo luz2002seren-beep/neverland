@@ -162,7 +162,18 @@ const config = {
     },
     logs: {
       enabled: false,
+      /**
+       * قناة عامة اختيارية — تُستخدم فقط للأحداث اللي ما لها روم خاص.
+       * الافتراضي: بلا قناة عامة، وكل حدث يروح لرومه الخاص (channels / channelsByGroup).
+       */
       channelId: null,
+      /**
+       * روم خاص لكل حدث على حدة: { messageDelete: 'ID', memberBan: 'ID', memberKick: 'ID', ... }
+       * مثال: «حظر» لحاله · «طرد» لحاله · «حذف رسائل» لحاله.
+       */
+      channels: {},
+      /** روم لكل مجموعة أحداث (اختصار سريع): { members: 'ID', messages: 'ID', ... } */
+      channelsByGroup: {},
       /** كل الأحداث — كل حدث يُشغَّل/يُطفأ على حدة */
       events: {
         // --- الرسائل ---
@@ -390,6 +401,18 @@ const config = {
       ],
       maxOpenPerUser: 3,
       transcriptOnClose: true,
+      /**
+       * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).
+       * تُعدّل من الموقع (قسم التذاكر) أو بالأمر /tickets button.
+       * الإيموجي: يونيكود مثل 🙋 أو خارجي مثل <:name:123456789012345678> — وسلسلة فارغة تحذف الإيموجي.
+       */
+      buttons: {
+        claim: { label: 'استلام', emoji: '🙋', style: 'Success' },
+        claimDone: { label: 'مستلَمة', emoji: '🙋', style: 'Secondary' },
+        close: { label: 'إغلاق', emoji: '🔒', style: 'Danger' },
+        transcript: { label: 'أرشيف', emoji: '📄', style: 'Secondary' },
+        addMember: { label: 'إضافة عضو', emoji: '➕', style: 'Secondary' },
+      },
     },
     /**
      * نظام تقديم الإدارة (Application) — مرتبط بنوع تذكرة "تقديم إدارة"

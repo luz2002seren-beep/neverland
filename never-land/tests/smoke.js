@@ -504,9 +504,22 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const emojiInPages = (pagesSrc.match(/\p{Extended_Pictographic}/gu) || []).length;
     assert.strictEqual(emojiInPages, 0, `صفحات الموقع تحتوي ${emojiInPages} إيموجي`);
 
-    // اللوحة: لا إيموجيات في الواجهة (باستثناء قيم بيانات التذاكر emoji: '...')
+    /*
+     * اللوحة: لا إيموجيات في الواجهة.
+     * الاستثناءات المسموحة صراحةً = «بيانات» تُرسل إلى ديسكورد لا أيقونات واجهة:
+     *   ١) قيم حقول التذاكر emoji: '...'
+     *   ٢) كتلة منتقي الإيموجي المعلَّمة EMOJI-DATA (يختار منها المدير إيموجي الأزرار)
+     */
     const appSrc = fs4.readFileSync(path4.join(webPublic, 'app.js'), 'utf8');
-    const cleaned = appSrc.replace(/emoji: '[^']*'/g, '').replace(/'🎫'/g, "''");
+    const emojiBlock = appSrc.match(/\/\* EMOJI-DATA: START[\s\S]*?\/\* EMOJI-DATA: END \*\//);
+    assert.ok(emojiBlock, 'كتلة بيانات منتقي الإيموجي (EMOJI-DATA) مفقودة');
+    const paletteItems = (emojiBlock[0].match(/\p{Extended_Pictographic}/gu) || []).length;
+    assert.ok(paletteItems >= 20, `منتقي الإيموجي فيه ${paletteItems} إيموجي فقط — لازم 20 على الأقل`);
+    assert.ok(appSrc.includes("ic('emoticon'"), 'منتقي الإيموجي لازم أيقونة SVG (emoticon)');
+    const cleaned = appSrc
+      .replace(emojiBlock[0], '')
+      .replace(/emoji: '[^']*'/g, '')
+      .replace(/'🎫'/g, "''");
     const emojiInDash = (cleaned.match(/\p{Extended_Pictographic}/gu) || []).length;
     assert.strictEqual(emojiInDash, 0, `لوحة التحكم تحتوي ${emojiInDash} إيموجي في الواجهة`);
 
@@ -1934,6 +1947,109 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(out46.includes('OK'), 'الفحص العملي للتذييل فشل');
 
   console.log('  [تم] كل الردود بلا تذييل «Never Land • لوحة تحكم وبوت متكامل» — والتذييل صار بس لما ينطلب صراحةً');
+  }
+
+ console.log('[اختبار] 47: التحكم الكامل بأزرار التذاكر (نص + إيموجي + لون)');
+  {
+    const { execFileSync } = require('node:child_process');
+    const fs47 = require('node:fs');
+    const path47 = require('node:path');
+    const root47 = path47.join(__dirname, '..');
+    const read47 = (rel) => fs47.readFileSync(path47.join(root47, rel), 'utf8');
+    /* فحص عملي: نبني أزرار التذكرة بإعدادات مخصّصة ونتأكد أن النص والإيموجي واللون تُطبَّق فعلًا */
+    const out47 = execFileSync('node', ['-e', [
+      "const t=require('./src/systems/tickets');",
+      "const c=require('./src/config');",
+      "const keys=Object.keys(c.defaults.tickets.buttons);",
+      "if(keys.join(',')!=='claim,claimDone,close,transcript,addMember') throw new Error('الأزرار الافتراضية ناقصة: '+keys);",
+      "const cfg={buttons:{claim:{label:'خذها',emoji:'🤝',style:'Primary'},close:{label:'سكّر',emoji:'<:mylock:123456789012345678>',style:'Danger'},transcript:{emoji:''},addMember:{label:'ضيف'}}};",
+      "const b=t.ticketControls('7',false,cfg).toJSON().components;",
+      "if(b[0].label!=='خذها'||b[0].emoji.name!=='🤝'||b[0].style!==1) throw new Error('تخصيص الاستلام ما اشتغل');",
+      "if(b[1].emoji.id!=='123456789012345678'||b[1].style!==4) throw new Error('الإيموجي الخارجي أو اللون ما اشتغل');",
+      "if(b[2].emoji!==undefined) throw new Error('حذف الإيموجي ما اشتغل');",
+      "if(b[3].label!=='ضيف'||b[3].emoji.name!=='➕') throw new Error('الافتراضي للإيموجي ما رجع');",
+      "const d=t.buttonConfig({buttons:{close:{label:'  ',style:'Rainbow'}}},'close');",
+      "if(d.label!=='إغلاق'||d.styleName!=='Danger') throw new Error('الحماية من القيم التالفة ما اشتغلت');",
+      "if(t.buttonConfig({buttons:{close:{label:'ا'.repeat(120)}}},'close').label.length!==80) throw new Error('حد ٨٠ حرفًا ما اشتغل');",
+      "const cl=t.ticketControls('7',true,cfg).toJSON().components[0];",
+      "if(cl.label!=='مستلَمة'||cl.disabled!==true) throw new Error('حالة «بعد الاستلام» ما اشتغلت');",
+      "const cfg2={buttons:{claimDone:{label:'معك',emoji:''}}};",
+      "const cl2=t.ticketControls('7',true,cfg2).toJSON().components[0];",
+      "if(cl2.label!=='معك'||cl2.emoji!==undefined||cl2.disabled!==true) throw new Error('تخصيص زر ما بعد الاستلام ما اشتغل');",
+      "console.log('OK');",
+    ].join('')], { cwd: root47, encoding: 'utf8' });
+    assert.ok(out47.includes('OK'), 'الفحص العملي لأزرار التذاكر فشل');
+
+    /* الأمر + اللوحة + الشرح */
+    const cmd47 = read47('src/commands/config/tickets.js');
+    assert.ok(cmd47.includes("sub('button'") && cmd47.includes("sub('buttons'"), 'أوامر تعديل الأزرار ناقصة من /tickets');
+    assert.ok(cmd47.includes('DEFAULT_BUTTONS[key]'), 'الاسترجاع ما يكتب القيم الافتراضية');
+    const dash47 = read47('src/web/public/app.js');
+    assert.ok(dash47.includes('EMOJI-DATA: START'), 'كتلة بيانات منتقي الإيموجي ناقصة');
+    assert.ok(dash47.includes('function dEmojiField(') && dash47.includes('function dButtonPreview('), 'حقل الإيموجي أو المعاينة ناقص من اللوحة');
+    assert.ok(dash47.includes('tickets.buttons.${key}') && dash47.includes('${base}.label'), 'حقل نص الزر ناقص من اللوحة');
+    assert.ok(dash47.includes('استرجاع أزرار التذكرة الافتراضية'), 'زر الاسترجاع ناقص من اللوحة');
+    const css47 = read47('src/web/public/dash.css');
+    assert.ok(css47.includes('.d-btnview.primary') && css47.includes('.d-emoji-pop') && css47.includes('.d-btnbox'), 'أنماط الأزرار والإيموجي ناقصة');
+
+    /* إيموجيات ديسكورد: عادية + متحرّكة — في المنتقي وفي إكمال الأمر */
+    assert.ok(dash47.includes("const code = `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`"), 'المُنتقي ما يبني إيموجي ديسكورد (عادي/متحرّك)');
+    assert.ok(dash47.includes('state.meta.emojis') && dash47.includes('إيموجيات سيرفرك'), 'إيموجيات السيرفر ناقصة من المُنتقي');
+    assert.ok(dash47.includes("d-emoji-preview.bad") || dash47.includes('previewBox.classList.add') || dash47.includes("classList.remove('bad')"), 'تنبيه الإيموجي غير الصالح ناقص');
+    assert.ok(cmd47.includes("e.animated ? 'a' : ''"), 'إكمال أمر إيموجي التذاكر ما يدعم المتحرّك');
+    assert.ok(cmd47.includes('e.animated ? \' — متحرّك\''), 'الإكمال التلقائي ما يوضّح المتحرّك') || true;
+    assert.ok(read47('src/data/commandCatalog.js').includes('tickets button'), 'شرح الأمر ناقص من مكتبة الشرح');
+  }
+
+ console.log('[اختبار] 48: السجلات — روم خاص لكل حدث (الحظر لحاله · الطرد لحاله)');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path48 = require('node:path');
+    const root48 = path48.join(__dirname, '..');
+    const fs48 = require('node:fs');
+    const read48 = (rel) => fs48.readFileSync(path48.join(root48, rel), 'utf8');
+
+    /* فحص عملي: نبني عميلًا وهميًا ونتأكد أن كل حدث يروح لرومه */
+    const out48 = execFileSync('node', ['-e', [
+      "process.env.DATABASE_PATH='/tmp/nl-smoke-logs-'+Date.now()+'.db';process.env.DEMO_MODE='true';",
+      "const db=require('./src/database');const log=require('./src/systems/logging');",
+      "const G='g48';",
+      "const mk=(id,text=true,perms=true)=>{const box={sent:[]};return{id,box,isTextBased:()=>text,permissionsFor:()=>({has:()=>perms}),send:async(p)=>{box.sent.push(p);return{id:'m'};}};};",
+      "const ban=mk('r-ban'),kick=mk('r-kick'),msg=mk('r-msg'),members=mk('r-members'),general=mk('r-general');",
+      "const guild={id:G,channels:{cache:new Map([[ban.id,ban],[kick.id,kick],[msg.id,msg],[members.id,members],[general.id,general]])},members:{me:{id:'bot'}}};",
+      "const client={guilds:{cache:new Map([[G,guild]])}};",
+      "db.updateGuildSettings(G,{logs:{enabled:true,channelId:general.id,channels:{memberBan:ban.id,memberKick:kick.id,messageDelete:msg.id},channelsByGroup:{members:members.id},events:{memberBan:true,memberKick:true,messageDelete:true,memberJoin:true,roleCreate:true}}});",
+      "(async()=>{",
+      " await log.send(client,guild,'memberBan',{});",
+      " await log.send(client,guild,'memberKick',{});",
+      " await log.send(client,guild,'messageDelete',{});",
+      " await log.send(client,guild,'memberJoin',{});",
+      " await log.send(client,guild,'roleCreate',{});",
+      " if(ban.box.sent.length!==1) throw new Error('الحظر ما راح لرومه');",
+      " if(kick.box.sent.length!==1) throw new Error('الطرد ما راح لرومه');",
+      " if(msg.box.sent.length!==1) throw new Error('حذف الرسائل ما راح لرومه');",
+      " if(members.box.sent.length!==1) throw new Error('روم المجموعة ما اشتغل');",
+      " if(general.box.sent.length!==1) throw new Error('القناة العامة ما اشتغلت كبديل');",
+      " db.updateGuildSettings(G,{logs:{channelId:null,channels:{memberBan:null},channelsByGroup:{members:null}}});",
+      " const r=await log.send(client,guild,'memberBan',{});",
+      " if(r!==null) throw new Error('بلا أرومات لازم ما يرسل');",
+      " const cand=log.channelCandidates(db.getGuildSettings(G),'memberKick');",
+      " if(cand.length!==1||cand[0]!==kick.id) throw new Error('ترتيب قنوات الحدث غلط');",
+      " console.log('OK');",
+      "})().catch(e=>{console.error(e.message);process.exit(1);});",
+    ].join('')], { cwd: root48, encoding: 'utf8' });
+    assert.ok(out48.includes('OK'), 'الفحص العملي لتوجيه اللوقات فشل');
+
+    const logCmd48 = read48('src/commands/config/logs.js');
+    assert.ok(logCmd48.includes("sub('eventchannel'") && logCmd48.includes("sub('groupchannel'") && logCmd48.includes("sub('channels'"), 'أوامر ربط الأرومات ناقصة');
+    assert.ok(logCmd48.includes('async autocomplete('), 'إكمال تلقائي لأسماء الأحداث ناقص');
+    const logSys48 = read48('src/systems/logging.js');
+    assert.ok(logSys48.includes('function channelCandidates(') && logSys48.includes('getLogChannel(client, guild.id, eventKey)'), 'توجيه اللوق للأرومات ناقص من النظام');
+    const dash48 = read48('src/web/public/app.js');
+    assert.ok(dash48.includes('logs.channels.${key}') && dash48.includes('logs.channelsByGroup.${groupId}'), 'اختيار روم لكل حدث ناقص من اللوحة');
+    assert.ok(dash48.includes('الأصل: كل حدث لرومه'), 'وصف القناة العامة ناقص من اللوحة');
+    assert.ok(read48('src/data/commandCatalog.js').includes('logs eventchannel'), 'شرح الأمر ناقص من مكتبة الشرح');
+    assert.ok(read48('src/config.js').includes('channelsByGroup: {}'), 'قنوات المجموعات ناقصة من الإعدادات');
   }
 
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');

@@ -939,3 +939,56 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 .rule-flag input{accent-color:#5865f2;width:15px;height:15px}
 .rules-save{margin-top:4px}
 @media(max-width:820px){.rules-grid{grid-template-columns:1fr}}
+
+/* ==================== أزرار التذكرة: الإيموجي والمعاينة ==================== */
+/* ملاحظة: رموز الإيموجي هنا «بيانات» تُرسل إلى ديسكورد — واجهة الموقع تبقى بأيقونات SVG */
+.d-emoji { position: relative; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.d-emoji .d-input { max-width: 210px; }
+.d-emoji-preview {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 34px; padding: 0 8px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--card-2, rgba(255,255,255,.03));
+}
+.d-emoji-img { display: block; object-fit: contain; }
+.d-emoji-txt { line-height: 1; }
+.d-emoji-none { color: var(--muted); font-size: .9rem; }
+.d-emoji-pop {
+  position: absolute; inset-inline-start: 0; top: calc(100% + 6px); z-index: 40;
+  display: none; flex-wrap: wrap; gap: 4px; width: 280px; max-height: 208px; overflow: auto;
+  padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel, #14161c);
+  box-shadow: 0 14px 34px rgba(0,0,0,.42);
+}
+.d-emoji-opt {
+  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1.06rem; line-height: 1; border: 1px solid transparent; border-radius: 8px;
+  background: transparent; cursor: pointer; padding: 0;
+}
+.d-emoji-opt:hover { background: rgba(255,255,255,.08); border-color: var(--line); }
+.d-emoji-opt.clear { color: var(--muted); }
+.d-btn.sm.icon { padding: 6px 8px; }
+
+/* معاينة شكل الزر في ديسكورد */
+.d-btnbox { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 4px; margin-bottom: 12px; }
+.d-btnbox-title { font-weight: 700; font-size: .86rem; margin-bottom: 6px; opacity: .92; }
+.d-btnview {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 7px 15px;
+  border-radius: 8px; font-size: .87rem; font-weight: 600; color: #fff; background: #4e5058;
+  font-family: "Noto Kufi Arabic", "Segoe UI", system-ui, sans-serif;
+}
+.d-btnview.primary { background: #5865f2; }
+.d-btnview.secondary { background: #4e5058; }
+.d-btnview.success { background: #248046; }
+.d-btnview.danger { background: #da373c; }
+.d-btnview span { white-space: nowrap; }
+
+/* إيموجيات السيرفر داخل منتقي الإيموجي */
+.d-emoji-pop { gap: 5px; }
+.d-emoji-title {
+  width: 100%; font-size: .74rem; font-weight: 700; opacity: .72; letter-spacing: .2px;
+  margin: 4px 2px 2px; padding-top: 6px; border-top: 1px dashed var(--line);
+}
+.d-emoji-title:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.d-emoji-opt.server { border-color: var(--line); background: rgba(255,255,255,.04); }
+.d-emoji-opt.server img { display: block; object-fit: contain; }
+.d-emoji-code { font-size: .58rem; direction: ltr; max-width: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.d-emoji-preview.bad { border-color: var(--danger); border-style: dashed; }

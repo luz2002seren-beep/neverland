@@ -96,22 +96,41 @@ function isEventEnabled(guildId, eventKey) {
   return events[eventKey] !== false && events[eventKey] !== undefined;
 }
 
-/** قناة اللوقات مع التحقق من الصلاحيات */
-function getLogChannel(client, guildId) {
-  const settings = db.getGuildSettings(guildId);
-  const channelId = settings.logs?.channelId;
-  if (!channelId) return null;
-  const guild = client.guilds.cache.get(guildId);
-  const channel = guild?.channels.cache.get(channelId);
-  if (!channel || !channel.isTextBased?.()) return null;
+/**
+ * قنوات الحدث بالترتيب: روم الحدث الخاص ← روم المجموعة ← القناة العامة (اختيارية).
+ * @param {object} settings إعدادات السيرفر
+ * @param {string|null} eventKey مفتاح الحدث
+ * @returns {string[]} معرّفات قنوات بالترتيب
+ */
+function channelCandidates(settings, eventKey = null) {
+  const logs = settings?.logs || {};
+  const group = EVENT_META[eventKey]?.group;
+  const out = [];
+  const specific = eventKey ? logs.channels?.[eventKey] : null;
+  const byGroup = group ? logs.channelsByGroup?.[group] : null;
+  if (specific) out.push(specific);
+  if (byGroup && byGroup !== specific) out.push(byGroup);
+  if (logs.channelId && !out.includes(logs.channelId)) out.push(logs.channelId);
+  return out;
+}
 
-  const me = guild.members.me;
-  if (me) {
-    const perms = channel.permissionsFor(me);
-    const needed = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
-    if (!needed.every((p) => perms?.has(p))) return null;
+/** أول قناة صالحة (موجودة + نصية + عندي فيها صلاحيات) من قنوات الحدث */
+function getLogChannel(client, guildId, eventKey = null) {
+  const settings = db.getGuildSettings(guildId);
+  const guild = client.guilds?.cache?.get(guildId);
+  const me = guild?.members?.me;
+  const needed = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
+
+  for (const channelId of channelCandidates(settings, eventKey)) {
+    const channel = guild?.channels?.cache?.get(channelId);
+    if (!channel || !channel.isTextBased?.()) continue;
+    if (me) {
+      const perms = channel.permissionsFor(me);
+      if (!needed.every((p) => perms?.has(p))) continue;
+    }
+    return channel;
   }
-  return channel;
+  return null;
 }
 
 /** هل يجب تجاهل هذه القناة/العضو في اللوقات؟ */
@@ -142,7 +161,8 @@ async function send(client, guild, eventKey, data = {}) {
     if (!isEventEnabled(guild.id, eventKey)) return null;
     if (shouldIgnore(guild.id, { channelId: data.channelId, member: data.member })) return null;
 
-    const channel = getLogChannel(client, guild.id);
+    /* كل حدث لرومه: روم الحدث ← روم المجموعة ← القناة العامة */
+    const channel = getLogChannel(client, guild.id, eventKey);
     if (!channel) return null;
 
     const meta = EVENT_META[eventKey] || { emoji: '📌', color: config.bot.colors.primary, label: eventKey };
@@ -212,6 +232,7 @@ module.exports = {
   send,
   logModAction,
   getLogChannel,
+  channelCandidates,
   isEventEnabled,
   shouldIgnore,
   buildTranscript,

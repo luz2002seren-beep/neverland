@@ -85,6 +85,15 @@
 - متغيّرات: `{user}` `{username}` `{displayName}` `{server}` `{memberCount}` `{avatar}` `{createdAt}` `{joinedAt}`
 - ترحيب في الخاص • وداع • شكر الدعم (Boost) • رتب تلقائية • تتبّع من دعا مَن
 
+### 📜 السجلات — روم خاص لكل حدث
+**38 حدثًا في 9 مجموعات، وكل حدث تقدر تحطه في روم لحاله:**
+
+- مثال: «حظر عضو» في روم · «طرد عضو» في روم ثاني · «حذف رسائل» في روم ثالث — بلا خلط
+- اختصار سريع: روم واحد لكل مجموعة (أعضاء · رسائل · رتب · قنوات · صوت...) — والحدث اللي له روم خاص يتقدّم عليه
+- أولوية التوجيه: **روم الحدث الخاص ← روم المجموعة ← القناة العامة (اختيارية)**
+- بلا أي روم مرتبط ⇒ الحدث ما يُسجَّل (ما في لوق شامل إلزامي)
+- كل هذا من لوحة التحكم (اختيار روم بجانب كل حدث) أو بالأمر `/logs eventchannel` و`/logs channels`
+
 ### 🎫 التذاكر — 4 أنواع جاهزة
 **🛠️ الدعم الفني • ✅ التوثيق • 🎁 الهدايا • 📋 تقديم إدارة**
 
@@ -93,6 +102,7 @@
 - **دعم الإيموجيات الخارجية** في الأزرار والأنواع والرسائل `<:name:id>`
 - لكل نوع: وصف، إيموجي، رسالة داخلية، ولون الزر — الكل قابل للتعديل من اللوحة أو من ديسكورد
 - داخل التذكرة: 🙋 استلام • 🔒 إغلاق • 📄 أرشيف • ➕ إضافة عضو
+- **أزرار التذكرة قابلة للتخصيص بالكامل:** اكتب نص كل زر، وأضف له إيموجي (عادي أو خارجي)، واختر لونه — من لوحة التحكم (مع معاينة فورية لشكل الزر) أو بالأمر `/tickets button`، و`/tickets buttons` يعرض الشكل الحالي
 - إغلاق مع **أرشيف محادثة كامل** يُرسل لقناة السجلات + رسالة خاصة لصاحب التذكرة
 
 ### 📝 نظام تقديم الإدارة (Applications) — بضغطة زر
@@ -233,10 +243,10 @@ npm start
 |---|---|
 | `/setup` | معالج تفاعلي لإعداد البوت كاملًا |
 | `/settings status\|language\|dashboard\|reset` | إعدادات عامة |
-| `/logs channel\|enable\|disable\|events\|all\|none\|ignore\|status\|test` | السجلات (38 حدثًا) |
+| `/logs channel\|eventchannel\|groupchannel\|channels\|enable\|disable\|events\|all\|none\|ignore\|status\|test` | السجلات (38 حدثًا) |
 | `/welcome channel\|message\|image\|enable\|disable\|dm\|test\|leave\|boost\|status` | الترحيب + صورة الأفتار |
 | `/automod enable\|disable\|toggle\|punishment\|limits\|word\|words\|whitelist\|status` | الحماية التلقائية |
-| `/tickets setup\|panel\|panelmode\|panelinfo\|types\|enable\|disable\|list\|addtype\|removetype\|add\|stats` | التذاكر (4 أنواع) |
+| `/tickets setup\|panel\|panelmode\|panelinfo\|button\|buttons\|types\|enable\|disable\|list\|addtype\|removetype\|add\|stats` | التذاكر (4 أنواع) |
 | `/tickets applychannel\|applycategory\|applyrole\|applyping\|applytoggle\|application` | 📝 استمارة تقديم الإدارة |
 | `/leveling rank\|leaderboard\|enable\|disable\|config\|reward\|rewards\|reset` | المستويات |
 | `/autorole add\|remove\|list\|enable\|disable` | الرتب التلقائية |

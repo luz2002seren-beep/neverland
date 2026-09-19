@@ -81,7 +81,7 @@ module.exports = {
       sub('addtype', 'إضافة نوع تذكرة جديد (يدعم إيموجيات خارجية)')
         .addStringOption((o) => o.setName('الآيدي').setDescription('مُعرّف بالإنجليزية مثل temp').setRequired(true).setMaxLength(20))
         .addStringOption((o) => o.setName('الاسم').setDescription('الاسم الظاهر بالعربية').setRequired(true).setMaxLength(80))
-        .addStringOption((o) => o.setName('إيموجي').setDescription('إيموجي عادي أو خارجي <:name:id>').setRequired(false))
+        .addStringOption((o) => o.setName('إيموجي').setDescription('إيموجي عادي أو خارجي (عادي/متحرّك)').setRequired(false).setAutocomplete(true))
         .addStringOption((o) => o.setName('وصف').setDescription('وصف قصير يظهر في اللوحة').setRequired(false).setMaxLength(100))
         .addStringOption((o) => o.setName('رسالة_داخلية').setDescription('نص تعليمات يظهر داخل التذكرة').setRequired(false).setMaxLength(500)),
     );
@@ -98,6 +98,31 @@ module.exports = {
       sub('add', 'إضافة عضو إلى التذكرة الحالية').addUserOption((o) =>
         o.setName('العضو').setDescription('العضو').setRequired(true)),
     );
+
+    builder.addSubcommand(
+      sub('button', 'التحكم بزر داخل التذكرة: النص + الإيموجي + اللون')
+        .addStringOption((o) =>
+          o.setName('الزر').setDescription('أي زر تريد تعديله').setRequired(true).addChoices(
+            { name: 'استلام (قبل الاستلام)', value: 'claim' },
+            { name: 'مستلَمة (بعد الاستلام)', value: 'claimDone' },
+            { name: 'إغلاق', value: 'close' },
+            { name: 'أرشيف', value: 'transcript' },
+            { name: 'إضافة عضو', value: 'addMember' },
+          ))
+        .addStringOption((o) => o.setName('نص').setDescription('نص الزر الظاهر (حتى 80 حرفًا)').setMaxLength(80))
+        .addStringOption((o) =>
+          o.setName('إيموجي').setDescription('إيموجي عادي أو خارجي (عادي/متحرّك) — اكتب «حذف» لإزالته').setMaxLength(80).setAutocomplete(true))
+        .addStringOption((o) =>
+          o.setName('لون').setDescription('لون الزر').addChoices(
+            { name: 'أزرق', value: 'Primary' },
+            { name: 'رمادي', value: 'Secondary' },
+            { name: 'أخضر', value: 'Success' },
+            { name: 'أحمر', value: 'Danger' },
+          ))
+        .addBooleanOption((o) => o.setName('الافتراضي').setDescription('استرجاع هذا الزر لشكله الافتراضي')),
+    );
+
+    builder.addSubcommand(sub('buttons', 'عرض شكل أزرار التذكرة الحالية'));
 
     builder.addSubcommand(sub('stats', 'إحصائيات التذاكر'));
     return builder;
@@ -389,6 +414,72 @@ module.exports = {
       return interaction.reply({ embeds: [embeds.success('إضافة عضو', `✅ تمت إضافة ${user} إلى التذكرة.`)] });
     }
 
+    /* ----------------- ✍️ التحكم بأزرار التذكرة (نص + إيموجي + لون) ----------------- */
+    if (sub === 'button') {
+      const key = interaction.options.getString('الزر');
+      const label = interaction.options.getString('نص');
+      const emoji = interaction.options.getString('إيموجي');
+      const style = interaction.options.getString('لون');
+      const reset = interaction.options.getBoolean('الافتراضي') === true;
+
+      if (!tickets.BUTTON_KEYS.includes(key)) {
+        return interaction.reply({ embeds: [embeds.error('زر غير معروف', 'اختر زرًا من القائمة.')], flags: 64 });
+      }
+
+      const current = { ...(db.getGuildSettings(interaction.guildId).tickets.buttons || {}) };
+
+      if (reset) {
+        /* الاسترجاع = نكتب القيم الافتراضية صراحةً (الحذف وحده ما يرجّع الافتراضي مع الدمج الجزئي) */
+        current[key] = { ...tickets.DEFAULT_BUTTONS[key] };
+      } else {
+        if (!label && !emoji && !style) {
+          return interaction.reply({
+            embeds: [embeds.error('لا يوجد جديد', 'حدّد نصًا أو إيموجيًا أو لونًا — أو استخدم `الافتراضي: true` للاسترجاع.')],
+            flags: 64,
+          });
+        }
+        const entry = { ...(current[key] || {}) };
+        if (label) entry.label = label.trim().slice(0, 80);
+        if (emoji) entry.emoji = /^(بدون|حذف|none|remove|-$)$/i.test(emoji.trim()) ? '' : emoji.trim();
+        if (style) entry.style = style;
+        current[key] = entry;
+      }
+
+      db.updateGuildSettings(interaction.guildId, { tickets: { buttons: current } });
+      const raw = tickets.buttonRaw(db.getGuildSettings(interaction.guildId).tickets, key);
+      const preview = `${raw.emoji ? `${raw.emoji} ` : ''}${raw.label}`;
+
+      return interaction.reply({
+        embeds: [
+          embeds.success(
+            reset ? 'تم استرجاع الزر الافتراضي' : 'تم تعديل الزر',
+            `**${tickets.BUTTON_LABELS[key] || key}** صار: ${preview}`,
+            {
+              fields: [
+                { name: 'اللون', value: { Primary: 'أزرق', Secondary: 'رمادي', Success: 'أخضر', Danger: 'أحمر' }[raw.style] || raw.style, inline: true },
+                { name: 'الإيموجي', value: raw.emoji ? `${raw.emoji}${raw.emoji.includes('<') ? ' (خارجي)' : ''}` : 'بلا إيموجي', inline: true },
+                { name: 'ملاحظة', value: 'التعديل يظهر في التذاكر الجديدة، وفي رسالة التذكرة الحالية عند تحديث أزرارها. كل الأزرار قابلة للتعديل من الموقع أيضًا.', inline: false },
+              ],
+            },
+          ),
+        ],
+        flags: 64,
+      });
+    }
+
+    if (sub === 'buttons') {
+      const cfgNow = db.getGuildSettings(interaction.guildId).tickets;
+      const STYLE_AR = { Primary: 'أزرق', Secondary: 'رمادي', Success: 'أخضر', Danger: 'أحمر' };
+      const lines = tickets.BUTTON_KEYS.map((key) => {
+        const b = tickets.buttonRaw(cfgNow, key);
+        return `**${tickets.BUTTON_LABELS[key] || key}**\n> النص: ${b.label} • الإيموجي: ${b.emoji || '—'} • اللون: ${STYLE_AR[b.style] || b.style}`;
+      });
+      return interaction.reply({
+        embeds: [embeds.info('أزرار التذكرة الحالية', lines.join('\n\n'), { footer: 'للتعديل: /tickets button — أو من لوحة التحكم' })],
+        flags: 64,
+      });
+    }
+
     if (sub === 'stats') {
       const stats = db.getStats(interaction.guildId);
       const open = db.countTickets(interaction.guildId, 'open');
@@ -412,10 +503,23 @@ module.exports = {
 
   async autocomplete(client, interaction) {
     if (!interaction.guildId) return interaction.respond([]);
+    const focusedOption = interaction.options.getFocused(true);
+    const focused = String(focusedOption.value || '').toLowerCase();
+
+    /* إيموجيات السيرفر: تدعم العادية والمتحرّكة — تُدخل بصيغة <:name:id> أو <a:name:id> */
+    if (focusedOption.name === 'إيموجي') {
+      const guild = client.guilds?.cache?.get(interaction.guildId);
+      const list = [...(guild?.emojis?.cache?.values?.() ?? [])]
+        .filter((e) => !focused || e.name.toLowerCase().includes(focused))
+        .slice(0, 25)
+        .map((e) => ({ name: `${e.name}${e.animated ? ' — متحرّك' : ''}`, value: `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>` }));
+      const extra = ['حذف الإيموجي'].filter(() => 'حذف'.includes(focused) || !focused).map((label) => ({ name: label, value: 'حذف' }));
+      return interaction.respond([...list, ...(focused.length <= 2 ? extra : [])].slice(0, 25)).catch(() => {});
+    }
+
     const types = db.getGuildSettings(interaction.guildId).tickets?.types || [];
-    const focused = interaction.options.getFocused().toLowerCase();
     await interaction.respond(
-      types.filter((t) => t.id.includes(focused) || t.label.includes(focused)).map((t) => ({ name: `${t.label} (${t.id})`, value: t.id })).slice(0, 25),
+      types.filter((t) => t.id.includes(focused) || t.label.toLowerCase().includes(focused)).map((t) => ({ name: `${t.label} (${t.id})`, value: t.id })).slice(0, 25),
     );
   },
 };

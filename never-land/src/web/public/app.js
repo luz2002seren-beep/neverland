@@ -201,6 +201,157 @@ function dNumber(path, { min = 0, max = 100000 } = {}) {
   return input;
 }
 
+/* ==================== إيموجي الأزرار (اختيار + معاينة) ==================== */
+/*
+ * ملاحظة مهمة: الإيموجي هنا «بيانات» تُرسل إلى ديسكورد (نص الزر/الإيموجي)،
+ * وليست عنصرًا في واجهة الموقع — واجهة الموقع تبقى بأيقونات SVG دائمًا.
+ */
+/* EMOJI-DATA: START — بيانات منتقي الإيموجي: رموز يختارها المدير وتُرسل إلى ديسكورد (نص الزر/إيموجيه)،
+   وليست أيقونات واجهة. واجهة الموقع نفسها تبقى بأيقونات SVG فقط (اختبار 19 يتجاهل هذه الكتلة تحديدًا). */
+const EMOJI_PALETTE = [
+  '🙋', '🔒', '🔓', '📄', '➕', '🎫', '🎟️', '🛠️', '✅', '🎁', '📋', '💬', '❓', '🆘', '⭐', '🔥',
+  '🛡️', '🚀', '📌', '🕒', '👑', '💎', '🤝', '📢', '🔔', '🧾', '🗂️', '✉️', '⚙️', '🧩', '💡', '📊',
+];
+/* EMOJI-DATA: END */
+
+/** يفكّ الإيموجي الخارجي <:name:id> / <a:name:id> */
+function parseCustomEmoji(value) {
+  const match = String(value ?? '').trim().match(/^<(a?):([\w~]+):(\d{15,25})>$/);
+  if (!match) return null;
+  return { animated: match[1] === 'a', name: match[2], id: match[3], url: `https://cdn.discordapp.com/emojis/${match[3]}.${match[1] === 'a' ? 'gif' : 'png'}?size=64` };
+}
+
+/** عنصر معاينة الإيموجي: صورة للإيموجي الخارجي، أو الحرف للإيموجي العادي */
+function emojiPreviewNode(value, size = 18) {
+  const custom = parseCustomEmoji(value);
+  if (custom) {
+    const img = el('img', { class: 'd-emoji-img', src: custom.url, alt: custom.name, width: size, height: size });
+    return img;
+  }
+  const txt = String(value ?? '').trim();
+  if (!txt) return el('span', { class: 'd-emoji-none', text: '—' });
+  return el('span', { class: 'd-emoji-txt', text: txt, style: `font-size:${size - 4}px` });
+}
+
+/**
+ * حقل إيموجي كامل: كتابة يدوية + لوحة اختيار سريعة + معاينة حقيقية.
+ * @returns {HTMLDivElement}
+ */
+function dEmojiField(path, { placeholder = 'إيموجي عادي أو خارجي <:name:id>', onChange = null } = {}) {
+  const wrap = el('div', { class: 'd-emoji' });
+  const input = el('input', { class: 'd-input narrow', maxlength: '80', placeholder });
+  const value = getPath(path);
+  input.value = value === null || value === undefined ? '' : String(value);
+
+  const previewBox = el('span', { class: 'd-emoji-preview' });
+
+  /*
+   * المعاينة: إيموجي يونيكود ⇒ الحرف · إيموجي ديسكورد (عادي أو متحرّك) ⇒ صورته الحقيقية.
+   * أي نص طويل مش إيموجي ⇒ تنبيه أحمر (لأن ديسكورد ما يعرضه كإيموجي).
+   */
+  const paint = (raw) => {
+    const text = String(raw ?? '').trim();
+    previewBox.innerHTML = '';
+    previewBox.classList.remove('bad');
+    previewBox.appendChild(emojiPreviewNode(text, 18));
+    const custom = parseCustomEmoji(text);
+    if (text && !custom && [...text].length > 8) {
+      previewBox.classList.add('bad');
+      previewBox.title = 'هذا نص طويل — ديسكورد ما يعرضه كإيموجي. استخدم إيموجي عادي أو <a:name:id>';
+    } else {
+      previewBox.title = custom ? `${custom.name}${custom.animated ? ' (متحرّك)' : ''}` : text || 'بلا إيموجي';
+    }
+  };
+  paint(input.value);
+
+  /** يطبّق قيمة الإيموجي (من اللوحة أو من إيموجيات السيرفر أو يدويًا) */
+  const apply = (next, { close = true } = {}) => {
+    input.value = next;
+    setPath(path, next);
+    paint(next);
+    if (close) {
+      pop.style.display = 'none';
+      document.querySelectorAll('.d-emoji-pop').forEach((n) => { n.style.display = 'none'; });
+    }
+    if (onChange) onChange(next);
+  };
+
+  const pop = el('div', { class: 'd-emoji-pop' });
+  pop.style.display = 'none';
+  pop.appendChild(el('div', { class: 'd-emoji-title', text: 'إيموجيات جاهزة' }));
+
+  EMOJI_PALETTE.forEach((emoji) => {
+    const opt = el('button', { class: 'd-emoji-opt', type: 'button', text: emoji, title: emoji });
+    opt.addEventListener('click', () => apply(emoji));
+    pop.appendChild(opt);
+  });
+
+  /* إيموجيات سيرفرك — تشمل الإيموجيات المتحرّكة (تُحفظ بصيغة <a:name:id>) */
+  const serverEmojis = state.meta.emojis || [];
+  if (serverEmojis.length) {
+    pop.appendChild(el('div', { class: 'd-emoji-title', text: `إيموجيات سيرفرك (${serverEmojis.length}) — المتحرّكة مدعومة` }));
+    serverEmojis.slice(0, 150).forEach((e) => {
+      const code = `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`;
+      const opt = el('button', { class: 'd-emoji-opt server', type: 'button', title: `${e.name}${e.animated ? ' (متحرّك)' : ''}` });
+      if (e.url) opt.appendChild(el('img', { src: e.url, width: 22, height: 22, alt: e.name }));
+      else opt.appendChild(el('span', { class: 'd-emoji-code', text: `:${e.name}:` }));
+      opt.addEventListener('click', () => apply(code));
+      pop.appendChild(opt);
+    });
+  }
+
+  const clear = el('button', { class: 'd-emoji-opt clear', type: 'button', html: ic('close', 13), title: 'بلا إيموجي' });
+  clear.addEventListener('click', () => apply(''));
+
+  const toggle = el('button', { class: 'd-btn sm ghost icon', type: 'button', html: ic('emoticon', 15), title: 'اختيار إيموجي' });
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = pop.style.display !== 'none';
+    document.querySelectorAll('.d-emoji-pop').forEach((n) => { n.style.display = 'none'; });
+    pop.style.display = open ? 'none' : 'flex';
+  });
+  pop.addEventListener('click', (event) => event.stopPropagation());
+
+  input.addEventListener('input', () => {
+    setPath(path, input.value);
+    paint(input.value);
+    if (onChange) onChange(input.value);
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(previewBox);
+  wrap.appendChild(toggle);
+  wrap.appendChild(pop);
+  return wrap;
+}
+
+/* يُغلق لوحة الإيموجي عند الضغط في أي مكان آخر */
+document.addEventListener('click', () => {
+  document.querySelectorAll('.d-emoji-pop').forEach((n) => { n.style.display = 'none'; });
+});
+
+/** لون الزر كما يظهر في ديسكورد */
+const BUTTON_STYLE_CLASS = { Primary: 'primary', Secondary: 'secondary', Success: 'success', Danger: 'danger' };
+const BUTTON_STYLE_AR = { Primary: 'أزرق', Secondary: 'رمادي', Success: 'أخضر', Danger: 'أحمر' };
+
+/**
+ * معاينة حقيقية لشكل الزر كما سيظهر في ديسكورد.
+ * @param {() => {label:string, emoji:string, style:string}} getValues
+ * @returns {{node:HTMLDivElement, refresh:Function}}
+ */
+function dButtonPreview(getValues) {
+  const node = el('div', { class: 'd-btnview' });
+  const refresh = () => {
+    const { label, emoji, style } = getValues();
+    node.innerHTML = '';
+    node.className = `d-btnview ${BUTTON_STYLE_CLASS[style] || 'secondary'}`;
+    if (emoji) node.appendChild(emojiPreviewNode(emoji, 18));
+    node.appendChild(el('span', { text: label || '—' }));
+  };
+  refresh();
+  return { node, refresh };
+}
+
 function dArea(path, { placeholder = '' } = {}) {
   const area = el('textarea', { class: 'd-textarea', placeholder });
   area.value = getPath(path) ?? '';
@@ -1861,14 +2012,87 @@ const SECTIONS = {
     desc: 'لوحة تفاعلية بأربعة أنواع، مع استلام وإغلاق وأرشيف محادثة.',
     render() {
       const types = state.settings.tickets.types || [];
-      const typeCards = types.map((type, index) =>
-        dCard(
+
+      /* ---------- بطاقة أزرار التذكرة: نص + إيموجي + لون لكل زر ---------- */
+      const btnMeta = [
+        { key: 'claim', title: 'زر الاستلام', def: { label: 'استلام', emoji: '🙋', style: 'Success' } },
+        { key: 'claimDone', title: 'زر «مستلَمة» بعد الاستلام', def: { label: 'مستلَمة', emoji: '🙋', style: 'Secondary' } },
+        { key: 'close', title: 'زر الإغلاق', def: { label: 'إغلاق', emoji: '🔒', style: 'Danger' } },
+        { key: 'transcript', title: 'زر الأرشيف', def: { label: 'أرشيف', emoji: '📄', style: 'Secondary' } },
+        { key: 'addMember', title: 'زر إضافة عضو', def: { label: 'إضافة عضو', emoji: '➕', style: 'Secondary' } },
+      ];
+
+      const styleOptions = [
+        { value: 'Primary', label: 'أزرق' },
+        { value: 'Secondary', label: 'رمادي' },
+        { value: 'Success', label: 'أخضر' },
+        { value: 'Danger', label: 'أحمر' },
+      ];
+
+      const buttonBlocks = btnMeta.map(({ key, title, def }) => {
+        const base = `tickets.buttons.${key}`;
+        const read = () => {
+          const emoji = getPath(`${base}.emoji`);
+          return {
+            label: (getPath(`${base}.label`) ?? '') || def.label,
+            emoji: emoji === null || emoji === undefined ? def.emoji : emoji,
+            style: getPath(`${base}.style`) || def.style,
+          };
+        };
+        const preview = dButtonPreview(read);
+        const box = el('div', { class: 'd-btnbox' });
+        box.appendChild(el('div', { class: 'd-btnbox-title', text: title }));
+        box.appendChild(
+          dField('نص الزر', 'اللي ينكتب على الزر (حتى ٨٠ حرفًا)', [
+            dInput(`${base}.label`, { placeholder: def.label, full: true, onChange: () => preview.refresh() }),
+          ]),
+        );
+        box.appendChild(
+          dField('الإيموجي', 'إيموجي عادي أو خارجي <:name:id> — من اللوحة أو بالكتابة', [
+            dEmojiField(`${base}.emoji`, { placeholder: def.emoji || 'إيموجي', onChange: () => preview.refresh() }),
+          ]),
+        );
+        box.appendChild(
+          dField('لون الزر', '', [dSelect(`${base}.style`, styleOptions, { noneLabel: null, onAfter: () => preview.refresh() })]),
+        );
+        box.appendChild(dField('المعاينة', 'شكل الزر في ديسكورد', [preview.node]));
+        return box;
+      });
+
+      const resetButtons = el('button', { class: 'd-btn sm ghost', html: `${ic('refresh', 15)} استرجاع أزرار التذكرة الافتراضية` });
+      resetButtons.addEventListener('click', () => {
+        btnMeta.forEach(({ key, def }) => setPath(`tickets.buttons.${key}`, { ...def }));
+        renderSection('tickets');
+        toast('تم استرجاع أزرار التذكرة، اضغط حفظ التغييرات.');
+      });
+
+      const buttonsCard = dCard(
+        'أزرار التذكرة (نص + إيموجي + لون)',
+        'تحكم كامل بأزرار روم التذكرة: اكتب نص كل زر، أضف إيموجي (عادي أو خارجي)، واختر لونه — والمعاينة تظهر فورًا.',
+        'ticket',
+        [...buttonBlocks, dField('استرجاع الافتراضي', 'يرجّع الأزرار الخمسة لأصلها', [resetButtons], { wide: true })],
+      );
+
+      const typeCards = types.map((type, index) => {
+        /* معاينة خاصة بهذا النوع (لكل بطاقة معاينتها) */
+        const typePreview = dButtonPreview(() => {
+          const emoji = getPath(`tickets.types.${index}.emoji`);
+          return {
+            label: (getPath(`tickets.types.${index}.label`) ?? '') || type.label,
+            emoji: emoji === null || emoji === undefined ? '🎫' : emoji,
+            style: getPath(`tickets.types.${index}.buttonStyle`) || type.buttonStyle || 'Primary',
+          };
+        });
+
+        return dCard(
           type.label,
           `المعرّف: <code>${esc(type.id)}</code> • النمط: ${type.buttonStyle || 'Primary'}`,
           'ticket',
           [
-            dField('الاسم في اللوحة', '', [dInput(`tickets.types.${index}.label`)]),
-            dField('الإيموجي', 'إيموجي عادي أو خارجي <:name:id>', [dInput(`tickets.types.${index}.emoji`, { narrow: true })]),
+            dField('الاسم في اللوحة', '', [dInput(`tickets.types.${index}.label`, { onChange: () => typePreview.refresh() })]),
+            dField('الإيموجي', 'إيموجي عادي أو خارجي <:name:id> — أو من اللوحة', [
+              dEmojiField(`tickets.types.${index}.emoji`, { placeholder: '🎫', onChange: () => typePreview.refresh() }),
+            ]),
             dField('الوصف', 'يظهر في اللوحة تحت الزر', [dInput(`tickets.types.${index}.description`, { full: true })], { wide: true }),
             dField('رسالة داخل التذكرة', 'تعليمات لصاحب التذكرة', [dArea(`tickets.types.${index}.intro`)], { wide: true }),
             dField(
@@ -1883,10 +2107,11 @@ const SECTIONS = {
                     { value: 'Secondary', label: 'رمادي' },
                     { value: 'Danger', label: 'أحمر' },
                   ],
-                  { noneLabel: null },
+                  { noneLabel: null, onAfter: () => typePreview.refresh() },
                 ),
               ],
             ),
+            dField('معاينة الزر', 'شكل زر فتح هذا النوع في ديسكورد', [typePreview.node]),
             dField('حذف النوع', 'يُحفظ بعد الضغط على حفظ', [
               (() => {
                 const btn = el('button', { class: 'd-btn sm danger', html: `${ic('trash', 15)} حذف هذا النوع` });
@@ -1900,8 +2125,8 @@ const SECTIONS = {
               })(),
             ]),
           ],
-        ),
-      );
+        );
+      });
 
       const newId = el('input', { class: 'd-input narrow', placeholder: 'المعرّف' });
       const newLabel = el('input', { class: 'd-input', placeholder: 'الاسم الظاهر' });
@@ -1933,6 +2158,7 @@ const SECTIONS = {
 
       const typeCount = types.length;
       return [
+        buttonsCard,
         dCard('الأساسيات', '', 'ticket', [
           dField('تفعيل التذاكر', '', [dSwitch('tickets.enabled')]),
           dField('القسم (Category)', 'تُنشأ فيه قنوات التذاكر', [dSelect('tickets.categoryId', categoryOptions())]),
@@ -2062,16 +2288,20 @@ const SECTIONS = {
     group: 'السجلات',
     label: 'السجلات',
     title: 'السجلات',
-    desc: `${Object.keys(state.meta.logEvents || {}).length} حدثًا في ${Object.keys(state.meta.logGroups || {}).length} مجموعات، مع إمكانية تفعيل أي حدث وإيقافه.`,
+    desc: () => `${Object.keys(state.meta.logEvents || {}).length} حدثًا في ${Object.keys(state.meta.logGroups || {}).length} مجموعات — وكل حدث تقدر تحطه في روم خاص فيه.`,
     render() {
       const eventsMeta = state.meta.logEvents || {};
       const groups = state.meta.logGroups || {};
       const activeTotal = Object.keys(eventsMeta).filter((k) => getPath(`logs.events.${k}`)).length;
+      const ownChannels = Object.keys(eventsMeta).filter((k) => getPath(`logs.channels.${k}`)).length;
 
       const cards = [
-        dCard('الإعدادات العامة', `المُفعّل حاليًا: ${activeTotal} / ${Object.keys(eventsMeta).length}`, 'scroll', [
+        dCard('الإعدادات العامة', `المُفعّل حاليًا: ${activeTotal} / ${Object.keys(eventsMeta).length} • أحداث لها روم خاص: ${ownChannels}`, 'scroll', [
           dField('تفعيل السجلات', '', [dSwitch('logs.enabled')]),
-          dField('قناة السجلات', 'تُرسل فيها كل الأحداث', [dSelect('logs.channelId', channelOptions())]),
+          dField('قناة عامة (اختيارية)', 'تُستخدم فقط للأحداث اللي ما لها روم خاص — الأصل: كل حدث لرومه', [dSelect('logs.channelId', channelOptions())]),
+          dField('طريقة التوجيه', 'روم الحدث الخاص ← روم المجموعة ← القناة العامة', [
+            el('span', { class: 'd-chip', text: `${ownChannels} حدثًا في أرومات خاصة` }),
+          ]),
           dField('اختصار', 'فعّل أو أطفئ كل الأحداث مرة واحدة', [
             (() => {
               const on = el('button', { class: 'd-btn sm success', html: `${ic('check', 15)} تفعيل الكل` });
@@ -2094,10 +2324,15 @@ const SECTIONS = {
         const grid = el('div', { class: 'd-log-grid' });
         keys.forEach((key) => {
           grid.appendChild(
-            dField(`${eventsMeta[key].label}`, '', [
-              el('span', { class: 'log-ico', html: ic(iconForEvent(key), 16) }),
-              dSwitch(`logs.events.${key}`),
-            ]),
+            dField(
+              `${eventsMeta[key].label}`,
+              getPath(`logs.channels.${key}`) ? `روم خاص: #${nameOfChannel(getPath(`logs.channels.${key}`))}` : 'بلا روم خاص',
+              [
+                el('span', { class: 'log-ico', html: ic(iconForEvent(key), 16) }),
+                dSwitch(`logs.events.${key}`),
+                dSelect(`logs.channels.${key}`, channelOptions(), { noneLabel: 'بلا روم خاص', onAfter: () => renderSection('logs') }),
+              ],
+            ),
           );
         });
 
@@ -2110,7 +2345,13 @@ const SECTIONS = {
         tailWrap.appendChild(onAll);
         tailWrap.appendChild(offAll);
 
-        const card = dCard(group.label, '', iconForEvent(keys[0] || groupId), [grid], { tail: tailWrap });
+        const groupChannel = dField(
+          'روم المجموعة',
+          'اختصار: يربط كل أحداث هذه المجموعة بروم واحد (الحدث اللي له روم خاص يتقدّم عليه)',
+          [dSelect(`logs.channelsByGroup.${groupId}`, channelOptions(), { noneLabel: 'بلا روم للمجموعة' })],
+          { wide: true },
+        );
+        const card = dCard(group.label, '', iconForEvent(keys[0] || groupId), [groupChannel, grid], { tail: tailWrap });
         cards.push(card);
       });
 
@@ -2872,7 +3113,8 @@ function renderSection(id) {
   content.innerHTML = '';
   const iconName = SECTION_ICONS[id] || 'circle';
   content.appendChild(el('h2', { class: 'd-page-title', html: `${ic(iconName, 22)} <span>${esc(section.title)}</span>` }));
-  content.appendChild(el('p', { class: 'd-page-desc', html: section.desc }));
+  /* الوصف يقدر يكون نصًا ثابتًا أو دالة (لعدّادات تتغيّر مثل عدد الأحداث) */
+  content.appendChild(el('p', { class: 'd-page-desc', html: typeof section.desc === 'function' ? section.desc() : section.desc }));
 
   // كل قسم يقدر يرجّع عنصرًا واحدًا أو مصفوفة عناصر أو Fragment
   const output = section.render();

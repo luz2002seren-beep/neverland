@@ -36,6 +36,22 @@ module.exports = {
         .addChannelOption((o) => o.setName('القناة').setDescription('قناة مستثناة').addChannelTypes(ChannelType.GuildText))
         .addRoleOption((o) => o.setName('الرتبة').setDescription('رتبة مستثناة')),
     );
+    builder.addSubcommand(
+      sub('eventchannel', 'ربط حدث واحد بروم خاص فيه (مثال: الحظر لحاله · الطرد لحاله)')
+        .addStringOption((o) => o.setName('الحدث').setDescription('اسم الحدث — اكتب للبحث').setRequired(true).setAutocomplete(true))
+        .addChannelOption((o) =>
+          o.setName('القناة').setDescription('روم هذا الحدث — اتركها فارغة لإلغاء الربط').addChannelTypes(ChannelType.GuildText).setRequired(false)),
+    );
+    builder.addSubcommand(
+      sub('groupchannel', 'ربط مجموعة أحداث كاملة (الرسائل · الأعضاء · الرتب...) بروم واحد')
+        .addStringOption((o) =>
+          o.setName('المجموعة').setDescription('المجموعة').setRequired(true).addChoices(
+            ...Object.entries(logging.EVENT_GROUPS).map(([value, g]) => ({ name: g.label, value })),
+          ))
+        .addChannelOption((o) =>
+          o.setName('القناة').setDescription('روم المجموعة — اتركها فارغة لإلغاء الربط').addChannelTypes(ChannelType.GuildText).setRequired(false)),
+    );
+    builder.addSubcommand(sub('channels', 'عرض خريطة القنوات: أي حدث يروح لأي روم'));
     builder.addSubcommand(sub('status', 'عرض حالة السجلات والأحداث المفعّلة'));
     builder.addSubcommand(sub('test', 'إرسال رسالة تجريبية إلى قناة السجلات'));
     return builder;
@@ -179,6 +195,105 @@ module.exports = {
     }
 
     /* --------------------------- الحالة --------------------------- */
+    /* ------------------- روم خاص لكل حدث / لكل مجموعة ------------------- */
+    const checkChannelPerms = (channel) => {
+      const perms = channel.permissionsFor(interaction.guild.members.me);
+      return Boolean(perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks]));
+    };
+
+    if (sub === 'eventchannel') {
+      const key = interaction.options.getString('الحدث');
+      const channel = interaction.options.getChannel('القناة');
+
+      if (!logging.EVENT_META[key]) {
+        return interaction.reply({ embeds: [embeds.error('حدث غير معروف', `ما لقيت حدثًا باسم \`${key}\`. استخدم \`/logs channels\` لعرض القائمة.`)], flags: 64 });
+      }
+      if (channel && !checkChannelPerms(channel)) {
+        return interaction.reply({
+          embeds: [embeds.error('صلاحيات ناقصة', `ما عندي صلاحية كاملة في ${channel}. أحتاج: عرض القناة • إرسال رسائل • إدراج روابط.`)],
+          flags: 64,
+        });
+      }
+
+      const channels = { ...(settings.logs.channels || {}), [key]: channel ? channel.id : null };
+      db.updateGuildSettings(interaction.guildId, { logs: { channels, enabled: true } });
+      const meta = logging.EVENT_META[key];
+      return interaction.reply({
+        embeds: [
+          embeds.success(
+            channel ? 'تم ربط الحدث بروم' : 'تم إلغاء الربط',
+            channel
+              ? `**${meta.label}** صار يروح إلى ${channel}\n> المجموعة: ${logging.EVENT_GROUPS[meta.group].label}`
+              : `**${meta.label}** رجع للقناة العامة (أو بلا تسجيل إذا ما في قناة عامة).`,
+            { fields: [{ name: 'ملاحظة', value: 'كل حدث تقدر تحطه في روم لحاله — مثال: الحظر لحاله والطرد لحاله.', inline: false }] },
+          ),
+        ],
+        flags: 64,
+      });
+    }
+
+    if (sub === 'groupchannel') {
+      const groupId = interaction.options.getString('المجموعة');
+      const channel = interaction.options.getChannel('القناة');
+      if (!logging.EVENT_GROUPS[groupId]) {
+        return interaction.reply({ embeds: [embeds.error('مجموعة غير معروفة', 'اختر مجموعة من القائمة.')], flags: 64 });
+      }
+      if (channel && !checkChannelPerms(channel)) {
+        return interaction.reply({
+          embeds: [embeds.error('صلاحيات ناقصة', `ما عندي صلاحية كاملة في ${channel}. أحتاج: عرض القناة • إرسال رسائل • إدراج روابط.`)],
+          flags: 64,
+        });
+      }
+      const byGroup = { ...(settings.logs.channelsByGroup || {}), [groupId]: channel ? channel.id : null };
+      db.updateGuildSettings(interaction.guildId, { logs: { channelsByGroup: byGroup, enabled: true } });
+
+      const count = Object.keys(logging.EVENT_META).filter((k) => logging.EVENT_META[k].group === groupId).length;
+      const group = logging.EVENT_GROUPS[groupId];
+      return interaction.reply({
+        embeds: [
+          embeds.success(
+            channel ? 'تم ربط المجموعة بروم' : 'تم إلغاء ربط المجموعة',
+            channel
+              ? `${group.label} (${count} حدثًا) صارت تروح إلى ${channel}`
+              : `${group.label} رجعت للقناة العامة للأحداث اللي ما لها روم خاص.`,
+            { fields: [{ name: 'أولوية التوجيه', value: 'روم الحدث الخاص ← روم المجموعة ← القناة العامة', inline: false }] },
+          ),
+        ],
+        flags: 64,
+      });
+    }
+
+    if (sub === 'channels') {
+      const channels = settings.logs.channels || {};
+      const byGroup = settings.logs.channelsByGroup || {};
+      const fields = Object.entries(logging.EVENT_GROUPS).map(([groupId, group]) => {
+        const events = Object.keys(logging.EVENT_META).filter((k) => logging.EVENT_META[k].group === groupId);
+        const lines = events.map((key) => {
+          const own = channels[key];
+          const viaGroup = byGroup[groupId];
+          const where = own ? `<#${own}>` : viaGroup ? `<#${viaGroup}> (المجموعة)` : settings.logs.channelId ? `<#${settings.logs.channelId}> (العامة)` : '— بلا روم';
+          return `${own ? '📌' : '•'} ${logging.EVENT_META[key].label} ← ${where}`;
+        });
+        const groupLine = byGroup[groupId] ? `**روم المجموعة:** <#${byGroup[groupId]}>` : '**روم المجموعة:** —';
+        return { name: `${group.emoji} ${group.label}`, value: `${groupLine}\n${lines.join('\n')}`.slice(0, 1020), inline: true };
+      });
+
+      const ownCount = Object.values(channels).filter(Boolean).length;
+      return interaction.reply({
+        embeds: [
+          embeds.info('خريطة قنوات السجلات', undefined, {
+            fields: [
+              { name: 'أحداث لها روم خاص', value: `${ownCount} / ${Object.keys(logging.EVENT_META).length}`, inline: true },
+              { name: 'القناة العامة', value: settings.logs.channelId ? `<#${settings.logs.channelId}>` : 'غير محدّدة (اختيارية)', inline: true },
+              ...(fields.length > 9 ? fields.slice(0, 9) : fields),
+            ],
+            footer: 'للتعديل: /logs eventchannel — أو من لوحة التحكم',
+          }),
+        ],
+        flags: 64,
+      });
+    }
+
     if (sub === 'status') {
       const current = settings.logs.events || {};
       const grouped = logging.groupedEvents();
@@ -224,6 +339,15 @@ module.exports = {
         ],
       });
     }
+  },
+
+  async autocomplete(client, interaction) {
+    const focused = String(interaction.options.getFocused() || '').toLowerCase();
+    const list = Object.entries(logging.EVENT_META)
+      .filter(([key, meta]) => key.toLowerCase().includes(focused) || meta.label.includes(focused) || meta.group.includes(focused))
+      .slice(0, 25)
+      .map(([key, meta]) => ({ name: `${meta.label} — ${logging.EVENT_GROUPS[meta.group].label}`, value: key }));
+    await interaction.respond(list).catch(() => {});
   },
 
   /** تُستخدم من قائمة المجموعات */

@@ -113,13 +113,81 @@ function buildPanel(settings, guild) {
   return payloads[payloads.length - 1];
 }
 
-/** أزرار التحكم داخل غرفة التذكرة */
-function ticketControls(ticketId, claimed = false) {
+/** القيم الافتراضية لأزرار التذكرة (نفس ترتيب config.defaults.tickets.buttons) */
+const DEFAULT_BUTTONS = {
+  claim: { label: 'استلام', emoji: '🙋', style: 'Success' },
+  claimDone: { label: 'مستلَمة', emoji: '🙋', style: 'Secondary' },
+  close: { label: 'إغلاق', emoji: '🔒', style: 'Danger' },
+  transcript: { label: 'أرشيف', emoji: '📄', style: 'Secondary' },
+  addMember: { label: 'إضافة عضو', emoji: '➕', style: 'Secondary' },
+};
+
+/** مفاتيح الأزرار القابلة للتعديل + تسمياتها العربية */
+const BUTTON_KEYS = Object.keys(DEFAULT_BUTTONS);
+const BUTTON_LABELS = {
+  claim: 'زر الاستلام',
+  claimDone: 'زر «مستلَمة» (بعد الاستلام)',
+  close: 'زر الإغلاق',
+  transcript: 'زر الأرشيف',
+  addMember: 'زر إضافة عضو',
+};
+const STYLE_NAMES = ['Primary', 'Secondary', 'Success', 'Danger'];
+
+/**
+ * يرجّع القيم الخام المحفوظة للزر (بعد الدمج مع الافتراضي) — للعرض في الردود واللوحة.
+ * @returns {{label:string, emoji:string, style:string}}
+ */
+function buttonRaw(cfg, key) {
+  const fallback = DEFAULT_BUTTONS[key] || { label: key, emoji: '', style: 'Secondary' };
+  const raw = (cfg && cfg.buttons && typeof cfg.buttons[key] === 'object' && cfg.buttons[key]) || {};
+  const emoji = raw.emoji === undefined || raw.emoji === null ? fallback.emoji : String(raw.emoji);
+  return {
+    label: (raw.label === undefined || raw.label === null ? fallback.label : String(raw.label)).trim().slice(0, 80) || fallback.label,
+    emoji: emoji.trim(),
+    style: STYLE_NAMES.includes(raw.style) ? raw.style : fallback.style,
+  };
+}
+
+/**
+ * يقرأ إعدادات زر واحد من إعدادات السيرفر ويرجّع { label, emoji, style } جاهزة للبناء.
+ * أي قيمة ناقصة/خاطئة ترجع للافتراضي، وما يطيح البوت أبدًا.
+ * @param {object|null} cfg إعدادات التذاكر (settings.tickets)
+ * @param {string} key مفتاح الزر (claim · claimDone · close · transcript · addMember)
+ * @returns {{label:string, emoji:object|undefined, styleName:string, style:number}}
+ */
+function buttonConfig(cfg, key) {
+  const fallback = DEFAULT_BUTTONS[key] || { label: key, emoji: '', style: 'Secondary' };
+  const raw = (cfg && cfg.buttons && typeof cfg.buttons[key] === 'object' && cfg.buttons[key]) || {};
+
+  const rawLabel = raw.label === undefined || raw.label === null ? fallback.label : String(raw.label);
+  const label = rawLabel.trim().slice(0, 80) || fallback.label;
+
+  const rawEmoji = raw.emoji === undefined ? fallback.emoji : raw.emoji;
+  const emoji = parseEmoji(rawEmoji) || undefined; // null/'' ⇒ بلا إيموجي
+
+  const styleName = STYLE_NAMES.includes(raw.style) ? raw.style : fallback.style;
+  return { label, emoji, styleName, style: BUTTON_STYLES[styleName] ?? ButtonStyle.Secondary };
+}
+
+/** أزرار التحكم داخل غرفة التذكرة — النص والإيموجي واللون من إعدادات السيرفر */
+function ticketControls(ticketId, claimed = false, cfg = null) {
+  const claim = buttonConfig(cfg, claimed ? 'claimDone' : 'claim');
+  const close = buttonConfig(cfg, 'close');
+  const transcript = buttonConfig(cfg, 'transcript');
+  const addMember = buttonConfig(cfg, 'addMember');
+
+  /** يبني زرًا ويضيف الإيموجي فقط لو موجود (الإيموجي الفارغ = زر بلا إيموجي) */
+  const button = (customId, conf, build) => {
+    const btn = new ButtonBuilder().setCustomId(customId).setLabel(conf.label).setStyle(conf.style);
+    if (conf.emoji) btn.setEmoji(conf.emoji);
+    return typeof build === 'function' ? build(btn) : btn;
+  };
+
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`ticket:claim:${ticketId}`).setLabel(claimed ? 'مستلَمة' : 'استلام').setEmoji('🙋').setStyle(claimed ? ButtonStyle.Secondary : ButtonStyle.Success).setDisabled(claimed),
-    new ButtonBuilder().setCustomId(`ticket:close:${ticketId}`).setLabel('إغلاق').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId(`ticket:transcript:${ticketId}`).setLabel('أرشيف').setEmoji('📄').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId(`ticket:addmember:${ticketId}`).setLabel('إضافة عضو').setEmoji('➕').setStyle(ButtonStyle.Secondary),
+    button(`ticket:claim:${ticketId}`, claim, (b) => (claimed ? b.setDisabled(true) : b)),
+    button(`ticket:close:${ticketId}`, close),
+    button(`ticket:transcript:${ticketId}`, transcript),
+    button(`ticket:addmember:${ticketId}`, addMember),
   );
 }
 
@@ -219,7 +287,7 @@ async function createTicket(client, guild, user, typeId) {
           footer: `تذكرة #${ticket.id}`,
         }),
       ],
-      components: [ticketControls(ticket.id)],
+      components: [ticketControls(ticket.id, false, cfg)],
     })
     .catch(() => {});
 
@@ -311,6 +379,12 @@ module.exports = {
   buildTypeButtons,
   buildTypeSelect,
   ticketControls,
+  buttonConfig,
+  buttonRaw,
+  DEFAULT_BUTTONS,
+  BUTTON_KEYS,
+  BUTTON_LABELS,
+  STYLE_NAMES,
   createTicket,
   closeTicket,
   buildArchive,

@@ -261,7 +261,7 @@ module.exports = {
             }
             db.updateTicket(ticket.id, { claimed_by: interaction.user.id });
             await interaction.reply({ content: t(lang, 'tickets.claimed', { user: `${interaction.user}` }) });
-            await interaction.message?.edit({ components: [tickets.ticketControls(ticket.id, true)] }).catch(() => {});
+            await interaction.message?.edit({ components: [tickets.ticketControls(ticket.id, true, settings.tickets)] }).catch(() => {});
             return;
           }
 

@@ -82,7 +82,11 @@ function seed() {
       createdAt: Date.now() - 210 * 24 * 3600 * 1000,
       channels: DEMO_CHANNELS,
       roles: DEMO_ROLES,
-      emojis: [],
+      /* إيموجيات العرض: عادي + متحرّك — حتى يجرّب المدير منتقي الإيموجي في اللوحة بالوضع التجريبي */
+      emojis: [
+        { id: '100000000000000101', name: 'fire', animated: true, url: null },
+        { id: '100000000000000102', name: 'star', animated: false, url: null },
+      ],
       syncedAt: Date.now(),
       source: 'demo',
     });
