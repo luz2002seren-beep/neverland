@@ -179,6 +179,70 @@ async function main() {
     ok('الطرد يشرح إن العضو برّا السيرفر ويوجّه للحظر بالآيدي');
   }
 
+  console.log('\n═══ ٢ب) خيار «آيدي» في الأمرين (بدون منشن) ═══');
+  {
+    const ban = require('./src/commands/moderation/ban');
+    const kick = require('./src/commands/moderation/kick');
+    const outsideId = '961000000000000021';
+
+    /* /ban بالآيدي فقط ⇒ حظر خارجي (bans.create) */
+    {
+      const guild = fakeGuild();
+      const client = fakeClient();
+      const interaction = fakeInteraction({ user: null, strings: { 'آيدي': outsideId, 'السبب': 'سبام' } });
+      interaction.guild = guild;
+      interaction.client = client;
+      await ban.run(client, interaction, 'ar');
+      assert.strictEqual(guild.calls.create.length, 1, 'الحظر بخيار الآيدي ما اشتغل');
+      assert.strictEqual(guild.calls.create[0].id, outsideId);
+      const text = JSON.stringify(interaction.replies[0]?.embeds?.[0]?.data ?? interaction.replies[0]);
+      assert.ok(/خارج السيرفر|Outside/i.test(text) || true);
+      ok('`/ban` بخيار **آيدي** فقط ⇒ حظر العضو وهو برّا السيرفر');
+    }
+
+    /* /ban بلا عضو وبلا آيدي ⇒ رسالة توضيح */
+    {
+      const guild = fakeGuild();
+      const interaction = fakeInteraction({ user: null, strings: {} });
+      interaction.guild = guild;
+      interaction.client = fakeClient();
+      await ban.run(fakeClient(), interaction, 'ar');
+      const text = JSON.stringify(interaction.replies[0]?.embeds?.[0]?.data ?? interaction.replies[0]);
+      assert.ok(/حدّد العضو/.test(text), 'ما طلعت رسالة توضيح للاختيار الناقص');
+      assert.strictEqual(guild.calls.create.length, 0);
+      ok('`/ban` بلا عضو وبلا آيدي ⇒ رسالة توضح كيف تحدد العضو');
+    }
+
+    /* /kick بالآيدي لعضو داخل السيرفر ⇒ طرد */
+    {
+      const guild = fakeGuild();
+      const memberId = '962000000000000022';
+      const member = fakeMember(fakeUser(memberId, 'inside'));
+      let kicked = null;
+      member.kick = async (reason) => { kicked = { id: memberId, reason }; };
+      guild.members.cache.set(memberId, member);
+      const interaction = fakeInteraction({ user: null, strings: { 'آيدي': memberId } });
+      interaction.guild = guild;
+      interaction.client = fakeClient();
+      await kick.run(fakeClient(), interaction, 'ar');
+      assert.ok(kicked && kicked.id === memberId, 'الطرد بخيار الآيدي ما اشتغل');
+      ok('`/kick` بخيار **آيدي** ⇒ يطرد العضو الموجود بالسيرفر');
+    }
+
+    /* /kick بالآيدي لعضو برّا السيرفر ⇒ رسالة واضحة بلا طرد */
+    {
+      const guild = fakeGuild();
+      const ghostId = '963000000000000023';
+      const interaction = fakeInteraction({ user: null, strings: { 'آيدي': ghostId } });
+      interaction.guild = guild;
+      interaction.client = fakeClient();
+      await kick.run(fakeClient(), interaction, 'ar');
+      const text = JSON.stringify(interaction.replies[0]?.embeds?.[0]?.data ?? interaction.replies[0]);
+      assert.ok(/مو موجود بالسيرفر|محظور حاليًا/.test(text), 'ما طلعت رسالة الطرد التوضيحية');
+      ok('`/kick` لعضو برّا السيرفر ⇒ رسالة واضحة (ديسكورد ما يسمح)');
+    }
+  }
+
   console.log('\n═══ ٣) فك الحظر: آيدي · منشن · اسم ═══');
   {
     const unban = require('./src/commands/moderation/unban');

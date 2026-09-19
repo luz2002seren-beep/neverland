@@ -14,7 +14,13 @@ module.exports = {
     .setName('ban')
     .setDescription('حظر عضو من السيرفر (مع دعم الحظر المؤقت)')
     .setDescriptionLocalizations({ 'en-US': 'Ban a member from the server' })
-    .addUserOption((o) => o.setName('العضو').setDescription('العضو المطلوب حظره').setRequired(true))
+    .addUserOption((o) => o.setName('العضو').setDescription('العضو المطلوب حظره (منشن)').setRequired(false))
+    .addStringOption((o) =>
+      o
+        .setName('آيدي')
+        .setDescription('آيدي العضو — يشتغل حتى لو العضو برّا السيرفر (مثال: 123456789012345678)')
+        .setRequired(false),
+    )
     .addStringOption((o) => o.setName('السبب').setDescription('سبب الحظر').setRequired(false).setMaxLength(400))
     .addStringOption((o) =>
       o.setName('المدة').setDescription('مدة اختيارية مثل 7d أو 2h (اتركها فارغة لحظر دائم)').setRequired(false))
@@ -23,13 +29,31 @@ module.exports = {
 
   async run(client, interaction, lang) {
     await interaction.deferReply();
-    const user = interaction.options.getUser('العضو');
     const reason = interaction.options.getString('السبب') || t(lang, 'common.reasonNone');
     const durationInput = interaction.options.getString('المدة');
     const deleteDays = interaction.options.getInteger('حذف_الرسائل') ?? 0;
 
+    /* الهدف: منشن/اختيار العضو أو الآيدي الرقمي — والاثنين يشتغلوا لو العضو برّا السيرفر */
+    const picked = interaction.options.getUser('العضو');
+    const idInput = String(interaction.options.getString('آيدي') || '').trim();
+    const targetId = picked?.id || (/\d{17,20}/.exec(idInput) || [])[0] || null;
+
+    if (!targetId) {
+      return interaction.editReply({
+        embeds: [
+          embeds.error('❌ حدّد العضو', 'اكتب منشن العضو في خيار **العضو**، أو حط آيديه في خيار **آيدي** — والآيدي يشتغل حتى لو العضو برّا السيرفر.'),
+        ],
+      });
+    }
+
     /* العضو ممكن يكون داخل السيرفر أو خارجه (حظر بالآيدي) — الاثنين يشتغلوا */
-    const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+    const member = await interaction.guild.members.fetch(targetId).catch(() => null);
+    const user = picked || member?.user || (await client.users.fetch(targetId).catch(() => null));
+    if (!user) {
+      return interaction.editReply({
+        embeds: [embeds.error(t(lang, 'common.error'), '❌ ما قدرت ألاقي هذا المستخدم بالآيدي المكتوب. تأكد من الرقم.')],
+      });
+    }
 
     const durationMs = durationInput ? parseDuration(durationInput) : null;
     if (durationInput && !durationMs) {

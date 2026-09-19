@@ -15,7 +15,7 @@ module.exports = {
     .addStringOption((o) =>
       o
         .setName('العضو')
-        .setDescription('آيدي العضو أو منشنه أو اسمه الكامل (مثال: 123456789012345678)')
+        .setDescription('آيدي العضو أو منشنه أو اسمه (مثال: 123456789012345678) — يشتغل للعضو داخل أو برّا السيرفر')
         .setRequired(true),
     )
     .addStringOption((o) => o.setName('السبب').setDescription('سبب فك الحظر').setRequired(false)),

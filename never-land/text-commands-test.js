@@ -11,7 +11,7 @@
  *   ٤) الاختصارات من الموقع: إضافة · حذف · منع التعارض · رفض غير الإنجليزي
  *   ٥) الإيقاف من الموقع يوقف كل الأوامر النصية
  *   ٦) الصلاحيات: عضو بلا صلاحية ما ينفّذ أمر إداري
- *   ٧) حد الاستخدام يمنع التنفيذ المتكرر السريع
+ *   ٧) الكولداون مشيل: نفس الأمر يتنفّذ أكثر من مرة ورا بعض بلا انتظار
  *   ٨) كتالوج الشرح: كل أمر حقيقي موجود بالكتالوج وبالعكس (بلا نقص)
  *   ٩) الاختصارات المقترحة بلا تعارض مع أي شي
  *  ١٠) التصويت بخيارات مفصولة بـ | يعمل صح
@@ -166,7 +166,7 @@ async function run() {
 
   const client = { commands, user: { id: '1' } };
 
-  /* نطفي حد الاستخدام الافتراضي حتى نفحص المنطق — الحد له اختبار خاص (٧) */
+  /* التأكد إن حد الاستخدام صفر (مشيل) — له اختبار خاص (٧) */
   text.setOptions(GUILD, { cooldownSeconds: 0 });
   const doIt = (content, author) => text.handleMessage(client, makeMessage(content, author));
 
@@ -410,16 +410,19 @@ async function run() {
   assert.ok(String(replies[replies.length - 1]?.content || '').length > 5, 'ما في رسالة توضّح نقص الصلاحية');
   console.log('٦) الصلاحيات: عضو بلا صلاحية ما ينفّذ الأوامر الإدارية ✅');
 
-  /* ----------------------- ٧) حد الاستخدام ----------------------- */
+  /* ----------------------- ٧) بلا كولداون ----------------------- */
+  /* حتى لو محفوظ رقم قديم، الكولداون مشيل: كل استدعاء يتنفّذ فورًا بلا رسالة انتظار */
   text.setOptions(GUILD, { cooldownSeconds: 30 });
+  assert.strictEqual(text.configFor(GUILD).cooldownSeconds, 0, 'الكولداون المشيل رجع من الإعدادات المحفوظة');
   calls.length = 0;
   replies.length = 0;
   await doIt('help');
   await doIt('help');
-  assert.strictEqual(calls.length, 1, 'حد الاستخدام ما منع التنفيذ المتكرر');
-  assert.ok(/استنى|انتظر/.test(String(replies[replies.length - 1]?.content || '')), 'ما في رسالة انتظار');
+  await doIt('help');
+  assert.strictEqual(calls.length, 3, 'الأوامر ما تنفّذت بلا انتظار (الكولداون لسا يمنع)');
+  assert.ok(!/استنى|انتظر/.test(String(replies[replies.length - 1]?.content || '')), 'طلع رسالة انتظار مع إن الكولداون مشيل');
   text.setOptions(GUILD, { cooldownSeconds: 0 });
-  console.log('٧) حد الاستخدام: يمنع التكرار السريع برسالة انتظار ✅');
+  console.log('٧) الكولداون مشيل: ٣ استدعاءات ورا بعض كلهم تنفّذوا بلا انتظار ✅');
 
   /* ----------------------- ٨) الكتالوج يغطي كل الأوامر ----------------------- */
   const { walk } = require('./src/handlers/commands');
