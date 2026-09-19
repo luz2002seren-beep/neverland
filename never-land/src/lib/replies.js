@@ -127,7 +127,14 @@ function translate(value, depth = 0) {
     }
   }
 
-  /* ٦) غير مترجم بعد → يبقى كما هو (بلا كسر) */
+  /* ٦) نص متعدّد الأسطر: نترجم كل سطر لحاله (ردود الحظر/التحذير مثلًا) */
+  if (key.includes('\n')) {
+    const lines = value.split('\n');
+    const outLines = lines.map((line) => translate(line, depth + 1));
+    if (outLines.some((line, i) => line !== lines[i])) return outLines.join('\n');
+  }
+
+  /* ٧) غير مترجم بعد → يبقى كما هو (بلا كسر) */
   return value;
 }
 

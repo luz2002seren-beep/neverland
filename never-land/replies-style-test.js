@@ -101,6 +101,18 @@ function main() {
   assert.strictEqual(replies.translate('⛔ لا يوجد سبب مذكور'), '⛔ No reason provided');
   ok('جُمل مختلطة (إنجليزي + عربي) تُكمَل بلا كسر');
 
+  /* ردود الإجراءات متعدّدة الأسطر (حظر · تحذير · إسكات) */
+  assert.strictEqual(
+    replies.translate('🔨 تم حظر **@user**\n**السبب:** spam\n**رقم الحالة:** #12'),
+    '🔨 Banned **@user**\n**Reason:** spam\n**Case number:** #12',
+  );
+  assert.strictEqual(
+    replies.translate('⚠️ تم تحذيرك في **Never Land**\n**السبب:** إزعاج في الشات'),
+    '⚠️ You were warned in **Never Land**\n**Reason:** harassment in chat',
+  );
+  assert.strictEqual(replies.translate('🧹 تم حذف **25** رسالة.'), '🧹 Deleted **25** messages.');
+  ok('كل سطر يُترجم داخل الردود المتعدّدة الأسطر · الإيموجي يبقى بمكانه');
+
   console.log('\n═══ ٤) التطبيق على الردود ═══');
   const embedPayload = replies.decorate(
     { embeds: [{ title: '⚠️ تحذير', description: 'العضو', footer: { text: 'تحذير' }, fields: [{ name: 'السبب', value: 'سبام في الشات' }] }] },
