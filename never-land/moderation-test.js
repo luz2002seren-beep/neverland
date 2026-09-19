@@ -240,7 +240,11 @@ async function main() {
 
     const tconf = textCommands.defaultsFor();
     assert.strictEqual(tconf.cooldownSeconds, 0, 'حد أوامر الشات لازم يكون صفر');
-    ok('أوامر الشات (بلا بريفيكست) بلا كولداون افتراضيًا');
+
+    /* حتى لو في قيمة محفوظة قديمة بالسيرفر — القراءة ترجّع صفر */
+    textCommands.setOptions(GUILD_ID, { cooldownSeconds: 3 });
+    assert.strictEqual(textCommands.configFor(GUILD_ID).cooldownSeconds, 0, 'قيمة محفوظة قديمة ما انشالت');
+    ok('أوامر الشات بلا كولداون — حتى لو محفوظ رقم قديم بالسيرفر');
   }
 
   console.log('\n═══ ٥) أوامر الشات: خيار العضو يقبل آيدي ═══');

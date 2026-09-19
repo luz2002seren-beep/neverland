@@ -189,7 +189,8 @@ function configFor(guildId) {
 
   return {
     enabled: saved.enabled === undefined ? base.enabled : Boolean(saved.enabled),
-    cooldownSeconds: Number.isFinite(Number(saved.cooldownSeconds)) ? Number(saved.cooldownSeconds) : base.cooldownSeconds,
+    /* الكولداون مشيل من الأوامر — أي قيمة محفوظة قديمة تُتجاهل (صفر = بلا انتظار) */
+    cooldownSeconds: 0,
     aliases,
     /* أوامر مطفية: ما تشتغل بلا بريفيكست (مفيدة للأوامر اللي اسمها كلمة إنجليزية شائعة) */
     disabled: Array.isArray(saved.disabled) ? saved.disabled.filter((n) => catalog.COMMANDS[n]) : base.disabled,
@@ -694,9 +695,8 @@ async function handleMessage(client, message) {
     }
   }
 
-  /* حد الاستخدام مشيل افتراضيًا: صفر = بلا انتظار (الكولداون القديم كان 3 ثواني) */
-  const perCommand = Number(command.cooldown) || 0;
-  const cooldownSeconds = perCommand > 0 ? Math.max(perCommand, Number(config.cooldownSeconds) || 0) : Number(config.cooldownSeconds) || 0;
+  /* الكولداون مشيل نهائيًا من الأوامر: ما في أي انتظار بين أمر وأمر */
+  const cooldownSeconds = 0;
   const wait = onCooldown(message, cooldownSeconds);
   if (wait > 0) {
     await message.reply({ content: `⏳ استنى ${wait} ثانية قبل ما تستعمل الأمر مرة ثانية.`, allowedMentions: { repliedUser: false } }).catch(() => {});
