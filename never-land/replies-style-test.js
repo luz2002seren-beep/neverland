@@ -36,7 +36,7 @@ const ok = (label) => {
 
 const FANCY_MEMBER = '𝑴𝒆𝒎𝒃𝒆𝒓';
 
-function main() {
+async function main() {
   console.log('\n═══ ١) الخط المزخرف ═══');
   assert.strictEqual(replies.fancy('Member'), FANCY_MEMBER);
   assert.strictEqual(replies.fancy('ABC xyz'), '𝑨𝑩𝑪 𝒙𝒚𝒛');
@@ -164,6 +164,30 @@ function main() {
   assert.deepStrictEqual(replies.replyConfig({}), { english: true, fancyFont: true });
   ok('كل تبديل يشتغل على حدة · الافتراضي: إنجليزي + مزخرف');
 
+  /* الجسم الفعلي اللي ينرسل لديسكورد (عبر discord.js نفسه) — يمنع خطأ «Cannot send an empty message» */
+  {
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, MessagePayload } = require('discord.js');
+    const fakeChannel = { client: { options: { jsonTransformer: async (x) => x }, user: { id: '1' } }, guild: null, type: 0 };
+    const toBody = async (payload) => {
+      const mp = new MessagePayload(fakeChannel, payload);
+      await mp.resolveBody();
+      return JSON.parse(JSON.stringify(mp.body));
+    };
+    const embed = new EmbedBuilder().setTitle('⚠️ تحذير').setDescription('العضو');
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('b').setLabel('قفل القناة'));
+    const menu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('s').setPlaceholder('اختر نوع التذكرة لفتحها...').addOptions({ label: 'الدعم الفني', value: 'x' }),
+    );
+
+    const body1 = await toBody(replies.decorate({ embeds: [embed], components: [row, menu] }, null));
+    assert.ok(Array.isArray(body1.embeds) && body1.embeds[0].title === '⚠️ 𝑾𝒂𝒓𝒏', 'جسم الإمبد فاضي أو ناقص');
+    assert.strictEqual(body1.components[0].components[0].label, 'Lock channel');
+    assert.strictEqual(body1.components[1].components[0].placeholder, 'Choose a ticket type to open...');
+    const body2 = await toBody(replies.decorate({ content: 'العضو محظور' }, null));
+    assert.strictEqual(body2.content, '𝑴𝒆𝒎𝒃𝒆𝒓 𝒃𝒂𝒏𝒏𝒆𝒅');
+    ok('الجسم الفعلي المرسل لديسكورد سليم (إمبد + أزرار + قوائم + نص)');
+  }
+
   console.log('\n═══ ٦) التركيب ═══');
   assert.strictEqual(typeof replies.wrapInteraction, 'function');
   assert.strictEqual(typeof replies.installSendDecorators, 'function');
@@ -208,9 +232,7 @@ function main() {
   })();
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error('\n❌ فشل الاختبار:', error.message);
   process.exitCode = 1;
-}
+});
