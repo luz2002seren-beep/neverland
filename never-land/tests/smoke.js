@@ -2148,7 +2148,10 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const fc={client:{options:{jsonTransformer:async x=>x},user:{id:'1'}},guild:null,type:0};",
       "(async()=>{const mp=new MessagePayload(fc,dec);await mp.resolveBody();const b=mp.body;",
       "assert.ok(b.embeds&&b.embeds[0].title==='⚠️ 𝑾𝒂𝒓𝒏','الجسم المرسل لديسكورد فاضي');",
-      "assert.strictEqual(b.components[0].components[0].label,'Lock channel');console.log('OK-BODY');})();",
+      "assert.strictEqual(b.components[0].components[0].label,'Lock channel');",
+      "const mp2=MessagePayload.create(fc,{content:'العضو'});",
+      "assert.strictEqual(r.decorate(mp2,null)===mp2,true,'MessagePayload انكسر');",
+      "console.log('OK-BODY');})();",
       "console.log('OK');",
     ].join('')], { cwd: root49, encoding: 'utf8' });
     assert.ok(out49.includes('OK'), 'فحص محرّك الردود فشل');

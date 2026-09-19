@@ -288,20 +288,28 @@ function decorate(payload, settings) {
   if (typeof payload === 'string') return decorateText(payload, cfg);
   if (!payload || typeof payload !== 'object') return payload;
 
-  /* بِلدر (EmbedBuilder) أو MessagePayload: نعدّل داخلها ونرجّعها كما هي —
-     لأن تحويلها لكائن عادي يفقد toJSON ويصير الإرسال فاضي عند ديسكورد */
-  if (typeof payload.toJSON === 'function') {
-    if (payload.data && !('content' in payload) && !('embeds' in payload) && !('components' in payload)) {
-      return decorateEmbed(payload, cfg);
-    }
-    if (payload.options && typeof payload.options === 'object') {
-      const o = payload.options;
-      if (typeof o.content === 'string') o.content = decorateText(o.content, cfg);
-      if (Array.isArray(o.embeds)) o.embeds = o.embeds.map((e) => decorateEmbed(e, cfg));
-      if (Array.isArray(o.components)) decorateComponents(o.components, cfg);
-      return payload;
-    }
+  const filled = (v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== null && v !== false);
+  const hasMessageKeys = (o) =>
+    Boolean(o && (filled(o.content) || filled(o.embeds) || filled(o.components) || filled(o.files) || filled(o.sticker) || filled(o.poll)));
+
+  /* بِلدر (EmbedBuilder) — نعدّل بياناته ونرجّعه كما هو */
+  if (typeof payload.toJSON === 'function' && payload.data && !hasMessageKeys(payload)) {
+    return decorateEmbed(payload, cfg);
   }
+
+  /* غلاف حمولة (MessagePayload أو ما شابهه): نعدّل خياراته الداخلية ونرجّعه كما هو —
+     لأن تحويله لكائن عادي يفقد دواله ويصير الإرسال فاضي عند ديسكورد (50006) */
+  if (!hasMessageKeys(payload) && payload.options && typeof payload.options === 'object') {
+    const o = payload.options;
+    if (typeof o.content === 'string') o.content = decorateText(o.content, cfg);
+    if (Array.isArray(o.embeds)) o.embeds = o.embeds.map((e) => decorateEmbed(e, cfg));
+    else if (o.embeds) o.embeds = decorateEmbed(o.embeds, cfg);
+    if (Array.isArray(o.components)) decorateComponents(o.components, cfg);
+    return payload;
+  }
+
+  /* أي كائن غريب ما نعرف شكله: ما نلمسه أبدًا (أضمن من توسيعه) */
+  if (!hasMessageKeys(payload)) return payload;
 
   const out = { ...payload };
   /* حمولة بلا محتوى ولا إمبدات ولا مكوّنات = خطأ 50006 — نرجّع الأصل كما هو */

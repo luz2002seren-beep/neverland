@@ -186,6 +186,17 @@ async function main() {
     const body2 = await toBody(replies.decorate({ content: 'العضو محظور' }, null));
     assert.strictEqual(body2.content, '𝑴𝒆𝒎𝒃𝒆𝒓 𝒃𝒂𝒏𝒏𝒆𝒅');
     ok('الجسم الفعلي المرسل لديسكورد سليم (إمبد + أزرار + قوائم + نص)');
+
+    /* غلاف حمولة MessagePayload: لازم يبقى نفس الكائن (لو انكسر يصير الإرسال فاضي) */
+    const wrapped = MessagePayload.create(fakeChannel, { content: 'العضو', embeds: [new EmbedBuilder().setTitle('⚠️ تحذير')] });
+    const decoratedWrapped = replies.decorate(wrapped, null);
+    assert.strictEqual(decoratedWrapped, wrapped, 'MessagePayload لازم يرجع نفسه');
+    await decoratedWrapped.resolveBody();
+    const body3 = JSON.parse(JSON.stringify(decoratedWrapped.body));
+    assert.strictEqual(body3.content, '𝑴𝒆𝒎𝒃𝒆𝒓');
+    assert.strictEqual(body3.embeds[0].title, '⚠️ 𝑾𝒂𝒓𝒏');
+    assert.strictEqual(replies.decorate({ files: [] }, null).files.length, 0);
+    ok('غلاف MessagePayload + الملفات سليمة بعد التزيين');
   }
 
   console.log('\n═══ ٦) التركيب ═══');
