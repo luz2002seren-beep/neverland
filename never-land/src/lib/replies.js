@@ -203,49 +203,76 @@ function decorateText(text, cfg, { translateText = true } = {}) {
   return out;
 }
 
-/** يحوّل embed (EmbedBuilder أو كائن عادي) مع الاحتفاظ ببنيته */
+/**
+ * يحوّل embed (EmbedBuilder أو كائن عادي) مع الاحتفاظ بنوعه تمامًا.
+ * مهم: بِلدرات ديسكورد (EmbedBuilder) تُعدَّل من داخلها ونرجّعها مثل ما هي —
+ * لأن تحويلها لكائن عادي يفقد toJSON ويصير الإرسال فاضي (خطأ 50006 عند ديسكورد).
+ */
 function decorateEmbed(embed, cfg) {
   if (!embed) return embed;
-  const isBuilder = typeof embed.toJSON === 'function' && embed.data;
-  const data = isBuilder ? embed.data : embed;
-  if (!data || typeof data !== 'object') return embed;
+  const isBuilder = typeof embed.toJSON === 'function' && embed.data && typeof embed.data === 'object';
+  if (!isBuilder) {
+    if (typeof embed !== 'object') return embed;
+    const next = { ...embed };
+    next.title = decorateText(next.title, cfg);
+    next.description = decorateText(next.description, cfg);
+    if (next.footer?.text) next.footer = { ...next.footer, text: decorateText(next.footer.text, cfg) };
+    if (next.author?.name) next.author = { ...next.author, name: decorateText(next.author.name, cfg) };
+    if (Array.isArray(next.fields)) {
+      next.fields = next.fields.map((f) => ({
+        ...f,
+        name: decorateText(f.name, cfg),
+        value: decorateText(f.value, cfg),
+      }));
+    }
+    return next;
+  }
 
-  const next = { ...data };
-  next.title = decorateText(next.title, cfg);
-  next.description = decorateText(next.description, cfg);
-  if (next.footer?.text) next.footer = { ...next.footer, text: decorateText(next.footer.text, cfg, { translateText: true }) };
-  if (next.author?.name) next.author = { ...next.author, name: decorateText(next.author.name, cfg) };
-  if (Array.isArray(next.fields)) {
-    next.fields = next.fields.map((f) => ({
+  const d = embed.data;
+  if (typeof d.title === 'string') d.title = decorateText(d.title, cfg);
+  if (typeof d.description === 'string') d.description = decorateText(d.description, cfg);
+  if (d.footer && typeof d.footer.text === 'string') d.footer.text = decorateText(d.footer.text, cfg);
+  if (d.author && typeof d.author.name === 'string') d.author.name = decorateText(d.author.name, cfg);
+  if (Array.isArray(d.fields)) {
+    d.fields = d.fields.map((f) => ({
       ...f,
       name: decorateText(f.name, cfg),
       value: decorateText(f.value, cfg),
     }));
   }
-
-  if (isBuilder) return { ...embed, data: next };
-  return next;
+  return embed;
 }
 
-/** يترجم نصوص الأزرار والقوائم (بلا خط مزخرف — تبقى واضحة) */
+/**
+ * يترجم نصوص الأزرار والقوائم (بلا خط مزخرف — تبقى واضحة).
+ * نفس المبدأ: بِلدرات ديسكورد تبقى بِلدرات (نعدّل data من الداخل).
+ */
+function decorateComponent(comp, cfg) {
+  if (!comp) return comp;
+  const isBuilder = typeof comp.toJSON === 'function' && comp.data && typeof comp.data === 'object';
+  const d = isBuilder ? comp.data : comp;
+  if (!d || typeof d !== 'object') return comp;
+  if (typeof d.label === 'string') d.label = translate(d.label);
+  if (typeof d.placeholder === 'string') d.placeholder = translate(d.placeholder);
+
+  /* خيارات القوائم: عند البِلدر تكون في comp.options (كائنات بِلدر) وعند الكائن العادي في d.options */
+  const options = Array.isArray(comp.options) && comp.options.length ? comp.options : Array.isArray(d.options) ? d.options : [];
+  for (const option of options) {
+    const od = option && option.data && typeof option.data === 'object' ? option.data : option;
+    if (!od || typeof od !== 'object') continue;
+    if (typeof od.label === 'string') od.label = translate(od.label);
+    if (typeof od.description === 'string') od.description = translate(od.description);
+  }
+  return comp;
+}
+
 function decorateComponents(rows, cfg) {
   if (!Array.isArray(rows) || !cfg.english) return rows;
   return rows.map((row) => {
-    if (!row?.components) return row;
-    const components = row.components.map((comp) => {
-      const data = typeof comp.toJSON === 'function' ? comp.toJSON() : { ...comp };
-      if (data.label) data.label = translate(data.label);
-      if (data.placeholder) data.placeholder = translate(data.placeholder);
-      if (Array.isArray(data.options)) {
-        data.options = data.options.map((o) => ({
-          ...o,
-          label: translate(o.label),
-          ...(o.description ? { description: translate(o.description) } : {}),
-        }));
-      }
-      return data;
-    });
-    return { ...row, components };
+    const parts = row?.components;
+    if (!Array.isArray(parts)) return row;
+    for (const comp of parts) decorateComponent(comp, cfg);
+    return row;
   });
 }
 

@@ -2137,6 +2137,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "assert.strictEqual(r.decorate({components:[{components:[{label:'قفل القناة'}]}]},null).components[0].components[0].label,'Lock channel');",
       "assert.strictEqual(r.decorate('العضو',{replies:{english:false,fancyFont:false}}),'العضو');",
       "assert.strictEqual(r.decorate('العضو',{replies:{english:true,fancyFont:false}}),'Member');",
+      "const {EmbedBuilder,ActionRowBuilder,ButtonBuilder}=require('discord.js');",
+      "const eb=new EmbedBuilder().setTitle('⚠️ تحذير');",
+      "const rb=new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('x').setLabel('قفل القناة'));",
+      "const dec=r.decorate({embeds:[eb],components:[rb]},null);",
+      "assert.strictEqual(typeof dec.embeds[0].toJSON,'function','الإمبد انكسر — يصير الإرسال فاضي');",
+      "assert.strictEqual(EmbedBuilder.from(dec.embeds[0]).toJSON().title,'⚠️ 𝑾𝒂𝒓𝒏');",
+      "assert.strictEqual(dec.components[0].toJSON().components[0].label,'Lock channel');",
       "console.log('OK');",
     ].join('')], { cwd: root49, encoding: 'utf8' });
     assert.ok(out49.includes('OK'), 'فحص محرّك الردود فشل');

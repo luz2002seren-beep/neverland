@@ -127,13 +127,33 @@ function main() {
 
   const buttons = replies.decorate({ components: [{ components: [{ label: 'قفل القناة', placeholder: 'اختر' }] }] }, null);
   assert.strictEqual(buttons.components[0].components[0].label, 'Lock channel');
-  assert.strictEqual(buttons.components[0].components[0].placeholder, 'اختر');
+  assert.strictEqual(buttons.components[0].components[0].placeholder, 'Choose');
   ok('الأزرار تُترجم بلا زخرفة (تبقى واضحة)');
 
   const plain = replies.decorate('تم قفل القناة', null);
   assert.strictEqual(plain, '𝑳𝒐𝒄𝒌𝒆𝒅 𝑪𝒉𝒂𝒏𝒏𝒆𝒍');
   assert.strictEqual(replies.decorate('Threat: <@123456789012345678>', null), '𝑻𝒉𝒓𝒆𝒂𝒕: <@123456789012345678>');
   ok('الرسائل النصية العادية تُترجم وتُزخرف');
+
+  /* مهم جدًا: البِلدرات تبقى بِلدرات — لو انكسرت يصير الإرسال فاضي (خطأ 50006 عند ديسكورد) */
+  {
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, StringSelectMenuBuilder, ButtonStyle } = require('discord.js');
+    const embed = new EmbedBuilder().setTitle('⚠️ تحذير').setDescription('العضو').addFields({ name: 'السبب', value: 'سبام' });
+    const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('b1').setLabel('قفل القناة').setStyle(ButtonStyle.Primary));
+    const menu = new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('m1').setPlaceholder('اختر نوع التذكرة لفتحها...').addOptions({ label: 'الدعم الفني', value: 's' }),
+    );
+    const out = replies.decorate({ content: 'العضو', embeds: [embed], components: [row, menu] }, null);
+    const e2 = out.embeds[0];
+    assert.strictEqual(typeof e2.toJSON, 'function', 'الإمبد لازم يبقى EmbedBuilder');
+    assert.strictEqual(EmbedBuilder.from(e2).toJSON().title, '⚠️ 𝑾𝒂𝒓𝒏');
+    assert.strictEqual(EmbedBuilder.from(e2).toJSON().fields[0].name, '𝑹𝒆𝒂𝒔𝒐𝒏');
+    assert.strictEqual(out.components[0].constructor.name, 'ActionRowBuilder');
+    assert.strictEqual(out.components[0].toJSON().components[0].label, 'Lock channel');
+    assert.strictEqual(out.components[1].toJSON().components[0].placeholder, 'Choose a ticket type to open...');
+    assert.strictEqual(out.components[1].toJSON().components[0].options[0].label, 'Technical support');
+    ok('البِلدرات سليمة بعد التزيين (embeds + أزرار + قوائم) — ما يصير إرسال فاضي');
+  }
 
   console.log('\n═══ ٥) التبديل من اللوحة ═══');
   assert.strictEqual(replies.decorate('العضو', { replies: { english: false, fancyFont: false } }), 'العضو');
