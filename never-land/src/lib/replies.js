@@ -18,6 +18,25 @@ const config = require('../config');
 const db = require('../database');
 const DICT = require('./en');
 
+/* عدّادات تشخيصية (تظهر في /api/status) — تبين أي خطأ إرسال مباشرة */
+const STATS = {
+  decorated: 0,
+  plainFallback: 0,
+  sendErrors: 0,
+  lastError: null,
+  lastErrorAt: 0,
+  lastInteractionAt: 0,
+  lastSendAt: 0,
+};
+function noteError(err) {
+  STATS.sendErrors += 1;
+  STATS.lastError = String(err?.message || err).slice(0, 300);
+  STATS.lastErrorAt = Date.now();
+}
+function decorateStats() {
+  return { ...STATS, cfgDefaults: config.defaults.replies || null };
+}
+
 /* جسر نظام الترجمة الداخلي (i18n): أي نص عربي ثابت عنده ترجمة إنجليزية جاهزة يدخل القاموس تلقائيًا */
 const I18N_EXACT = (() => {
   try {
@@ -241,15 +260,37 @@ function wrapInteraction(interaction) {
     if (typeof original !== 'function') continue;
     interaction[method] = function styled(options, ...rest) {
       const current = interaction.guildId ? db.getGuildSettings(interaction.guildId) : settings;
+      STATS.lastInteractionAt = Date.now();
+      let decorated = options;
       try {
-        if (typeof options === 'string') return original.call(this, decorate(options, current), ...rest);
-        if (options && typeof options === 'object' && !(options instanceof Promise)) {
-          return original.call(this, decorate(options, current), ...rest);
-        }
-      } catch {
-        /* أي خطأ في التزيين ما يمنع الرد الأصلي */
+        if (typeof options === 'string') decorated = decorate(options, current);
+        else if (options && typeof options === 'object' && !(options instanceof Promise)) decorated = decorate(options, current);
+      } catch (err) {
+        noteError(err);
+        decorated = options;
       }
-      return original.call(this, options, ...rest);
+      const attempt = (payload) => {
+        STATS.lastSendAt = Date.now();
+        if (payload !== options) STATS.decorated += 1;
+        const result = original.call(interaction, payload, ...rest);
+        /* أخطاء ديسكورد تجي كرفض للـ promise: لو فشل المزيّن نرسل الأصل بدل ما يضيع الرد */
+        if (result && typeof result.catch === 'function' && payload !== options) {
+          return result.catch((err) => {
+            noteError(err);
+            STATS.plainFallback += 1;
+            return original.call(interaction, options, ...rest);
+          });
+        }
+        return result;
+      };
+      try {
+        return attempt(decorated);
+      } catch (err) {
+        noteError(err);
+        if (decorated === options) throw err;
+        STATS.plainFallback += 1;
+        return original.call(this, options, ...rest);
+      }
     };
   }
   interaction.__styledReplies = true;
@@ -284,13 +325,33 @@ function installSendDecorators() {
         } catch {
           settings = null;
         }
+        let decorated = options;
         try {
-          if (typeof options === 'string') return original.call(this, decorate(options, settings), ...rest);
-          if (options && typeof options === 'object') return original.call(this, decorate(options, settings), ...rest);
-        } catch {
-          /* نتجاهل ونرسل الأصل */
+          if (typeof options === 'string') decorated = decorate(options, settings);
+          else if (options && typeof options === 'object') decorated = decorate(options, settings);
+        } catch (err) {
+          noteError(err);
+          decorated = options;
         }
-        return original.call(this, options, ...rest);
+        STATS.lastSendAt = Date.now();
+        if (decorated !== options) STATS.decorated += 1;
+        let result;
+        try {
+          result = original.call(this, decorated, ...rest);
+        } catch (err) {
+          noteError(err);
+          if (decorated === options) throw err;
+          STATS.plainFallback += 1;
+          return original.call(this, options, ...rest);
+        }
+        if (result && typeof result.catch === 'function' && decorated !== options) {
+          return result.catch((err) => {
+            noteError(err);
+            STATS.plainFallback += 1;
+            return original.call(this, options, ...rest);
+          });
+        }
+        return result;
       };
       wrapped.__styledReplies = true;
       Klass.prototype[method] = wrapped;
@@ -308,4 +369,5 @@ module.exports = {
   wrapInteraction,
   installSendDecorators,
   DICTIONARY: DICT,
+  decorateStats,
 };

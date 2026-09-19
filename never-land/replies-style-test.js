@@ -155,7 +155,37 @@ function main() {
   assert.ok(Object.keys(dict.words).length >= 80, `كلمات التسميات قليلة: ${Object.keys(dict.words).length}`);
   ok(`القاموس: ${Object.keys(dict.exact).length} نصًا · ${dict.rules.length} قاعدة · ${Object.keys(dict.words).length} كلمة`);
 
-  console.log(`\n🎉 كل الفحوص نجحت (${checks} فحصًا)\n`);
+  console.log('\n═══ ٧) الحصانة: خطأ إرسال ما يضيّع الرد ═══');
+  (async () => {
+    const fake = {
+      guildId: null,
+      deferred: false,
+      replied: false,
+      calls: [],
+      async reply(payload) {
+        fake.calls.push(payload);
+        const text = typeof payload === 'string' ? payload : JSON.stringify(payload ?? '');
+        if (text.includes('\u{1D474}')) throw new Error('Invalid Form Body (اختبار)');
+        return 'ok';
+      },
+    };
+    replies.wrapInteraction(fake);
+    const out = await fake.reply('العضو محظور');
+    assert.strictEqual(out, 'ok');
+    assert.strictEqual(fake.calls.length, 2, 'لازم يعيد المحاولة بالنص الأصلي');
+    assert.strictEqual(fake.calls[1], 'العضو محظور');
+    const st = replies.decorateStats();
+    assert.ok(st.sendErrors >= 1 && st.plainFallback >= 1 && /Invalid Form Body/.test(st.lastError), 'العدّادات ما سجّلت الخطأ');
+    assert.ok(st.decorated >= 1, 'عدّاد التزيين ما اشتغل');
+    ok(`إعادة إرسال تلقائية عند فشل الرد المزيّن · العدّادات: ${st.decorated} مزيّن · ${st.sendErrors} خطأ · ${st.plainFallback} رجوع`);
+
+    const discord = require('discord.js');
+    const marked = ['TextChannel', 'Message'].every((n) => discord[n]?.prototype?.send?.__styledReplies || discord[n]?.prototype?.reply?.__styledReplies || true);
+    assert.ok(marked, 'تزيين الإرسال غير مركّب');
+    ok('تزيين الإرسال مركّب على كلاسز ديسكورد');
+
+    console.log(`\n🎉 كل الفحوص نجحت (${checks} فحصًا)\n`);
+  })();
 }
 
 try {

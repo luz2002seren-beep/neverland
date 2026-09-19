@@ -903,6 +903,14 @@ router.get('/status', (req, res) => {
     demo: config.web.demoMode,
     uptime: client ? Date.now() - client.startedAt : 0,
     sync: sync.getStatus(),
+    /* تشخيص حيّ لردود البوت: كم رد زيّناه · كم مرة رجّعنا النص الأصلي · آخر خطأ إرسال */
+    replies: (() => {
+      try {
+        return require('../../lib/replies').decorateStats();
+      } catch {
+        return null;
+      }
+    })(),
   });
 });
 
