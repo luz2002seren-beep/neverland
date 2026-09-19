@@ -127,7 +127,8 @@ async function cleanupOldPanels(channel, client, extraTexts = []) {
       const isPanel = (message.components || []).some((row) =>
         (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
       const content = String(message.content || '').trim();
-      const isIntro = content && texts.some((txt) => content === txt);
+      /* مطابقة دقيقة للنص المحفوظ، أو أي نسخة تبدأ بـ«كيف أحصل على الدعم» (كل صيغ رسالة التعليمات القديمة) */
+      const isIntro = Boolean(content) && (texts.some((txt) => content === txt) || /^[*_\s]*كيف أحصل على الدعم/.test(content));
       if (!isPanel && !isIntro) continue;
       await message.delete().catch(() => {});
       removed += 1;

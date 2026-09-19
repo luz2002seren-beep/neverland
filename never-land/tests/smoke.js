@@ -2018,6 +2018,20 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     ].join('')], { cwd: root47, encoding: 'utf8' });
     assert.ok(out47.includes('OK'), 'الفحص العملي لأزرار التذاكر فشل');
 
+    /* تنظيف اللوحات القديمة: يحذف لوحة التذاكر القديمة ورسالة التعليمات القديمة فقط */
+    const outClean = execFileSync('node', ['-e', [
+      "const t=require('./src/systems/tickets');",
+      "const deleted=[];",
+      "const mk=(id,{author='bot-1',content='',ids=[]}={})=>({id,author:{id:author},content,components:[{components:ids.map(c=>({customId:c}))}],delete:async()=>{deleted.push(id)}});",
+      "const channel={id:'c',messages:{fetch:async()=>new Map([['m1',mk('m1',{ids:['ticket:open:support']})],['m2',mk('m2',{content:'**كيف أحصل على الدعم؟**\\nاضغط الزر المناسب لنوع طلبك 👇'})],['m3',mk('m3',{content:'مرحبا'})],['m4',mk('m4',{author:'u9',ids:['ticket:open:gift']})]])}};",
+      "(async()=>{const n=await t.cleanupOldPanels(channel,{user:{id:'bot-1'}},[]);",
+      "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
+      "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
+      "if(p.length!==1||p[0].content||p[0].embeds[0].data.footer) throw new Error('اللوحة مش نظيفة');",
+      "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
+    ].join('')], { cwd: root47, encoding: 'utf8' });
+    assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
+
     /* الأمر + اللوحة + الشرح */
     const cmd47 = read47('src/commands/config/tickets.js');
     assert.ok(cmd47.includes("sub('button'") && cmd47.includes("sub('buttons'"), 'أوامر تعديل الأزرار ناقصة من /tickets');
