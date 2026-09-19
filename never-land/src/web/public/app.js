@@ -1562,13 +1562,13 @@ const SECTIONS = {
 
       const paintPreview = (previewEl, preview) => {
         previewEl.innerHTML = '';
-        const row = (cls, text) => {
+        const row = (cls, label, text) => {
           const node = el('div', { class: `d-sample-row ${cls}` });
-          node.appendChild(el('span', { class: 'new', text: String(text || '—').slice(0, 400) }));
+          node.appendChild(el('span', { class: 'new', text: `${label}: ${String(text || '—').slice(0, 400)}` }));
           return node;
         };
-        previewEl.appendChild(row('old', preview.before));
-        previewEl.appendChild(row('new', preview.after));
+        previewEl.appendChild(row('old', 'الافتراضي', preview.before));
+        previewEl.appendChild(row('new', 'الحالي', preview.after));
       };
 
       const load = async () => {
