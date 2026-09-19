@@ -288,6 +288,21 @@ function decorate(payload, settings) {
   if (typeof payload === 'string') return decorateText(payload, cfg);
   if (!payload || typeof payload !== 'object') return payload;
 
+  /* بِلدر (EmbedBuilder) أو MessagePayload: نعدّل داخلها ونرجّعها كما هي —
+     لأن تحويلها لكائن عادي يفقد toJSON ويصير الإرسال فاضي عند ديسكورد */
+  if (typeof payload.toJSON === 'function') {
+    if (payload.data && !('content' in payload) && !('embeds' in payload) && !('components' in payload)) {
+      return decorateEmbed(payload, cfg);
+    }
+    if (payload.options && typeof payload.options === 'object') {
+      const o = payload.options;
+      if (typeof o.content === 'string') o.content = decorateText(o.content, cfg);
+      if (Array.isArray(o.embeds)) o.embeds = o.embeds.map((e) => decorateEmbed(e, cfg));
+      if (Array.isArray(o.components)) decorateComponents(o.components, cfg);
+      return payload;
+    }
+  }
+
   const out = { ...payload };
   /* حمولة بلا محتوى ولا إمبدات ولا مكوّنات = خطأ 50006 — نرجّع الأصل كما هو */
   const looksEmpty =
