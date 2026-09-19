@@ -126,7 +126,16 @@ const config = {
 
   /** قيم افتراضية لإعدادات كل سيرفر */
   defaults: {
-    language: process.env.DEFAULT_LANGUAGE || 'ar',
+    language: process.env.DEFAULT_LANGUAGE || 'en',
+    /**
+     * شكل ردود البوت في ديسكورد:
+     *   english   : كل الردود بالإنجليزية (القاموس في src/lib/en.js)
+     *   fancyFont : الخط المزخرف 𝑪𝒉𝒂𝒕 (Mathematical Bold Italic) مع حماية المنشنات والروابط والأكواد
+     */
+    replies: {
+      english: true,
+      fancyFont: true,
+    },
     prefix: '!',
     welcome: {
       enabled: false,

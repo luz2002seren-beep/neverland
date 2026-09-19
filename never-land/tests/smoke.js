@@ -2104,6 +2104,60 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read48('src/config.js').includes('channelsByGroup: {}'), 'قنوات المجموعات ناقصة من الإعدادات');
   }
 
+ console.log('[اختبار] 49: شكل الردود — إنجليزي + الخط المزخرف 𝑪𝒉𝒂𝒕');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path49 = require('node:path');
+    const fs49 = require('node:fs');
+    const root49 = path49.join(__dirname, '..');
+    const read49 = (rel) => fs49.readFileSync(path49.join(root49, rel), 'utf8');
+
+    const out49 = execFileSync('node', ['-e', [
+      "process.env.DATABASE_PATH='/tmp/nl-s49-'+Date.now()+'.db';process.env.DEMO_MODE='true';",
+      "const r=require('./src/lib/replies');",
+      "const assert=require('node:assert');",
+      "assert.strictEqual(r.fancy('Member'),'𝑴𝒆𝒎𝒃𝒆𝒓');",
+      "assert.strictEqual(r.fancy('XP 100 — 5m'),'𝑿𝑷 100 — 5m');",
+      "assert.strictEqual(r.fancy('<@123456789012345678> hi'),'<@123456789012345678> 𝒉𝒊');",
+      "assert.strictEqual(r.fancy('<#987654321098765432> x'),'<#987654321098765432> 𝒙');",
+      "assert.strictEqual(r.fancy('<a:fire:123456789012345678> ok'),'<a:fire:123456789012345678> 𝒐𝒌');",
+      "assert.strictEqual(r.fancy('see https://a.com/B'),'𝒔𝒆𝒆 https://a.com/B');",
+      "assert.strictEqual(r.fancy('use \`/ban\` x'),'𝒖𝒔𝒆 \`/ban\` 𝒙');",
+      "assert.strictEqual(r.fancy('Check /tickets panel'),'𝑪𝒉𝒆𝒄𝒌 /tickets 𝒑𝒂𝒏𝒆𝒍');",
+      "assert.strictEqual(r.fancy('ends <t:1735689600:R>'),'𝒆𝒏𝒅𝒔 <t:1735689600:R>');",
+      "assert.strictEqual(r.translate('📭 لا توجد أي عقوبات مسجّلة لهذا العضو.'),'📭 No punishments recorded for this member.');",
+      "assert.strictEqual(r.translate('العضو'),'Member');",
+      "assert.strictEqual(r.translate('مؤقت (1h)'),'Temporary (1h)');",
+      "assert.strictEqual(r.translate('تم قفل **3** قناة.'),'Locked **3** channels.');",
+      "assert.strictEqual(r.translate('حظر عضو'),'Member banned');",
+      "assert.strictEqual(r.translate('عبارة غير مغطّاة'),'عبارة غير مغطّاة');",
+      "const e=r.decorate({embeds:[{title:'⚠️ تحذير',fields:[{name:'السبب',value:'العضو'}]}]},null).embeds[0];",
+      "assert.strictEqual(e.title,'⚠️ 𝑾𝒂𝒓𝒏');",
+      "assert.strictEqual(e.fields[0].name,'𝑹𝒆𝒂𝒔𝒐𝒏');",
+      "assert.strictEqual(r.decorate({components:[{components:[{label:'قفل القناة'}]}]},null).components[0].components[0].label,'Lock channel');",
+      "assert.strictEqual(r.decorate('العضو',{replies:{english:false,fancyFont:false}}),'العضو');",
+      "assert.strictEqual(r.decorate('العضو',{replies:{english:true,fancyFont:false}}),'Member');",
+      "console.log('OK');",
+    ].join('')], { cwd: root49, encoding: 'utf8' });
+    assert.ok(out49.includes('OK'), 'فحص محرّك الردود فشل');
+
+    const cfg49 = require(path49.join(root49, 'src/config'));
+    assert.strictEqual(cfg49.defaults.replies.english, true, 'الإنجليزية لازم تكون مفعّلة افتراضيًا');
+    assert.strictEqual(cfg49.defaults.replies.fancyFont, true, 'الخط المزخرف لازم يكون مفعّل افتراضيًا');
+    assert.strictEqual(cfg49.defaults.language, 'en', 'اللغة الافتراضية إنجليزية');
+
+    const dict49 = require(path49.join(root49, 'src/lib/en'));
+    assert.ok(Object.keys(dict49.exact).length >= 240, 'القاموس ناقص');
+    assert.ok(dict49.rules.length >= 100, 'القواعد ناقصة');
+    assert.ok(Object.keys(dict49.verbs).length >= 20, 'أفعال «تم» ناقصة');
+
+    assert.ok(read49('src/events/interactionCreate.js').includes("require('../lib/replies').wrapInteraction(interaction)"), 'تزيين التفاعلات غير مربوط');
+    assert.ok(read49('src/index.js').includes('installSendDecorators()'), 'تزيين الإرسال غير مربوط');
+    assert.ok(read49('src/web/routes/api.js').includes("/replies/preview"), 'مسار المعاينة ناقص');
+    assert.ok(read49('src/web/public/app.js').includes("'شكل الردود'"), 'بطاقة شكل الردود ناقصة من اللوحة');
+    assert.ok(read49('src/web/public/dash.css').includes('.d-sample-row'), 'أنماط المعاينة ناقصة');
+  }
+
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');
 
   process.exit(0);

@@ -55,7 +55,14 @@ module.exports = {
   name: Events.InteractionCreate,
 
   async execute(client, interaction) {
-    const lang = interaction.guildId ? db.locale(interaction.guildId) : 'ar';
+    const lang = interaction.guildId ? db.locale(interaction.guildId) : 'en';
+
+    /* كل ردود التفاعل تمر بالترجمة + الخط المزخرف (يُطفأ من اللوحة) */
+    try {
+      require('../lib/replies').wrapInteraction(interaction);
+    } catch {
+      /* ما نمنع أي أمر بسبب التزيين */
+    }
 
     try {
       /* ======================= الإكمال التلقائي ======================= */

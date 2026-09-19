@@ -992,3 +992,14 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 .d-emoji-opt.server img { display: block; object-fit: contain; }
 .d-emoji-code { font-size: .58rem; direction: ltr; max-width: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .d-emoji-preview.bad { border-color: var(--danger); border-style: dashed; }
+
+/* معاينة شكل الردود (إنجليزي + خط مزخرف) */
+.d-sample { display: flex; flex-direction: column; gap: 8px; }
+.d-sample-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, .03); font-size: .88rem;
+}
+.d-sample-row .old { color: var(--muted); text-decoration: line-through; }
+.d-sample-row .arrow { color: var(--muted); display: inline-flex; }
+.d-sample-row .new { font-weight: 600; }

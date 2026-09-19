@@ -58,6 +58,13 @@ async function startBot() {
 
   const client = require('./client');
 
+  /* شكل موحّد لكل ردود البوت: إنجليزي + خط مزخرف (يُطفأ من لوحة التحكم) */
+  try {
+    require('./lib/replies').installSendDecorators();
+  } catch (err) {
+    console.error('[تنبيه] تعذّر تفعيل مزيّن الردود:', err.message);
+  }
+
  console.log('[تشغيل] جارٍ تشغيل Never Land ...');
   db.init();
 

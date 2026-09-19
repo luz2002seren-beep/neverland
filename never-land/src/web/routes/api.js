@@ -226,6 +226,39 @@ router.get('/guilds/:guildId', async (req, res) => {
   });
 });
 
+/* ---------------------------------- شكل الردود ---------------------------------- */
+router.get('/guilds/:guildId/replies/preview', async (req, res) => {
+  const { guildId } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+
+  const db2 = require('../../database');
+  const replies = require('../../lib/replies');
+  const saved = db2.getGuildSettings(guildId);
+  /* نفس الإعدادات مع أي تعديل غير محفوظ من اللوحة (?english=0&font=1) */
+  const settings = {
+    ...saved,
+    replies: {
+      english: req.query.english === undefined ? saved.replies?.english : req.query.english === '1',
+      fancyFont: req.query.font === undefined ? saved.replies?.fancyFont : req.query.font === '1',
+    },
+  };
+
+  const samples = [
+    'تم حظر العضو',
+    '⚠️ تحذير',
+    '📭 لا توجد أي عقوبات مسجّلة لهذا العضو.',
+    'تم نشر اللوحة في #الدعم',
+  ];
+
+  return res.json({
+    cfg: replies.replyConfig(settings),
+    samples: samples.map((text) => ({
+      before: text,
+      after: replies.decorate(text, settings),
+    })),
+  });
+});
+
 router.post('/guilds/:guildId/settings', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
 

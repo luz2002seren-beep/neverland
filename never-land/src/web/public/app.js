@@ -661,15 +661,55 @@ const SECTIONS = {
     title: 'الإعدادات العامة',
     desc: 'اللغة والبادئة وقناة الاستفسارات.',
     render() {
-      return dCard('الأساسيات', 'تنطبق على كل الأنظمة', 'settings', [
-        dField('لغة البوت', 'اللغة الافتراضية للرسائل والأوامر', [
-          dSelect('language', [{ value: 'ar', label: '🇸🇦 العربية' }, { value: 'en', label: '🇬🇧 English' }], { noneLabel: null }),
+      /* معاينة حيّة لشكل الردود — نفس محرّك البوت على السيرفر (مو نسخة مكرّرة) */
+      const sampleNode = el('div', { class: 'd-sample' });
+      const paintSample = async () => {
+        const english = getPath('replies.english') === false ? '0' : '1';
+        const font = getPath('replies.fancyFont') === false ? '0' : '1';
+        try {
+          const data = await api(`/guilds/${state.guildId}/replies/preview?english=${english}&font=${font}`);
+          sampleNode.innerHTML = '';
+          data.samples.forEach(({ before, after }) => {
+            const row = el('div', { class: 'd-sample-row' });
+            row.appendChild(el('span', { class: 'old', text: before }));
+            row.appendChild(el('span', { class: 'arrow', html: ic('arrowLeft', 14) }));
+            row.appendChild(el('span', { class: 'new', text: after }));
+            sampleNode.appendChild(row);
+          });
+        } catch {
+          sampleNode.innerHTML = '';
+          sampleNode.appendChild(el('span', { class: 'd-chip', text: 'ما قدرت أجيب المعاينة' }));
+        }
+      };
+      paintSample();
+
+      const repaint = () => setTimeout(paintSample, 120);
+
+      return [
+        dCard('الأساسيات', 'تنطبق على كل الأنظمة', 'settings', [
+          dField('لغة البوت', 'اللغة الافتراضية للرسائل والأوامر', [
+            dSelect('language', [{ value: 'ar', label: '🇸🇦 العربية' }, { value: 'en', label: '🇬🇧 English' }], { noneLabel: null }),
+          ]),
+          dField('البادئة النصية', 'للأوامر التقليدية بالرسائل (اختياري)', [dInput('prefix', { narrow: true, placeholder: '!' })]),
+          dField('قناة الاستفسارات', 'قناة عامة للأسئلة (اختياري)', [dSelect('reports.channelId', channelOptions())]),
+          dField('نظام الدعوات (Referral)', 'تتبّع من دعا من', [dSwitch('referral.enabled')]),
+          dField('قناة الدعوات', '', [dSelect('referral.channelId', channelOptions())]),
         ]),
-        dField('البادئة النصية', 'للأوامر التقليدية بالرسائل (اختياري)', [dInput('prefix', { narrow: true, placeholder: '!' })]),
-        dField('قناة الاستفسارات', 'قناة عامة للأسئلة (اختياري)', [dSelect('reports.channelId', channelOptions())]),
-        dField('نظام الدعوات (Referral)', 'تتبّع من دعا من', [dSwitch('referral.enabled')]),
-        dField('قناة الدعوات', '', [dSelect('referral.channelId', channelOptions())]),
-      ]);
+        dCard(
+          'شكل الردود',
+          'ردود البوت كلها بالإنجليزية وبالخط المزخرف — القوائم والأزرار تبقى بنص عادي حتى تكون واضحة.',
+          'message',
+          [
+            dField('ردود بالإنجليزية', 'كل رسائل البوت بالإنجليزية (الأوامر · الترحيب · اللوقات · التذاكر)', [
+              dSwitch('replies.english', repaint),
+            ]),
+            dField('الخط المزخرف', 'الخط المزخرف 𝑪𝒉𝒂𝒕 مع حماية المنشنات والروابط والأكواد', [
+              dSwitch('replies.fancyFont', repaint),
+            ]),
+            dField('معاينة', 'شكل الرد قبل وبعد', [sampleNode], { wide: true }),
+          ],
+        ),
+      ];
     },
   },
 
