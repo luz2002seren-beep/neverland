@@ -735,9 +735,13 @@ router.post('/guilds/:guildId/actions/:action', async (req, res) => {
       if (!target) return res.status(400).json({ ok: false, message: 'حدّد قناة إرسال اللوحة أولًا.' });
       const channel = await guild.channels.fetch(target).catch(() => null);
       if (!channel?.isTextBased?.()) return res.status(400).json({ ok: false, message: 'القناة غير صالحة لإرسال اللوحة.' });
+      const cleaned = await tickets.cleanupOldPanels(channel, client, [settings.tickets.panelInfoMessage]);
       const payloads = tickets.buildPanelPayloads(settings, guild, client);
       for (const payload of payloads) await channel.send(payload);
-      return res.json({ ok: true, message: `✅ تم نشر اللوحة في #${channel.name}` });
+      return res.json({
+        ok: true,
+        message: `✅ تم نشر اللوحة في #${channel.name}${cleaned ? ` — ونظّفت ${cleaned} رسالة قديمة` : ''}`,
+      });
     }
 
     if (type === 'logs') {

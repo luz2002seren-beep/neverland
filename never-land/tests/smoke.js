@@ -224,9 +224,12 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   const ticketsSystem = require('../src/systems/tickets');
   const tSettings = db.getGuildSettings('999999999999999999');
   const payloads = ticketsSystem.buildPanelPayloads(tSettings, { id: '1', iconURL: () => null }, null);
-  assert.ok(payloads.length >= 1, 'لا توجد رسائل للوحة');
+  assert.strictEqual(payloads.length, 1, 'اللوحة لازم تكون رسالة واحدة فقط');
   const tPanel = payloads[payloads.length - 1];
   assert.ok(tPanel.embeds[0], 'البنل بدون embed');
+  assert.ok(!tPanel.content, 'اللوحة ما لازم يكون فيها رسالة تعليمات منفصلة');
+  assert.strictEqual(tPanel.embeds[0].data.footer, undefined, 'اللوحة فيها فوتر — لازم بلا فوتر');
+  assert.ok(typeof ticketsSystem.cleanupOldPanels === 'function', 'تنظيف اللوحات القديمة ناقص');
   const tTypes = tSettings.tickets.types;
   assert.strictEqual(tTypes.length, 4, 'يجب أن تكون الأنواع 4');
   assert.deepStrictEqual(tTypes.map((t2) => t2.id), ['support', 'verify', 'gift', 'staff']);
@@ -238,7 +241,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   // وضع القائمة المنسدلة
   const selectPayload = ticketsSystem.buildPanelPayloads({ ...tSettings, tickets: { ...tSettings.tickets, panelMode: 'select' } }, {}).pop();
   assert.strictEqual(selectPayload.components[0].components[0].options.length, 4, 'القائمة المنسدلة لا تحتوي 4 أنواع');
- console.log('  [تم] اللوحة تعمل بالأزرار والقائمة مع 4 أنواع');
+ console.log('  [تم] اللوحة رسالة واحدة نظيفة (بلا فوتر وبلا رسالة تعليمات) + تعمل بالأزرار والقائمة مع 4 أنواع');
 
  console.log('[اختبار] اختبار 14: الخط الفاصل والتفاعلات التلقائية');
   const autolineSystem = require('../src/systems/autoline');
@@ -1938,7 +1941,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const { execFileSync } = require('node:child_process');
     /* فوتر بنل التذاكر: بلا اسم المشروع، وبلا فوتر افتراضي */
     const cfg46 = require(path46.join(root46, 'src/config'));
-    assert.strictEqual(cfg46.defaults.tickets.panelFooter, '', 'فوتر بنل التذاكر لازم يكون فاضي افتراضيًا');
+    assert.ok(!('panelFooter' in cfg46.defaults.tickets), 'حقل فوتر اللوحة لازم ينشال نهائيًا');
+    assert.ok(!('panelSeparateInfo' in cfg46.defaults.tickets) && !('panelInfoMessage' in cfg46.defaults.tickets), 'حقول رسالة التعليمات المنفصلة لازم تنشال نهائيًا');
     const outPanel = execFileSync('node', ['-e', [
       "const t=require('./src/systems/tickets');",
       "const c=require('./src/config');",
@@ -1946,6 +1950,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const p=t.buildPanelPayloads(s,{id:'g',iconURL:()=>null});",
       "const f=p[p.length-1].embeds[0].data.footer;",
       "if(f) throw new Error('بنل التذاكر لسا فيه فوتر: '+f.text);",
+      "if(!(t.cleanupOldPanels instanceof Function)) throw new Error('cleanupOldPanels ناقص');",
       "const s2={tickets:{...c.defaults.tickets,panelFooter:'Never Land — فريق الدعم'}};",
       "const p2=t.buildPanelPayloads(s2,{id:'g',iconURL:()=>null});",
       "const f2=p2[p2.length-1].embeds[0].data.footer;",

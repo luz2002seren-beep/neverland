@@ -220,8 +220,7 @@ function seed() {
       supportRoleIds: ['100000000000000031', '100000000000000032'],
       logChannelId: '100000000000000013',
       panelMode: 'buttons',
-      panelSeparateInfo: true,
-      panelFooter: '',
+
       types: require('../config').defaults.tickets.types,
     },
     moderation: { warnThreshold: 3, warnAction: 'timeout' },

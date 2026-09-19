@@ -74,8 +74,8 @@ function buildTypeSelect(types) {
 }
 
 /**
- * بناء رسائل لوحة التذاكر (رسالة تعليمات + رسالة البنل).
- * @returns {Array<object>} مصفوفة payloads جاهزة للإرسال
+ * بناء لوحة التذاكر: رسالة واحدة فقط (بلا رسالة تعليمات منفصلة، وبلا أي فوتر).
+ * @returns {Array<object>} مصفوفة payloads جاهزة للإرسال (عنصر واحد)
  */
 function buildPanelPayloads(settings, guild, client = null) {
   const cfg = settings.tickets;
@@ -83,35 +83,59 @@ function buildPanelPayloads(settings, guild, client = null) {
 
   const embed = base({
     color: 0x5865f2,
-    title: cfg.panelTitle || '🎫 مركز الدعم',
+    title: cfg.panelTitle || 'مركز الدعم',
     description: cfg.panelDescription || 'اختر نوع التذكرة بالأسفل وسيُفتح لك روم خاص مع فريق الدعم.',
     thumbnail: customEmojiUrl(types[0]?.emoji) ?? (guild?.iconURL?.({ size: 256 }) ?? null),
     fields: types.slice(0, 4).map((type) => ({
-      name: `${type.emoji || '🎫'} ${type.label}`,
+      name: `${type.emoji || ''} ${type.label}`.trim(),
       value: type.description || '—',
       inline: true,
     })),
-    /* بلا فوتر افتراضي: يظهر فقط إذا كتب المدير نصًا في «فوتر البنل» */
-    footer: cfg.panelFooter ? String(cfg.panelFooter).trim() || null : null,
+    /* بلا فوتر إطلاقًا */
   });
 
   const components = cfg.panelMode === 'select' ? [buildTypeSelect(types)] : buildTypeButtons(types);
-
-  const payloads = [];
-  if (cfg.panelSeparateInfo) {
-    payloads.push({
-      content: cfg.panelInfoMessage || '**كيف أحصل على الدعم؟**\nاضغط الزر المناسب لنوع طلبك 👇',
-      allowedMentions: { parse: [] },
-    });
-  }
-  payloads.push({ embeds: [embed], components });
-  return payloads;
+  return [{ embeds: [embed], components }];
 }
 
 /** لوحة بسيطة (توافق مع الاستخدام القديم) */
 function buildPanel(settings, guild) {
   const payloads = buildPanelPayloads(settings, guild);
   return payloads[payloads.length - 1];
+}
+
+/** نصوص رسائل التعليمات القديمة (لتنظيف النسخ اللي انزلت قبل إزالة الميزة) */
+const LEGACY_INFO_TEXTS = [
+  '**كيف أحصل على الدعم؟**\nاضغط الزر المناسب لنوع طلبك 👇',
+  '**كيف أحصل على الدعم؟**\nاختر نوع الطلب من الأزرار أدناه، وسيُفتح لك روم خاص مع فريق الدعم.',
+];
+
+/**
+ * تنظيف اللوحات القديمة في القناة قبل نشر لوحة جديدة:
+ * حذف رسائل البوت اللي فيها أزرار تذاكر (customId يبدأ بـ ticket:open)
+ * ورسائل التعليمات المنفصلة القديمة (نصها مطابق للقديم).
+ * @returns {Promise<number>} عدد الرسائل المحذوفة
+ */
+async function cleanupOldPanels(channel, client, extraTexts = []) {
+  if (!channel?.messages?.fetch || !client?.user) return 0;
+  const texts = [...extraTexts, ...LEGACY_INFO_TEXTS].filter(Boolean).map((x) => String(x).trim());
+  let removed = 0;
+  try {
+    const batch = await channel.messages.fetch({ limit: 50 });
+    for (const message of batch.values()) {
+      if (message.author?.id !== client.user.id) continue;
+      const isPanel = (message.components || []).some((row) =>
+        (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
+      const content = String(message.content || '').trim();
+      const isIntro = content && texts.some((txt) => content === txt);
+      if (!isPanel && !isIntro) continue;
+      await message.delete().catch(() => {});
+      removed += 1;
+    }
+  } catch {
+    /* صلاحيات ناقصة أو رسائل قديمة — نتجاهل بهدوء */
+  }
+  return removed;
 }
 
 /** القيم الافتراضية لأزرار التذكرة (نفس ترتيب config.defaults.tickets.buttons) */
@@ -380,6 +404,7 @@ module.exports = {
   buildTypeButtons,
   buildTypeSelect,
   ticketControls,
+  cleanupOldPanels,
   buttonConfig,
   buttonRaw,
   DEFAULT_BUTTONS,

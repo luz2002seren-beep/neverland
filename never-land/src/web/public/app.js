@@ -2183,9 +2183,6 @@ const SECTIONS = {
           ),
           dField('عنوان البنل', '', [dInput('tickets.panelTitle', { full: true })], { wide: true }),
           dField('وصف البنل', '', [dArea('tickets.panelDescription')], { wide: true }),
-          dField('فوتر البنل', 'اتركه فارغًا لبلا فوتر — يظهر بس لو كتبت نصًا', [dInput('tickets.panelFooter', { full: true, placeholder: 'بلا فوتر' })], { wide: true }),
-          dField('رسالة تعليمات منفصلة', 'رسالة فوق البنل', [dSwitch('tickets.panelSeparateInfo')]),
-          dField('نص التعليمات', 'يدعم الإيموجيات الخارجية', [dArea('tickets.panelInfoMessage')], { wide: true }),
           dField('قناة إرسال اللوحة', 'اختر القناة ثم اضغط إرسال (لا يُحفظ)', [
             (() => {
               const select = el('select', { class: 'd-select' });

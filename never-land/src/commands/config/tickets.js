@@ -24,7 +24,7 @@ module.exports = {
     );
 
     builder.addSubcommand(
-      sub('panel', 'إرسال لوحة البنل مع رسالة التعليمات في قناة').addChannelOption((o) =>
+      sub('panel', 'نشر لوحة التذاكر في قناة (رسالة واحدة · بلا فوتر)').addChannelOption((o) =>
         o.setName('القناة').setDescription('القناة (افتراضيًا الحالية)').addChannelTypes(ChannelType.GuildText).setRequired(false)),
     );
 
@@ -35,10 +35,9 @@ module.exports = {
     );
 
     builder.addSubcommand(
-      sub('panelinfo', 'تعديل رسالة التعليمات والعنوان والوصف للوحة')
-        .addStringOption((o) => o.setName('رسالة_التعليمات').setDescription('نص الرسالة المرفقة مع البنل').setRequired(false).setMaxLength(1000))
-        .addStringOption((o) => o.setName('العنوان').setDescription('عنوان البنل').setRequired(false).setMaxLength(200))
-        .addStringOption((o) => o.setName('الوصف').setDescription('وصف البنل').setRequired(false).setMaxLength(1000)),
+      sub('panelinfo', 'تعديل عنوان ووصف اللوحة')
+        .addStringOption((o) => o.setName('العنوان').setDescription('عنوان اللوحة').setRequired(false).setMaxLength(200))
+        .addStringOption((o) => o.setName('الوصف').setDescription('وصف اللوحة').setRequired(false).setMaxLength(1000)),
     );
 
     builder.addSubcommand(
@@ -168,6 +167,8 @@ module.exports = {
       if (!settings.tickets.categoryId) {
         return interaction.reply({ embeds: [embeds.error('لم يُعدّ بعد', 'استخدم `/tickets setup` أولًا لتحديد القسم.')], flags: 64 });
       }
+      /* تنظيف اللوحات ورسائل التعليمات القديمة أولًا حتى ما تتكرر */
+      const cleaned = await tickets.cleanupOldPanels(channel, client, [settings.tickets.panelInfoMessage]);
       const payloads = tickets.buildPanelPayloads(db.getGuildSettings(interaction.guildId), interaction.guild, client);
       let sent = 0;
       for (const payload of payloads) {
@@ -177,9 +178,16 @@ module.exports = {
       if (!sent) return interaction.reply({ embeds: [embeds.error('فشل', 'ما قدرت أرسل اللوحة في هذه القناة.')], flags: 64 });
 
       db.updateGuildSettings(interaction.guildId, { tickets: { enabled: true } });
-      return interaction.reply({ embeds: [embeds.success('لوحة التذاكر', `✅ تم إرسال البنل (${sent} رسالة) في ${channel}.
-
-الوضع الحالي: **${db.getGuildSettings(interaction.guildId).tickets.panelMode === 'select' ? 'قائمة منسدلة' : 'أزرار'}**`)], flags: 64 });
+      return interaction.reply({
+        embeds: [
+          embeds.success(
+            'لوحة التذاكر',
+            `✅ تم إرسال اللوحة في ${channel} — رسالة واحدة، بلا فوتر وبلا رسالة تعليمات.${cleaned ? `\n> ونظّفت ${cleaned} رسالة قديمة.` : ''}`,
+            { fields: [{ name: 'الوضع', value: db.getGuildSettings(interaction.guildId).tickets.panelMode === 'select' ? 'قائمة منسدلة' : 'أزرار', inline: true }] },
+          ),
+        ],
+        flags: 64,
+      });
     }
 
     /* ----------------- 📝 استمارة تقديم الإدارة ----------------- */
@@ -304,19 +312,17 @@ module.exports = {
     }
 
     if (sub === 'panelinfo') {
-      const info = interaction.options.getString('رسالة_التعليمات');
       const title = interaction.options.getString('العنوان');
       const description = interaction.options.getString('الوصف');
       const patch = {};
-      if (info) patch.panelInfoMessage = info;
       if (title) patch.panelTitle = title;
       if (description) patch.panelDescription = description;
       if (!Object.keys(patch).length) {
-        return interaction.reply({ embeds: [embeds.error('لا يوجد جديد', 'حدّد عنصرًا واحدًا على الأقل للتعديل.')], flags: 64 });
+        return interaction.reply({ embeds: [embeds.error('لا يوجد جديد', 'حدّد عنوانًا أو وصفًا للتعديل.')], flags: 64 });
       }
       db.updateGuildSettings(interaction.guildId, { tickets: patch });
       return interaction.reply({
-        embeds: [embeds.success('تم التحديث', '✅ تم حفظ تعديلات البنل. أعد إرسال اللوحة بـ `/tickets panel`.')],
+        embeds: [embeds.success('تم التحديث', '✅ تم حفظ تعديلات اللوحة. أعد إرسالها بـ `/tickets panel`.')],
         flags: 64,
       });
     }
