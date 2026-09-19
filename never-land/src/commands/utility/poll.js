@@ -6,7 +6,6 @@ const embeds = require('../../lib/embeds');
 const NUM_EMOJI = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
 module.exports = {
-  cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('poll')
     .setDescription('إنشاء تصويت سريع في القناة')

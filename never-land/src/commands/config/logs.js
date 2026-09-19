@@ -13,7 +13,6 @@ const embeds = require('../../lib/embeds');
 const logging = require('../../systems/logging');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: (() => {
     const builder = new SlashCommandBuilder()

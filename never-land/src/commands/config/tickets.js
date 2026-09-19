@@ -6,7 +6,6 @@ const embeds = require('../../lib/embeds');
 const tickets = require('../../systems/tickets');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: (() => {
     const builder = new SlashCommandBuilder()

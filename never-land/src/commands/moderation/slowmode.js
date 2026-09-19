@@ -6,7 +6,6 @@ const { t } = require('../../lib/i18n');
 const { parseDuration, formatDuration } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageChannels],
   botPermissions: [PermissionFlagsBits.ManageChannels],
   data: new SlashCommandBuilder()

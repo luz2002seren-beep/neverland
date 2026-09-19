@@ -40,6 +40,16 @@ function preflight({ guild, executor, target, client, permission }) {
   return { ok: true };
 }
 
+/** هل الهدف عضو موجود بالسيرفر (عنده دوال العضو) ولا مجرد مستخدم بالآيدي؟ */
+function isGuildMember(target) {
+  return typeof target?.ban === 'function' || typeof target?.kick === 'function';
+}
+
+/** نسخة «واقفة» من المستخدم حتى تمر فحوص الهرمية لما يكون خارج السيرفر */
+function standInUser(user) {
+  return { id: user.id, user, roles: { highest: { position: -1 } } };
+}
+
 /** إرسال رسالة خاصة للعضو (بدون كسر التدفق عند الفشل) */
 async function dm(target, content) {
   if (!target?.send) return;
@@ -51,14 +61,24 @@ async function dm(target, content) {
  * @returns {{ok:boolean, reason?:string, caseId?:number, durationMs?:number}}
  */
 async function ban(client, { guild, executor, target, reason, lang = 'ar', deleteMessageSeconds = 3600, durationMs = null, silent = false }) {
-  const pre = preflight({ guild, executor, target, client, permission: modPermissions().ban[0] });
+  const user = target?.user ?? target;
+  const isMember = isGuildMember(target);
+  const pre = preflight({ guild, executor, target: isMember ? target : standInUser(user), client, permission: modPermissions().ban[0] });
   if (!pre.ok) return pre;
 
   try {
-    await target.ban({
-      reason: `${executor.tag}${reason ? ` | ${reason}` : ''}`,
-      deleteMessageSeconds,
-    });
+    if (isMember) {
+      await target.ban({
+        reason: `${executor.tag}${reason ? ` | ${reason}` : ''}`,
+        deleteMessageSeconds,
+      });
+    } else {
+      /* حظر بالآيدي: يشتغل حتى لو العضو مو موجود بالسيرفر */
+      await guild.bans.create(user.id, {
+        reason: `${executor.tag}${reason ? ` | ${reason}` : ''}`,
+        deleteMessageSeconds,
+      });
+    }
   } catch (err) {
     console.error('فشل الحظر:', err.message);
     return { ok: false, reason: 'failed' };
@@ -67,8 +87,8 @@ async function ban(client, { guild, executor, target, reason, lang = 'ar', delet
   const record = db.addCase({
     guildId: guild.id,
     type: 'ban',
-    userId: target.id,
-    userTag: target.user.tag,
+    userId: user.id,
+    userTag: user.tag ?? user.username ?? String(user.id),
     moderatorId: executor.id,
     moderatorTag: executor.tag,
     reason: reason || t(lang, 'common.reasonNone'),
@@ -76,16 +96,16 @@ async function ban(client, { guild, executor, target, reason, lang = 'ar', delet
     active: 1,
   });
 
-  if (!silent) await dm(target.user, t(lang, 'mod.banDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }));
+  if (!silent) await dm(user, t(lang, 'mod.banDm', { server: guild.name, reason: reason || t(lang, 'common.reasonNone') }));
   await logging.logModAction(client, guild, {
     action: 'حظر',
     moderator: executor,
-    target: target.user,
+    target: user,
     reason: reason || t(lang, 'common.reasonNone'),
     caseId: record.id,
   });
 
-  return { ok: true, caseId: record.id };
+  return { ok: true, caseId: record.id, outside: !isMember };
 }
 
 /** فك الحظر */
@@ -264,4 +284,4 @@ async function warn(client, { guild, executor, target, reason, lang = 'ar', sile
   return { ok: true, caseId: record.id, count, autoAction };
 }
 
-module.exports = { ban, unban, kick, timeout, untimeout, warn, failure, preflight };
+module.exports = { ban, unban, kick, timeout, untimeout, warn, failure, preflight, isGuildMember, standInUser };

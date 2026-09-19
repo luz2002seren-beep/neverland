@@ -6,7 +6,6 @@ const embeds = require('../../lib/embeds');
 const { parseDuration, formatDuration } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 5,
   data: new SlashCommandBuilder()
     .setName('remind')
     .setDescription('ضبط تذكير وسيُنبّهك البوت في الوقت المحدّد')

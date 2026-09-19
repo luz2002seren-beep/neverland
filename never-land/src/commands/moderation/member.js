@@ -9,7 +9,6 @@ const { canModerate } = require('../../lib/permissions');
 const { formatDate } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageNicknames],
   data: new SlashCommandBuilder()
     .setName('member')

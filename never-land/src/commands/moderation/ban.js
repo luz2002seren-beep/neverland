@@ -8,7 +8,6 @@ const { t } = require('../../lib/i18n');
 const { parseDuration } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.BanMembers],
   botPermissions: [PermissionFlagsBits.BanMembers],
   data: new SlashCommandBuilder()
@@ -29,10 +28,8 @@ module.exports = {
     const durationInput = interaction.options.getString('المدة');
     const deleteDays = interaction.options.getInteger('حذف_الرسائل') ?? 0;
 
+    /* العضو ممكن يكون داخل السيرفر أو خارجه (حظر بالآيدي) — الاثنين يشتغلوا */
     const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-    if (!member) {
-      return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), t(lang, 'common.userNotFound'))] });
-    }
 
     const durationMs = durationInput ? parseDuration(durationInput) : null;
     if (durationInput && !durationMs) {
@@ -44,7 +41,7 @@ module.exports = {
     const result = await actions.ban(client, {
       guild: interaction.guild,
       executor: interaction.user,
-      target: member,
+      target: member || user,
       reason,
       lang,
       deleteMessageSeconds: Math.min(deleteDays, 7) * 86400,
@@ -67,6 +64,7 @@ module.exports = {
           { name: t(lang, 'common.case'), value: `#${result.caseId}`, inline: true },
           { name: 'الإداري', value: `${interaction.user}`, inline: true },
           { name: 'النوع', value: durationMs ? `مؤقت (${durationInput})` : 'دائم', inline: true },
+          { name: 'مكان العضو', value: member ? 'داخل السيرفر' : 'خارج السيرفر (حظر بالآيدي)', inline: false },
         ],
       },
     );

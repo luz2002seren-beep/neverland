@@ -26,7 +26,6 @@ const makeId = () => `r${Date.now().toString(36)}${Math.floor(Math.random() * 1e
 const modeLabel = { contains: 'تحتوي', exact: 'مطابقة تمامًا', starts: 'تبدأ بـ' };
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
 
   data: (() => {

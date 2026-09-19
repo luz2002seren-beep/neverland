@@ -1269,19 +1269,7 @@ const SECTIONS = {
           sgWrap.appendChild(sgSwitch);
           sgWrap.appendChild(el('div', { html: '<b>اقتراح الأوامر المشابهة</b><span>مثال: يكتبون «طير» فيردّ عليهم بالأوامر القريبة</span>' }));
 
-          const cd = el('input', { class: 'd-in', type: 'number', min: '0', max: '60', value: String(data.cooldownSeconds ?? 3) });
-          const cdWrap = el('label', { class: 'cmd-cd' });
-          cdWrap.appendChild(el('span', { text: 'حد الاستخدام (ثانية)' }));
-          cdWrap.appendChild(cd);
-          const saveCd = el('button', { class: 'd-btn sm', text: 'حفظ' });
-          saveCd.addEventListener('click', async () => {
-            try {
-              await api(`/guilds/${state.guildId}/commands/options`, { method: 'POST', body: { cooldownSeconds: Number(cd.value) || 0 } });
-              toast('تم حفظ حد الاستخدام');
-            } catch (err) { toast(err.message, true); }
-          });
-          cdWrap.appendChild(saveCd);
-
+          /* حد الاستخدام (الكولداون) انشال من الأوامر — ما في حقل باللوحة */
           const counts = el('div', { class: 'cmd-counts' });
           counts.appendChild(el('span', { text: `${data.counts?.allTotal || data.items.length} أمر في البوت` }));
           counts.appendChild(el('span', { class: 'ok', text: `${data.counts?.member ?? 0} أوامر أعضاء` }));
@@ -1291,7 +1279,6 @@ const SECTIONS = {
           bar.appendChild(counts);
           bar.appendChild(el('span', { class: 'grow' }));
           bar.appendChild(sgWrap);
-          bar.appendChild(cdWrap);
           statusBox.appendChild(bar);
 
           /* قاعدة المنشن: الأوامر اللي تحتاج عضو ما تنفّذ إلا بمنشن صريح */

@@ -6,7 +6,6 @@ const setupWizard = require('../../systems/setupWizard');
 const embeds = require('../../lib/embeds');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: new SlashCommandBuilder()
     .setName('setup')

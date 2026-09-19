@@ -4,7 +4,6 @@ const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = re
 const embeds = require('../../lib/embeds');
 
 module.exports = {
-  cooldown: 3,
   data: new SlashCommandBuilder()
     .setName('avatar')
     .setDescription('عرض صورة العضو أو البانر الخاص به')

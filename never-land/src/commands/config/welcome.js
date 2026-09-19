@@ -11,7 +11,6 @@ const PLACEHOLDERS =
   '**المتغيّرات:** `{user}` منشن • `{username}` الاسم • `{displayName}` الاسم الظاهر • `{server}` السيرفر • `{memberCount}` عدد الأعضاء • `{avatar}` رابط الصورة • `{createdAt}` • `{joinedAt}`';
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: (() => {
     const builder = new SlashCommandBuilder()

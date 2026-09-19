@@ -7,13 +7,17 @@ const db = require('../../database');
 const { t } = require('../../lib/i18n');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.BanMembers],
   botPermissions: [PermissionFlagsBits.BanMembers],
   data: new SlashCommandBuilder()
     .setName('unban')
     .setDescription('فك الحظر عن عضو باستخدام الآيدي أو اسم المستخدم')
-    .addStringOption((o) => o.setName('العضو').setDescription('آيدي العضو أو اسمه الكامل (مثال: name#0000)').setRequired(true))
+    .addStringOption((o) =>
+      o
+        .setName('العضو')
+        .setDescription('آيدي العضو أو منشنه أو اسمه الكامل (مثال: 123456789012345678)')
+        .setRequired(true),
+    )
     .addStringOption((o) => o.setName('السبب').setDescription('سبب فك الحظر').setRequired(false)),
 
   async run(client, interaction, lang) {
@@ -21,15 +25,34 @@ module.exports = {
     const input = interaction.options.getString('العضو').trim();
     const reason = interaction.options.getString('السبب') || 'بدون سبب';
 
-    // إيجاد العضو من قائمة المحظورين
-    const bans = await interaction.guild.bans.fetch().catch(() => null);
-    if (!bans) {
-      return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), '❌ ما قدرت أجيب قائمة المحظورين، تأكد من صلاحيات البوت.')] });
+    /* نقبل: آيدي · منشن <@123> · اسم كامل name#0000 · اسم المستخدم (بلا حساسية لحالة الأحرف) */
+    const id = input.replace(/[^0-9]/g, '');
+    const wanted = input.toLowerCase().replace(/^@/, '');
+
+    let entry = null;
+    if (/^\d{17,20}$/.test(id)) {
+      entry = await interaction.guild.bans.fetch(id).catch(() => null);
+    }
+    if (!entry) {
+      const bans = await interaction.guild.bans.fetch().catch(() => null);
+      if (!bans) {
+        return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), '❌ ما قدرت أجيب قائمة المحظورين، تأكد من صلاحيات البوت.')] });
+      }
+      entry = bans.find((b) => {
+        const tag = String(b.user.tag || '').toLowerCase();
+        return (
+          b.user.id === id ||
+          tag === wanted ||
+          String(b.user.username || '').toLowerCase() === wanted ||
+          String(b.user.globalName || '').toLowerCase() === wanted
+        );
+      });
     }
 
-    const entry = bans.find((b) => b.user.id === input || b.user.tag === input || b.user.username === input);
     if (!entry) {
-      return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), '❌ هذا العضو غير موجود في قائمة المحظورين.')] });
+      return interaction.editReply({
+        embeds: [embeds.error(t(lang, 'common.error'), '❌ هذا العضو مو موجود في قائمة المحظورين. تأكد من الآيدي أو المنشن.')],
+      });
     }
 
     const result = await actions.unban(client, {
@@ -53,6 +76,5 @@ module.exports = {
         }),
       ],
     });
-    db.updateGuildSettings(interaction.guildId, {});
   },
 };

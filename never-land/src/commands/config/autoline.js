@@ -7,7 +7,6 @@ const autoline = require('../../systems/autoline');
 const { stripCustomEmojis } = require('../../lib/emojis');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: (() => {
     const builder = new SlashCommandBuilder()

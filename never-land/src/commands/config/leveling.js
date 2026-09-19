@@ -8,7 +8,6 @@ const { humanize } = require('../../lib/utils');
 const periods = require('../../lib/periods');
 
 module.exports = {
-  cooldown: 3,
   data: (() => {
     const builder = new SlashCommandBuilder()
       .setName('leveling')

@@ -119,7 +119,6 @@ function buildComponents(client, activeId, guildId = null, member = null) {
 }
 
 module.exports = {
-  cooldown: 2,
   data: new SlashCommandBuilder()
     .setName('help')
     .setDescription('عرض قائمة أوامر البوت والمساعدة')
@@ -163,7 +162,6 @@ module.exports = {
       const fields = [
         { name: 'الخيارات', value: usage, inline: false },
         { name: 'القسم', value: CATEGORY_META[command.category]?.label || command.category, inline: true },
-        { name: 'الكولداون', value: `${command.cooldown ?? 3} ثانية`, inline: true },
       ];
       if (meta) {
         fields.push({

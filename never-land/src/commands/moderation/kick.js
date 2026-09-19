@@ -6,7 +6,6 @@ const embeds = require('../../lib/embeds');
 const { t } = require('../../lib/i18n');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.KickMembers],
   botPermissions: [PermissionFlagsBits.KickMembers],
   data: new SlashCommandBuilder()
@@ -22,7 +21,15 @@ module.exports = {
 
     const member = await interaction.guild.members.fetch(user.id).catch(() => null);
     if (!member) {
-      return interaction.editReply({ embeds: [embeds.error(t(lang, 'common.error'), t(lang, 'common.userNotFound'))] });
+      /* الطرد يحتاج العضو يكون موجود بالسيرفر — نوجّهه للحظر بالآيدي بدل الطرد */
+      return interaction.editReply({
+        embeds: [
+          embeds.error(
+            '❌ هذا العضو مو موجود بالسيرفر',
+            'ما يمكن طرد عضو مو بالسيرفر — ديسكورد ما يسمح. استخدم `/ban` مع آيدي العضو إذا بدك تمنعه، والحظر يشتغل وهو برّا السيرفر.',
+          ),
+        ],
+      });
     }
 
     const result = await actions.kick(client, {

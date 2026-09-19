@@ -5,7 +5,6 @@ const embeds = require('../../lib/embeds');
 const { formatDuration } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 5,
   data: new SlashCommandBuilder().setName('ping').setDescription('قياس سرعة استجابة البوت وجودة الاتصال'),
 
   async run(client, interaction, lang) {

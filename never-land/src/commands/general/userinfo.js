@@ -7,7 +7,6 @@ const leveling = require('../../systems/leveling');
 const { formatDate, progressBar } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 3,
   data: new SlashCommandBuilder()
     .setName('userinfo')
     .setDescription('معلومات تفصيلية عن عضو (الحساب، الرتب، السجل، المستوى)')

@@ -7,7 +7,6 @@ const { formatDuration, humanize } = require('../../lib/utils');
 const config = require('../../config');
 
 module.exports = {
-  cooldown: 5,
   data: new SlashCommandBuilder().setName('botinfo').setDescription('معلومات عن البوت وإحصائياته'),
 
   async run(client, interaction, lang) {

@@ -16,7 +16,6 @@ const TOGGLES = {
 const TOGGLE_CHOICES = Object.entries(TOGGLES).map(([value, def]) => ({ name: def.label, value }));
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: (() => {
     const builder = new SlashCommandBuilder()

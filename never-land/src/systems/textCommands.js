@@ -131,7 +131,7 @@ function defaultsFor() {
     for (const word of AR_TRIGGERS[name] || []) if (!list.includes(word)) list.push(word);
     aliases[name] = list;
   }
-  return { enabled: true, aliases, cooldownSeconds: 3, disabled: [], suggest: true, perCommand: {} };
+  return { enabled: true, aliases, cooldownSeconds: 0, disabled: [], suggest: true, perCommand: {} };
 }
 
 /**
@@ -426,16 +426,24 @@ function bindArguments(interaction, guild, message, tokens, defs) {
 
     if (kind === 'user') {
       /*
-       * العضو المطلوب يُحدَّد بمنشن صريح فقط (@العضو) — مو بالرد على رسالة،
-       * ولا بكتابة اسم، ولا بأي شي ثاني. هيك ما ينعقب أحد بالغلط.
+       * العضو المطلوب يُحدَّد بمنشن صريح (@العضو) أو بآيديه الرقمي (123456789012345678).
+       * الآيدي يشتغل حتى لو العضو برّا السيرفر (مثلًا حظر بالآيدي) — يُحلّ لاحقًا بشكل غير متزامن.
        */
-      const idx = tokens.findIndex((t, i) => !claimed[i] && /^<@!?\d+>$/.test(t));
+      const isMention = (t) => /^<@!?\d+>$/.test(t);
+      const isId = (t) => /^\d{17,20}$/.test(t);
+      let idx = tokens.findIndex((t, i) => !claimed[i] && isMention(t));
       if (idx >= 0) {
         const id = tokens[idx].replace(/[^0-9]/g, '');
         const mentioned = mentionMember();
         const member = (mentioned && mentioned.id === id ? mentioned : null) || findMember(guild, tokens[idx]);
         claimed[idx] = true;
         if (member) store.set(def.name, { user: member.user, member });
+        continue;
+      }
+      idx = tokens.findIndex((t, i) => !claimed[i] && isId(t));
+      if (idx >= 0) {
+        claimed[idx] = true;
+        store.set(def.name, { userId: tokens[idx], raw: tokens[idx] });
       }
       continue;
     }
@@ -686,9 +694,9 @@ async function handleMessage(client, message) {
     }
   }
 
-  /* حد الاستخدام: نأخذ الأكبر بين حد الأمر وحد السيرفر (لو في حد للأمر) */
+  /* حد الاستخدام مشيل افتراضيًا: صفر = بلا انتظار (الكولداون القديم كان 3 ثواني) */
   const perCommand = Number(command.cooldown) || 0;
-  const cooldownSeconds = perCommand > 0 ? Math.max(perCommand, config.cooldownSeconds) : config.cooldownSeconds;
+  const cooldownSeconds = perCommand > 0 ? Math.max(perCommand, Number(config.cooldownSeconds) || 0) : Number(config.cooldownSeconds) || 0;
   const wait = onCooldown(message, cooldownSeconds);
   if (wait > 0) {
     await message.reply({ content: `⏳ استنى ${wait} ثانية قبل ما تستعمل الأمر مرة ثانية.`, allowedMentions: { repliedUser: false } }).catch(() => {});
@@ -702,13 +710,14 @@ async function handleMessage(client, message) {
     /* ناقص منشن: نرد ببطاقة الأمر نفسها + تنبيه بسيط (بدل رسالة نصية قصيرة) */
     const card = require('./suggestions').card(name, {
       guildId,
-      note: `> اكتب الأمر مع **منشن العضو** — مثال: \`${asSlash(exampleFor(command, mention.option))}\``,
+      note: `> اكتب الأمر مع **منشن العضو أو آيديه** — مثال: \`${asSlash(exampleFor(command, mention.option))}\` · أو \`${command.data.name} 123456789012345678\``,
     });
     await message.reply({ embeds: [card], allowedMentions: { repliedUser: false } }).catch(() => {});
     return true;
   }
 
   const fake = makeFakeInteraction(client, message, command, args, sub, subDefaults);
+  await resolveIdArguments(fake, client);
   try {
     await command.run(client, fake, 'ar');
 
@@ -740,8 +749,10 @@ function checkMention(message, args, defs) {
   const need = defs.find((def) => kindOf(def) === 'user' && def.required);
   if (!need) return { ok: true };
 
-  const token = args.find((t) => /^<@!?\d+>$/.test(String(t)));
+  /* منشن صريح أو آيدي رقمي — الآيدي مسموح حتى لو العضو برّا السيرفر */
+  const token = args.find((t) => /^<@!?\d+>$/.test(String(t)) || /^\d{17,20}$/.test(String(t)));
   if (!token) return { ok: false, option: need.name };
+  if (/^\d{17,20}$/.test(String(token))) return { ok: true };
 
   const id = String(token).replace(/[^0-9]/g, '');
   const mentioned = message.mentions?.members?.first?.() || null;
@@ -856,6 +867,33 @@ function makeFakeInteraction(client, message, command, args, sub, subDefaults = 
     if (!store.has(optionName)) store.set(optionName, { int: Number(value), raw: String(value), string: String(value) });
   }
   return interaction;
+}
+
+/**
+ * يحوّل الآيديهات الرقمية المكتوبة في الشات إلى مستخدم/عضو حقيقي.
+ * العضو ممكن يكون برّا السيرفر — نجيب المستخدم من ديسكورد مباشرة.
+ * @param {object} interaction التفاعل الوهمي (فيه __textArgs)
+ * @param {import('discord.js').Client} client
+ */
+async function resolveIdArguments(interaction, client) {
+  const store = interaction?.__textArgs;
+  if (!store) return;
+  for (const [name, entry] of store) {
+    if (!entry || !entry.userId) continue;
+    const guild = interaction.guild;
+
+    let member = null;
+    if (guild?.members) {
+      member = guild.members.cache?.get?.(entry.userId) || null;
+      if (!member) member = await guild.members.fetch(entry.userId).catch(() => null);
+    }
+
+    let user = member?.user || client?.users?.cache?.get?.(entry.userId) || null;
+    if (!user && client?.users?.fetch) user = await client.users.fetch(entry.userId).catch(() => null);
+    if (!user) continue;
+
+    store.set(name, { user, member, raw: entry.raw, string: entry.raw });
+  }
 }
 
 /** قواعد الأمر الجارية لكل رسالة (تستخدمها replyToMessage) */
@@ -1085,6 +1123,7 @@ module.exports = {
   setOptions,
   makeFakeInteraction,
   bindArguments,
+  resolveIdArguments,
   optionDefs,
   findMember,
   findRole,

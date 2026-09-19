@@ -14,7 +14,6 @@ const leveling = require('../../systems/leveling');
 const periods = require('../../lib/periods');
 
 module.exports = {
-  cooldown: 3,
   data: new SlashCommandBuilder()
     .setName('top')
     .setDescription('لوحة المتصدّرين: توب داي · توب ويك · كل الأوقات')

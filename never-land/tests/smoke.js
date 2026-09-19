@@ -2173,6 +2173,46 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read49('src/web/public/dash.css').includes('.d-sample-row'), 'أنماط المعاينة ناقصة');
   }
 
+ console.log('[اختبار] 50: الحظر/الطرد/فك الحظر بالآيدي (داخل السيرفر أو برّا) + شيل الكولداون');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path50 = require('node:path');
+    const fs50 = require('node:fs');
+    const root50 = path50.join(__dirname, '..');
+    const read50 = (rel) => fs50.readFileSync(path50.join(root50, rel), 'utf8');
+
+    const out50 = execFileSync('node', ['moderation-test.js'], { cwd: root50, encoding: 'utf8' });
+    assert.ok(out50.includes('كل الفحوص نجحت'), 'اختبار المودريشن فشل');
+
+    /* الحظر يشتغل بالآيدي للعضو اللي برّا السيرفر (guild.bans.create) */
+    const mod50 = read50('src/lib/modActions.js');
+    assert.ok(mod50.includes('guild.bans.create(user.id'), 'مسار الحظر بالآيدي ناقص');
+    assert.ok(mod50.includes('isMember ? target : standInUser(user)'), 'فحص الهرمية للعضو الخارجي ناقص');
+
+    /* الطرد يوجّه للحظر · فك الحظر يقبل منشن/آيدي */
+    assert.ok(read50('src/commands/moderation/kick.js').includes('مو موجود بالسيرفر'), 'رسالة الطرد ناقصة');
+    assert.ok(read50('src/commands/moderation/unban.js').includes('bans.fetch(id)'), 'فك الحظر ما يدعم الآيدي مباشرة');
+
+    /* الكولداون مشيل: بلا خاصية cooldown بأي أمر + الغلاف يرجّع صفر */
+    const cmdFiles50 = [];
+    const walk50 = (dir) => {
+      for (const entry of fs50.readdirSync(dir, { withFileTypes: true })) {
+        const full = path50.join(dir, entry.name);
+        if (entry.isDirectory()) walk50(full);
+        else if (entry.name.endsWith('.js')) cmdFiles50.push(full);
+      }
+    };
+    walk50(path50.join(root50, 'src/commands'));
+    const leftover50 = cmdFiles50.filter((f) => /^\s{2}cooldown:\s*\d+/m.test(fs50.readFileSync(f, 'utf8')));
+    assert.strictEqual(leftover50.length, 0, 'في أوامر بعدها فيها كولداون');
+    assert.ok(read50('src/events/interactionCreate.js').includes('if (cooldownSeconds <= 0) return 0;'), 'الحماية من الكولداون ناقصة');
+    assert.ok(read50('src/database/migrate.js').includes('migrateTextCommands'), 'ترقية الكولداون القديم ناقصة');
+
+    /* أوامر الشات: خيار العضو يقبل آيدي */
+    const tc50 = read50('src/systems/textCommands.js');
+    assert.ok(tc50.includes('resolveIdArguments'), 'دعم الآيدي في أوامر الشات ناقص');
+  }
+
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');
 
   process.exit(0);

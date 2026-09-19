@@ -33,7 +33,9 @@ async function safeReply(interaction, payload) {
 
 /** فحص الكولداون */
 function checkCooldown(client, interaction, command) {
-  const cooldownSeconds = command.cooldown ?? 3;
+  /* الكولداون مشيل من الأوامر: أي أمر بلا حد (أو حده 0) يشتغل بلا انتظار */
+  const cooldownSeconds = Number(command.cooldown) || 0;
+  if (cooldownSeconds <= 0) return 0;
   if (!client.cooldowns.has(command.data.name)) client.cooldowns.set(command.data.name, new Map());
 
   const timestamps = client.cooldowns.get(command.data.name);
@@ -53,6 +55,8 @@ function checkCooldown(client, interaction, command) {
 
 module.exports = {
   name: Events.InteractionCreate,
+  /* مُصدَّر للاختبارات: يرجّع 0 يعني بلا انتظار */
+  checkCooldown,
 
   async execute(client, interaction) {
     const lang = interaction.guildId ? db.locale(interaction.guildId) : 'en';

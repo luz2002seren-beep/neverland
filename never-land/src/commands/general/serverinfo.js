@@ -14,7 +14,6 @@ const VERIFICATION = {
 };
 
 module.exports = {
-  cooldown: 5,
   data: new SlashCommandBuilder().setName('serverinfo').setDescription('معلومات تفصيلية عن السيرفر'),
 
   async run(client, interaction, lang) {

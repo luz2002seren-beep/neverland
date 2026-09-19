@@ -24,6 +24,9 @@ const LEGACY_KEYS = ['minXp', 'maxXp', 'voiceMinXp', 'voiceMaxXp'];
 /** الكولداون الافتراضي في النموذج القديم (يُعتبر قيمة افتراضية لا اختيارًا) */
 const LEGACY_DEFAULT_COOLDOWN = 60;
 
+/** كولداون الأوامر القديم (3 ثواني) — صار مشيل، فالقيمة الافتراضية القديمة ترجع صفر */
+const LEGACY_TEXT_COOLDOWN = 3;
+
 /**
  * ترقية إعدادات سيرفر واحد (تعديل في المكان).
  * الفحص يعتمد على وجود مفاتيح النموذج القديم نفسها — لا على رقم إصدار محفوظ،
@@ -33,6 +36,8 @@ const LEGACY_DEFAULT_COOLDOWN = 60;
  */
 function migrateSettings(settings) {
   if (!settings || typeof settings !== 'object') return settings;
+
+  migrateTextCommands(settings);
 
   const leveling = settings.leveling;
   if (!leveling || typeof leveling !== 'object') return settings;
@@ -50,4 +55,22 @@ function migrateSettings(settings) {
   return settings;
 }
 
-module.exports = { migrateSettings, LEVELING_SETTINGS_VERSION };
+/**
+ * الكولداون مشيل من الأوامر (سلاش + بلا بريفيكست):
+ * أي قيمة محفوظة تساوي الافتراضي القديم (3) ترجع صفر حتى ما ينتظر أحد.
+ * @param {object} settings إعدادات السيرفر
+ */
+function migrateTextCommands(settings) {
+  const tc = settings?.textCommands;
+  if (!tc || typeof tc !== 'object') return settings;
+
+  if (Number(tc.cooldownSeconds) === LEGACY_TEXT_COOLDOWN) tc.cooldownSeconds = 0;
+  if (tc.perCommand && typeof tc.perCommand === 'object') {
+    for (const [name, value] of Object.entries(tc.perCommand)) {
+      if (Number(value) === LEGACY_TEXT_COOLDOWN) tc.perCommand[name] = 0;
+    }
+  }
+  return settings;
+}
+
+module.exports = { migrateSettings, migrateTextCommands, LEVELING_SETTINGS_VERSION, LEGACY_TEXT_COOLDOWN };

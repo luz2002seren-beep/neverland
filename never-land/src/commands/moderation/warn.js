@@ -8,7 +8,6 @@ const { t } = require('../../lib/i18n');
 const { formatDate } = require('../../lib/utils');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ModerateMembers],
   data: new SlashCommandBuilder()
     .setName('warn')

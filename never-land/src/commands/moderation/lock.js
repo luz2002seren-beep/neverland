@@ -5,7 +5,6 @@ const embeds = require('../../lib/embeds');
 const { t } = require('../../lib/i18n');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageChannels],
   botPermissions: [PermissionFlagsBits.ManageChannels],
   data: new SlashCommandBuilder()

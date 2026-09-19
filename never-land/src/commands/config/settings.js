@@ -7,7 +7,6 @@ const config = require('../../config');
 const { t } = require('../../lib/i18n');
 
 module.exports = {
-  cooldown: 3,
   permissions: [PermissionFlagsBits.ManageGuild],
   data: new SlashCommandBuilder()
     .setName('settings')
