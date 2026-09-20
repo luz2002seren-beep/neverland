@@ -967,6 +967,38 @@ router.get('/status', (req, res) => {
         return null;
       }
     })(),
+    /*
+     * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
+     * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
+     */
+    build: (() => {
+      try {
+        const fs = require('node:fs');
+        const crypto = require('node:crypto');
+        const path = require('node:path');
+        const root = path.join(__dirname, '..', '..', '..'); // جذر المشروع
+        const read = (rel) => {
+          try {
+            return fs.readFileSync(path.join(root, rel), 'utf8');
+          } catch {
+            return '';
+          }
+        };
+        const fingerprint = (rel) => (read(rel) ? crypto.createHash('sha1').update(read(rel)).digest('hex').slice(0, 12) : null);
+        const levelingSrc = read('src/systems/leveling.js');
+        return {
+          files: {
+            'src/systems/leveling.js': fingerprint('src/systems/leveling.js'),
+            'src/web/public/app.js': fingerprint('src/web/public/app.js'),
+            'src/web/routes/api.js': fingerprint('src/web/routes/api.js'),
+          },
+          /* false = التوب بلا فوتر (الشكل الأخير) */
+          topBoardFooter: !levelingSrc.includes('بلا تذييل — رقم الصفحة'),
+        };
+      } catch {
+        return null;
+      }
+    })(),
   });
 });
 
