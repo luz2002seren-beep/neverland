@@ -33,7 +33,9 @@ const DEFAULTS = () => ({
   text: config.commandRoom?.text || 'مرحبا بكم بسيرفر Never Land — هذا روم مخصص لاستخدام الأوامر وسيتم تنظيفه كل 60 ثانية.',
   intervalSeconds: Math.max(15, Number(config.commandRoom?.intervalSeconds) || 60),
   image: config.commandRoom?.image || 'src/web/public/assets/commands-room.png',
-  pin: config.commandRoom?.pin !== false,
+  pin: config.commandRoom?.pin === true,
+  /* إعادة النشر: نحذف الرسالة ونبعت وحدة جديدة كل دورة (بلا «تم التعديل») */
+  repost: config.commandRoom?.repost !== false,
 });
 
 /** إعدادات الروم لسيرفر (مع الافتراضيات) */
@@ -53,6 +55,7 @@ function configFor(guildId) {
     intervalSeconds: Math.min(3600, Math.max(15, Number.isFinite(interval) && interval > 0 ? interval : defaults.intervalSeconds)),
     image: saved.image === undefined ? defaults.image : saved.image,
     pin: saved.pin === undefined ? defaults.pin : Boolean(saved.pin),
+    repost: saved.repost === undefined ? defaults.repost : Boolean(saved.repost),
     /* رقم رسالة الترحيب (محفوظ حتى ما نمسحها ونعرف نعدّلها) */
     bannerId: saved[BANNER_FILE] || null,
   };
@@ -93,14 +96,21 @@ async function publish(client, guild, { force = false } = {}) {
     return body;
   };
 
-  /* ١) لو في رسالة منشورة من قبل: نعدّلها بدل ما نبعت نسخة ثانية */
-  if (cfg.bannerId && !force) {
+  /* ١) في رسالة منشورة من قبل؟ */
+  if (cfg.bannerId) {
     const existing = await channel.messages.fetch(cfg.bannerId).catch(() => null);
     if (existing) {
-      const edited = await existing
-        .edit(file ? { content: cfg.text, files: [file], __raw: true } : { content: cfg.text, __raw: true })
-        .catch(() => null);
-      if (edited) return { ok: true, messageId: existing.id, edited: true, channelId: channel.id };
+      if (cfg.repost) {
+        /* إعادة النشر: نحذف القديمة (ونفك التثبيت إن كان مثبّتًا) ونبعت وحدة جديدة كل دورة */
+        await existing.unpin().catch(() => {});
+        await existing.delete().catch(() => {});
+      } else if (!force) {
+        /* وضع التعديل: نحدّث نفس الرسالة (تظهر عندها كلمة «تم التعديل») */
+        const edited = await existing
+          .edit(file ? { content: cfg.text, files: [file], __raw: true } : { content: cfg.text, __raw: true })
+          .catch(() => null);
+        if (edited) return { ok: true, messageId: existing.id, edited: true, channelId: channel.id };
+      }
     }
   }
 

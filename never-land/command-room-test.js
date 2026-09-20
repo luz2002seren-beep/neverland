@@ -51,6 +51,7 @@ function makeChannel() {
       return makeMessage(id, { content: p.content, pinned, ageMs: 0 });
     },
     pin: async () => true,
+    unpin: async () => true,
     delete: async () => {
       state.individualDeletes.push(id);
       state.messages.delete(id);
@@ -143,12 +144,36 @@ async function main() {
     assert.strictEqual(saved, sent.id, 'رقم رسالة الترحيب ما انحفظ');
     ok('نُشرت الرسالة: النص العربي كما هو + الصورة مرفقة + رقم الرسالة محفوظ');
 
-    /* إعادة النشر: تعديل بدل نسخة ثانية */
+    /* إعادة النشر (الوضع الافتراضي): يحذف القديمة ويبعت وحدة جديدة — بلا «تم التعديل» */
     const res2 = await room.publish(client, guild);
-    assert.strictEqual(res2.edited, true, 'لازم يعدّل نفس الرسالة');
+    assert.notStrictEqual(res2.messageId, res.messageId, 'لازم رسالة جديدة كل دورة');
     const sends = channel.state.sent.filter((s) => s.type === 'send').length;
-    assert.strictEqual(sends, 1, 'انبعتت نسخة ثانية من الرسالة: ' + sends);
-    ok('إعادة النشر تعدّل نفس الرسالة (ما تتراكم نسخ في الروم)');
+    const edits = channel.state.sent.filter((s) => s.type === 'edit').length;
+    assert.strictEqual(sends, 2, 'لازم إرسالين (وحدة لكل دورة): ' + sends);
+    assert.strictEqual(edits, 0, 'ما لازم يصير أي تعديل (يطلع «تم التعديل»): ' + edits);
+    assert.ok(!channel.state.messages.has(res.messageId), 'الرسالة القديمة ما انحذفت');
+    assert.ok(channel.state.messages.has(res2.messageId), 'الرسالة الجديدة مو موجودة');
+    ok('كل دورة: تُحذف الرسالة وتنبعث وحدة جديدة (بلا «تم التعديل» ولا تراكم نسخ)');
+
+    /* ومخزّن الرقم يتحدّث للرسالة الجديدة */
+    assert.strictEqual(room.configFor(GUILD).bannerId, res2.messageId, 'رقم الرسالة ما انحدّث');
+    ok('رقم الرسالة يتحدّث تلقائيًا بعد كل إعادة نشر');
+
+    /* ما فيه تثبيت افتراضيًا */
+    assert.strictEqual(room.configFor(GUILD).pin, false, 'التثبيت لازم يكون مطفّي افتراضيًا');
+    assert.strictEqual(room.configFor(GUILD).repost, true, 'إعادة النشر لازم تكون مفعّلة افتراضيًا');
+    const pinCalls = channel.state.sent.filter((s) => s.type === 'pin').length;
+    assert.strictEqual(pinCalls, 0, 'ما لازم يثبّت الرسالة');
+    ok('بلا تثبيت: الرسالة تظهر عادية مو مثبّتة');
+
+    /* وضع التعديل (repost=false) يبقى متاحًا */
+    db.updateGuildSettings(GUILD, { commandRoom: { repost: false } });
+    const res3 = await room.publish(client, guild);
+    assert.strictEqual(res3.edited, true, 'وضع التعديل ما اشتغل');
+    const editsAfter = channel.state.sent.filter((s) => s.type === 'edit').length;
+    assert.strictEqual(editsAfter, 1, 'لازم تعديل واحد في وضع التعديل');
+    ok('خيار «إعادة النشر» لو طفّيته يرجع يعدّل نفس الرسالة');
+    db.updateGuildSettings(GUILD, {});
   }
 
   console.log('\n═══ ٣) التنظيف: يمسح الكل ما عدا رسالة الترحيب ═══');
@@ -166,7 +191,8 @@ async function main() {
     const clean = await room.clean(client, guild);
     assert.strictEqual(clean.ok, true, 'التنظيف فشل');
     assert.strictEqual(clean.deleted, 3, 'عدد المحذوف غلط: ' + clean.deleted);
-    assert.ok(channel.state.messages.has(banner), 'رسالة الترحيب انمسحت!');
+    const stillBanner = room.configFor(GUILD).bannerId || banner;
+    assert.ok(channel.state.messages.has(stillBanner), 'رسالة الترحيب انمسحت!');
     assert.ok(channel.state.messages.has('903'), 'الرسالة المثبّتة انمسحت (لازم تبقى)');
     assert.ok(!channel.state.messages.has('902'), 'كلام العضو ما انمسح');
     ok('التنظيف مسح ٣ رسائل وخلّى رسالة الترحيب (والمثبّتة)');

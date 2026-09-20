@@ -2288,6 +2288,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(cfg52.includes('1549365063708573817'), 'رقم روم الأوامر ناقص من الإعدادات');
     assert.ok(cfg52.includes('مرحبا بكم بسيرفر Never Land'), 'نص رسالة الترحيب ناقص');
     assert.ok(cfg52.includes('intervalSeconds: 60'), 'مدة التنظيف (٦٠ ثانية) ناقصة');
+    /* إعادة النشر كل دورة (بلا «تم التعديل») + بلا تثبيت */
+    assert.ok(/repost: true/.test(cfg52), 'خيار «إعادة النشر كل دورة» ناقص');
+    assert.ok(/pin: false/.test(cfg52), 'التثبيت لازم يكون مطفّي افتراضيًا');
+    assert.ok(read52('src/systems/commandRoom.js').includes('existing.delete()'), 'حذف الرسالة القديمة وإعادة نشرها ناقص');
+    assert.ok(read52('src/web/public/app.js').includes('commandRoom.repost'), 'مفتاح «إعادة النشر» ناقص من اللوحة');
     assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.png')), 'صورة الروم غير موجودة');
 
     /* النظام + المؤقّت */

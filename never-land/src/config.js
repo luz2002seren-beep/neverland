@@ -384,8 +384,10 @@ const config = {
       intervalSeconds: 60,
       /** صورة الرسالة (مسار داخل المشروع أو رابط خارجي) */
       image: 'src/web/public/assets/commands-room.png',
-      /** تثبيت رسالة الترحيب في الروم */
-      pin: true,
+      /** تثبيت رسالة الترحيب في الروم (افتراضيًا: بلا تثبيت) */
+      pin: false,
+      /** يحذف الرسالة ويعيد نشرها كل دورة (تظهر كرسالة جديدة بلا «تم التعديل») */
+      repost: true,
     },
     tickets: {
       enabled: false,
