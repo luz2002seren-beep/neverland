@@ -15,6 +15,55 @@ const db = require('../database');
 const { base } = require('../lib/embeds');
 const { applyPlaceholders } = require('../lib/utils');
 const welcomeCard = require('../lib/welcomeCard');
+const welcomeFrame = require('../lib/welcomeFrame');
+
+/* حالة حيّة (تظهر في /api/status وللتشخيص) */
+const STATE = { guilds: {} };
+
+/* النص الافتراضي القديم (لتحديد إن العميل ما عدّله بنفسه) */
+const OLD_DEFAULT_MESSAGE = 'أهلاً بك {user} في **{server}**، عدد الأعضاء الآن **{memberCount}**.';
+
+/**
+ * 🖼️ ترقية شكل الترحيب مرة واحدة لكل سيرفر: بطاقة قديمة ← إطار Never Land
+ * (الأفتار داخل الدائرة) + تفعيل القناة والنص الجديد — وبس إذا ما كانت معدّلة بيد العميل.
+ * @returns {string|null} الوضع الجديد إذا صارت الترقية
+ */
+function ensureStyle(guildId) {
+  if (!guildId) return null;
+  try {
+    const raw = db.getGuildSettings(guildId)?.welcome || {};
+    if (raw.styleUpgraded === true) return null;
+
+    const defaults = require('../config').defaults.welcome;
+    const patch = { styleUpgraded: true };
+    if (raw.imageMode === undefined || raw.imageMode === 'card') patch.imageMode = 'frame';
+    if (raw.frameImage === undefined) patch.frameImage = defaults.frameImage;
+    if (raw.frameCircle === undefined) patch.frameCircle = defaults.frameCircle;
+    if (!Array.isArray(raw.frameCircle) && raw.frameCircle && raw.frameCircle.cx === undefined) patch.frameCircle = defaults.frameCircle;
+    if (!raw.channelId) patch.channelId = defaults.channelId;
+    if (raw.enabled !== true) patch.enabled = true;
+    if (!raw.message || raw.message === OLD_DEFAULT_MESSAGE) patch.message = defaults.message;
+
+    db.updateGuildSettings(guildId, { welcome: patch });
+    return patch.imageMode || 'kept';
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * متغيّرات الداعي (Inv By) — تُستخدم في نص الترحيب.
+ * @param {object|null} inviteInfo { code, inviter, uses }
+ */
+function inviterVars(inviteInfo) {
+  const inviter = inviteInfo?.inviter || null;
+  return {
+    inviter: inviter ? (inviter.globalName || inviter.displayName || inviter.username || 'غير معروف') : 'غير معروف',
+    inviterName: inviter ? (inviter.globalName || inviter.username || 'غير معروف') : 'غير معروف',
+    inviterMention: inviter ? `<@${inviter.id}>` : 'غير معروف',
+    inviteCode: inviteInfo?.code || 'غير معروف',
+  };
+}
 
 /** إرسال رسالة إلى قناة معينة مع خيار الحذف التلقائي */
 async function sendTo(client, guild, channelId, payload, autoDeleteAfter = 0) {
@@ -87,6 +136,22 @@ async function buildWelcomeImage(client, member, settings, opts = {}) {
     return result;
   }
 
+  /* 🖼️ إطار Never Land: صورة الإطار + أفتار العضو داخل الدائرة الفارغة */
+  if (mode === 'frame' && welcomeFrame.available(cfg.frameImage)) {
+    const made = await welcomeFrame.generate({
+      avatarUrl: member.user.displayAvatarURL({ size: 512, extension: 'png' }),
+      frame: cfg.frameImage,
+      roi: cfg.frameCircle || null,
+      format: 'webp',
+    });
+    if (made) {
+      result.files.push(new AttachmentBuilder(made.buffer, { name: made.name }));
+      result.imageRef = `attachment://${made.name}`;
+      return result;
+    }
+    /* فشل التوليد؟ نكمل للبطاقة العادية */
+  }
+
   if (mode === 'card' && welcomeCard.available()) {
     /* النص المرسوم على الصورة: نص البطاقة المخصّص وإن ما في، نص رسالة الترحيب بلا تنسيق ماركداون */
     const cardText = applyPlaceholders(opts.cardMessage || cfg.cardMessage || 'أهلاً بك {displayName} في {server}', {
@@ -122,8 +187,9 @@ async function buildWelcomeImage(client, member, settings, opts = {}) {
 }
 
 /** ترحيب عضو جديد */
-async function handleMemberAdd(client, member) {
+async function handleMemberAdd(client, member, { inviteInfo = null } = {}) {
   const { guild } = member;
+  ensureStyle(guild.id);
   const settings = db.getGuildSettings(guild.id);
   const lang = settings.language || 'ar';
 
@@ -141,8 +207,18 @@ async function handleMemberAdd(client, member) {
 
   /* --------- 2) رسالة الترحيب في القناة --------- */
   if (settings.welcome?.enabled && settings.welcome.channelId) {
-    const payload = await buildWelcomePayload(client, member, settings);
-    await sendTo(client, guild, settings.welcome.channelId, payload, settings.welcome.autoDeleteAfter || 0);
+    const payload = await buildWelcomePayload(client, member, settings, { inviteInfo });
+    const message = await sendTo(client, guild, settings.welcome.channelId, payload, settings.welcome.autoDeleteAfter || 0);
+    STATE.guilds[guild.id] = {
+      lastWelcomeAt: Date.now(),
+      lastMember: { id: member.id, tag: member.user.tag },
+      inviter: inviterVars(inviteInfo).inviter,
+      channelId: settings.welcome.channelId,
+      imageMode: settings.welcome.imageMode || 'frame',
+      sent: Boolean(message),
+      messageId: message?.id || null,
+      test: false,
+    };
   }
 
   /* --------- 3) ترحيب خاص في الرسائل --------- */
@@ -218,8 +294,21 @@ async function handleBoost(client, member) {
  * تُبنى بنفس الإعدادات الحقيقية — بما فيها النص المرسوم على الصورة.
  */
 async function previewCard(client, member) {
+  ensureStyle(member.guild.id);
   const settings = db.getGuildSettings(member.guild.id);
   const cfg = settings.welcome || {};
+
+  /* إطار Never Land: نفس الصورة اللي تنزل للأعضاء */
+  if ((cfg.imageMode || 'frame') === 'frame' && welcomeFrame.available(cfg.frameImage)) {
+    const made = await welcomeFrame.generate({
+      avatarUrl: member.user.displayAvatarURL({ size: 512, extension: 'png' }),
+      frame: cfg.frameImage,
+      roi: cfg.frameCircle || null,
+      format: 'png',
+    });
+    if (made) return made.buffer;
+  }
+
   const cardText = applyPlaceholders(cfg.cardMessage || 'أهلاً بك {displayName} في {server}', {
     user: member.user,
     member,
@@ -241,9 +330,10 @@ async function previewCard(client, member) {
  * بناء رسالة الترحيب كاملة (صورة + نص) — تُستخدم عند دخول عضو وعند الاختبار.
  * @returns {{content:?string, embeds:Array, files:Array}}
  */
-async function buildWelcomePayload(client, member, settings) {
+async function buildWelcomePayload(client, member, settings, { inviteInfo = null } = {}) {
   const guild = member.guild;
-  const text = applyPlaceholders(settings.welcome.message, { user: member.user, member, guild });
+  const vars = inviterVars(inviteInfo);
+  const text = applyPlaceholders(settings.welcome.message, { user: member.user, member, guild, extra: vars });
   const plain = settings.welcome.embed === false;
   const { files, imageRef } = await buildWelcomeImage(client, member, settings, { asFile: plain });
 
@@ -271,4 +361,54 @@ async function buildWelcomePayload(client, member, settings) {
   };
 }
 
-module.exports = { handleMemberAdd, handleMemberRemove, handleBoost, sendTo, buildWelcomeImage, buildWelcomePayload, previewCard };
+/**
+ * ✅ ترحيب تجريبي (لمراجعة الشكل): يرسل رسالة ترحيب حقيقية لعضو موجود في السيرفر
+ * إلى قناة الترحيب — نفس الصورة (الإطار + الأفتار) ونفس النص تمامًا.
+ * @returns {Promise<{ok:boolean, reason?:string, messageId?:string, channelId?:string}>}
+ */
+async function sendTestWelcome(client, guild, member, { inviteInfo = null, channelId = null, memberId = null } = {}) {
+  const settings = db.getGuildSettings(guild.id);
+  const target = channelId || settings.welcome.channelId;
+  if (!target) return { ok: false, reason: 'noChannel' };
+
+  const subject = member
+    || (memberId ? await guild.members.fetch(memberId).catch(() => null) : null)
+    || guild.members.me;
+  if (!subject) return { ok: false, reason: 'noMember' };
+
+  const payload = await buildWelcomePayload(client, subject, settings, { inviteInfo });
+  const message = await sendTo(client, guild, target, payload, 0);
+  if (!message) return { ok: false, reason: 'sendFailed' };
+
+  STATE.guilds[guild.id] = {
+    lastWelcomeAt: Date.now(),
+    lastMember: { id: subject.id, tag: subject.user.tag },
+    inviter: inviterVars(inviteInfo).inviter,
+    channelId: target,
+    imageMode: settings.welcome.imageMode || 'frame',
+    sent: true,
+    messageId: message.id,
+    test: true,
+  };
+  return { ok: true, messageId: message.id, channelId: target, member: subject.user.tag, inviter: inviterVars(inviteInfo).inviter };
+}
+
+/** حالة الترحيب (للتشخيص) */
+function status(guildId = null) {
+  if (guildId) return STATE.guilds[guildId] || null;
+  return STATE.guilds;
+}
+
+module.exports = {
+  handleMemberAdd,
+  handleMemberRemove,
+  handleBoost,
+  sendTo,
+  buildWelcomeImage,
+  buildWelcomePayload,
+  previewCard,
+  sendTestWelcome,
+  inviterVars,
+  ensureStyle,
+  status,
+};

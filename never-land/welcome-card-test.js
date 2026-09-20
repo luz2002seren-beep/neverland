@@ -5,6 +5,7 @@
  * -------------------------------------------------------------
  * اختبار طريقة الترحيب الجديدة (زي بوتات الترحيب الاحترافية):
  *
+ *   ٠) إطار Never Land: أفتار العضو يُرسم داخل الدائرة الفارغة (src/lib/welcomeFrame.js)
  *   ١) الصورة: مقاس ثابت + الخطوط المرفقة + النص المرسوم عليها (عربي وإنجليزي)
  *   ٢) الرسالة: صورة مرفقة + نص عادي **بلا Embed** (الوضع الافتراضي)
  *   ٣) وضع Embed ما زال متاحًا (لمن يريده)
@@ -108,16 +109,31 @@ async function run() {
     assert.ok(latin && latin.length > 8000, 'صورة الترحيب بالإنجليزي فشلت');
     console.log(`١) صورة الترحيب: ${card.CARD_W}×${card.CARD_H} · ${Math.round(buffer.length / 1024)}KB · عربي وإنجليزي · الخطوط مرفقة ✅`);
 
-    /* ---------- ٢) الوضع الافتراضي: صورة + رسالة عادية ---------- */
+    /* ---------- ١-ب) الوضع الافتراضي الجديد: إطار Never Land (الأفتار داخل الدائرة) ---------- */
+    const frameLib = require('./src/lib/welcomeFrame');
+    assert.ok(frameLib.available(), 'إطار الترحيب غير متاح (المكتبة أو الصورة ناقصة)');
+    const frameReady = await frameLib.generate({ avatarUrl: imgUrl, format: 'webp' });
+    assert.ok(frameReady && frameReady.buffer.length > 20000, 'توليد صورة الإطار فشل');
+    assert.strictEqual(frameReady.name, 'welcome.webp', 'اسم ملف الإطار خطأ');
+    const frameShot = await frameLib.generate({ avatarUrl: imgUrl, format: 'png' });
+    assert.ok(frameShot.buffer.slice(1, 4).toString() === 'PNG', 'إخراج PNG للإطار غير صالح');
+    /* الإطار + الأفتار = صورة واحدة مقاسها نفس مقاس الإطار */
+    const frameImg = require('@napi-rs/canvas').loadImage(frameReady.buffer);
+    const baseImg = await require('@napi-rs/canvas').loadImage(path.join(__dirname, 'assets', 'welcome-frame.png'));
+    assert.strictEqual((await frameImg).width, baseImg.width, 'عرض صورة الترحيب ما يطابق الإطار');
+    assert.strictEqual((await frameImg).height, baseImg.height, 'ارتفاع صورة الترحيب ما يطابق الإطار');
+    console.log(`١-ب) إطار Never Land: أفتار العضو داخل الدائرة · ${(frameReady.buffer.length / 1024).toFixed(0)}KB · مقاس ${baseImg.width}×${baseImg.height} ✅`);
+
+    /* ---------- ٢) الوضع الافتراضي: صورة الإطار + رسالة عادية بلا إطار ---------- */
     const plain = await welcome.buildWelcomePayload(null, member, settings);
     assert.ok(plain.content && plain.content.length > 10, 'النص العادي مفقود');
     assert.strictEqual(plain.embeds.length, 0, 'الرسالة فيها Embed رغم أن الطريقة الافتراضية بلا إطار');
     assert.strictEqual(plain.files.length, 1, 'الصورة غير مرفقة مع الرسالة');
-    assert.ok(String(plain.files[0].name).endsWith('.png'), 'الملف المرفق ليس صورة PNG');
-    /* {user} = منشن العضو · {displayName} = اسمه الظاهر (في نص الاحتبار نستخدم بطاقة الاسم) */
+    assert.ok(String(plain.files[0].name).endsWith('.webp'), 'الملف المرفق ليس صورة الإطار');
+    /* {user} = منشن العضو · {inviter} = الداعي */
     assert.ok(plain.content.includes(`<@${member.id}>`), 'المتغيّر {user} ما تبدّل لمنشن العضو');
     assert.ok(!/undefined|\[object/.test(plain.content), 'النص فيه قيمة تقنية (undefined)');
-    console.log(`٢) الوضع الافتراضي: صورة مرفقة + نص عادي بلا إطار ✅ («${plain.content.slice(0, 50)}…»)`);
+    console.log(`٢) الوضع الافتراضي: صورة الإطار مرفقة + نص عادي بلا إطار ✅ («${plain.content.slice(0, 40)}…»)`);
 
     /* ---------- ٣) وضع Embed ما زال متاحًا ---------- */
     const embedded = await welcome.buildWelcomePayload(null, member, {
@@ -125,11 +141,15 @@ async function run() {
       welcome: { ...settings.welcome, embed: true },
     });
     assert.strictEqual(embedded.embeds.length, 1, 'وضع Embed ما رجّع إطارًا');
-    assert.ok(embedded.embeds[0].data.image?.url === 'attachment://welcome.png', 'صورة البطاقة ما دخلت الإطار');
+    assert.ok(String(embedded.embeds[0].data.image?.url || '').startsWith('attachment://welcome.'), 'صورة الترحيب ما دخلت الإطار');
     assert.ok(!embedded.content, 'وضع Embed ما لازم يرسل نصًا خارج الإطار');
     console.log('٣) وضع الإطار (Embed) موجود لمن يريده — والصورة داخله ✅');
 
     /* ---------- ٤) كل أنواع الصور ---------- */
+    const frameMode = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, imageMode: 'frame', embed: false } });
+    assert.strictEqual(frameMode.files.length, 1, 'صورة الإطار ما انرفقت');
+    assert.ok(frameMode.files[0].name.endsWith('.webp'), 'ملف الإطار خطأ');
+
     const cardMode = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, imageMode: 'card', embed: false } });
     assert.strictEqual(cardMode.files.length, 1, 'البطاقة ما انرفقت');
 
@@ -142,7 +162,7 @@ async function run() {
     const noneMode = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, imageMode: 'none', embed: false } });
     assert.strictEqual(noneMode.files.length, 0, 'وضع «بدون صورة» أرسل صورة');
     assert.ok(noneMode.content.length > 5, 'وضع «بدون صورة» ما أرسل النص');
-    console.log('٤) أنواع الصور: بطاقة · أفتار · مخصّصة · بدون — كلها صحيحة ✅');
+    console.log('٤) أنواع الصور: إطار Never Land · بطاقة · أفتار · مخصّصة · بدون — كلها صحيحة ✅');
 
     /* ---------- ٥) المتغيّرات ---------- */
     const custom = await welcome.buildWelcomePayload(null, member, {
@@ -155,7 +175,17 @@ async function run() {
       },
     });
     assert.ok(custom.content.includes('ahmed') && custom.content.includes('مجتمع Never Land') && custom.content.includes('482'), 'المتغيّرات ما تبدّلت في النص');
-    console.log('٥) المتغيّرات ({username} {server} {memberCount} {displayName}) تشتغل في النص وعلى الصورة ✅');
+
+    /* {inviter} = مَن أرسل رابط الدعوة (يعطيه events/members.js) */
+    const invited = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: '{user} دخل بفضل {inviter} ({inviterMention}) — رابط {inviteCode}' } }, {
+      inviteInfo: { code: 'NLx1', inviter: { id: '300000000000000009', username: 'Owner', globalName: 'مالك السيرفر' } },
+    });
+    assert.ok(invited.content.includes('مالك السيرفر'), 'متغيّر {inviter} ما اشتغل');
+    assert.ok(invited.content.includes('<@300000000000000009>'), 'متغيّر {inviterMention} ما اشتغل');
+    assert.ok(invited.content.includes('NLx1'), 'متغيّر {inviteCode} ما اشتغل');
+    const unknown = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: 'Inv By : {inviter}' } }, {});
+    assert.strictEqual(unknown.content, 'Inv By : غير معروف', 'لما ما في دعوة معروفة لازم يطلع «غير معروف»');
+    console.log('٥) المتغيّرات ({username} {server} {memberCount} {displayName} {inviter}) تشتغل في النص وعلى الصورة ✅');
 
     /* ---------- ٦) معاينة اللوحة ----------
      * نفحصها بوضع العرض (demo) مثل ما يشوفها الزائر على الموقع العام. */
@@ -173,7 +203,8 @@ async function run() {
     assert.ok(previewBuf.slice(1, 4).toString() === 'PNG' && previewBuf.length > 8000, 'المعاينة صورة غير صالحة');
     fs.writeFileSync('/tmp/welcome-preview-test.png', previewBuf);
     server.close();
-    console.log(`٦) معاينة اللوحة (/api/guilds/:id/welcome/card) ترجّع صورة حقيقية ${Math.round(previewBuf.length / 1024)}KB ✅`);
+    assert.strictEqual(previewBuf.readUInt32BE(16), baseImg.width, 'معاينة اللوحة ما طابقت مقاس الإطار');
+    console.log(`٦) معاينة اللوحة (/api/guilds/:id/welcome/card) ترجّع صورة الإطار بالأفتار ${Math.round(previewBuf.length / 1024)}KB ✅`);
 
     console.log('\n🎉 الترحيب: صورة بالأفتار + رسالة عادية بلا إطار — يعمل كما هو مطلوب\n');
     return { ok: true };

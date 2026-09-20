@@ -101,6 +101,18 @@ module.exports = {
       console.error('[تنبيه] تعذّر تشغيل روم الأوامر:', err.message);
     }
 
+    /* 👋 شكل الترحيب الجديد (إطار Never Land + الأفتار داخل الدائرة) — ترقية مرة واحدة لكل سيرفر */
+    try {
+      const welcomeSystem = require('../systems/welcome');
+      let upgraded = 0;
+      for (const guild of client.guilds.cache.values()) {
+        if (welcomeSystem.ensureStyle(guild.id)) upgraded += 1;
+      }
+      console.log(`[الترحيب] الفحص التلقائي — ${client.guilds.cache.size} سيرفر · ترقية ${upgraded}`);
+    } catch (err) {
+      console.error('[تنبيه] تعذّر فحص شكل الترحيب:', err.message);
+    }
+
     /* 🖼️ لوحة التذاكر: نشر/تحديث تلقائي (صورة اللوحة + القائمة) لما تتغيّر */
     setTimeout(() => {
       try {

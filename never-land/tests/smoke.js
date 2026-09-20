@@ -1753,8 +1753,31 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(sys42.includes(needle), `نظام الترحيب ينقصه ${needle}`);
     }
     const cfg42 = read42('src/config.js');
-    assert.ok(/welcome: \{[\s\S]{0,400}embed: false/.test(cfg42), 'الافتراضي لازم يكون: رسالة عادية بلا إطار');
+    assert.ok(/welcome: \{[\s\S]{0,2600}embed: false/.test(cfg42), 'الافتراضي لازم يكون: رسالة عادية بلا إطار');
     assert.ok(cfg42.includes('cardMessage'), 'الإعدادات ينقصها نص الصورة (cardMessage)');
+    /* 🖼️ إطار Never Land: صورة السيرفر + مكان الدائرة + الوضع الافتراضي */
+    assert.ok(cfg42.includes('assets/welcome-frame.png'), 'صورة إطار الترحيب ناقصة من الإعدادات');
+    assert.ok(/frameCircle: \{ cx:/.test(cfg42), 'مكان دائرة الأفتار ناقص من الإعدادات');
+    assert.ok(cfg42.includes("imageMode: 'frame'"), 'الوضع الافتراضي لازم يكون «إطار Never Land»');
+    assert.ok(cfg42.includes('welcome-frame.png') && fs42.existsSync(path42.join(root42, 'assets', 'welcome-frame.png')), 'ملف إطار الترحيب غير موجود');
+    const frame42 = read42('src/lib/welcomeFrame.js');
+    for (const needle of ['createCanvas', 'loadImage', 'arc(', 'clip()', 'DEFAULT_ROI']) {
+      assert.ok(frame42.includes(needle), `مولّد الإطار ينقصه ${needle}`);
+    }
+    /* قناة الترحيب ونص الرسالة اللي طلبها المالك */
+    assert.ok(cfg42.includes('1549365058633736243'), 'رقم قناة الترحيب ناقص');
+    assert.ok(cfg42.includes('𝑊𝑒𝑙𝑐𝑜𝑚𝑒 𝑡𝑜 𝑆𝑒𝑟𝑣𝑒𝑟 𝑁𝑒𝑣𝑒𝑟 𝐿𝑎𝑛𝑑'), 'نص رسالة الترحيب ناقص');
+    assert.ok(cfg42.includes('𝐼𝑛𝑣 𝐵𝑦'), 'سطر الداعي (Inv By) ناقص');
+    assert.ok(cfg42.includes('os49:1461135643735490735'), 'إيموجي os49 المتحرك ناقص من الرسالة');
+    /* نظام الترحيب: الداعي + الاختبار + الترقية */
+    for (const needle of ["inviterVars", "extra: vars", "sendTestWelcome", "ensureStyle"]) {
+      assert.ok(sys42.includes(needle), `نظام الترحيب ينقصه ${needle}`);
+    }
+    assert.ok(read42('src/events/members.js').includes('{ inviteInfo }'), 'معلومات الدعوة ما تُمرَّر للترحيب');
+    assert.ok(read42('src/events/ready.js').includes('ensureStyle'), 'ترقية شكل الترحيب غير مربوطة بالإقلاع');
+    assert.ok(/actions\/welcome|action === 'welcome'/.test(read42('src/web/routes/api.js')), 'مسار الترحيب التجريبي ناقص');
+    assert.ok(read42('src/web/public/app.js').includes('أرسل ترحيب تجريبي'), 'زر الترحيب التجريبي ناقص من اللوحة');
+    assert.ok(read42('src/web/public/app.js').includes('welcome.frameImage'), 'حقل صورة الإطار ناقص من اللوحة');
 
     // ٣) اللوحة: معاينة حقيقية + خيار شكل الرسالة + نص الصورة
     const app42 = read42('src/web/public/app.js');
@@ -1775,7 +1798,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ٥) الاختبار العملي الكامل (٦ مجموعات)
     const { execFileSync } = require('node:child_process');
     const out42 = execFileSync('node', [path42.join(root42, 'welcome-card-test.js')], { cwd: root42, encoding: 'utf8' });
-    for (const needle of ['١) صورة الترحيب', '٢) الوضع الافتراضي', '٣) وضع الإطار', '٤) أنواع الصور', '٥) المتغيّرات', '٦) معاينة اللوحة']) {
+    for (const needle of ['١-ب) إطار Never Land', '١) صورة الترحيب', '٢) الوضع الافتراضي', '٣) وضع الإطار', '٤) أنواع الصور', '٥) المتغيّرات', '٦) معاينة اللوحة']) {
       assert.ok(out42.includes(needle), `اختبار الترحيب ينقصه: ${needle}`);
     }
     assert.ok(out42.includes('🎉'), 'اختبار الترحيب ما نجح');
@@ -2372,6 +2395,29 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(dash53.includes(key53), `حقل ${key53} ناقص من اللوحة`);
     }
     console.log('  [تم] اللوحة صورة PNG شفافة بلا نص وبلا خط + قائمة الأنواع · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
+  }
+
+ console.log('[اختبار] 54: ترحيب «إطار Never Land» — الأفتار داخل الدائرة + Inv By');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path54 = require('node:path');
+    const fs54 = require('node:fs');
+    const root54 = path54.join(__dirname, '..');
+    const read54 = (rel) => fs54.readFileSync(path54.join(root54, rel), 'utf8');
+
+    const out54 = execFileSync('node', ['welcome-frame-test.js'], { cwd: root54, encoding: 'utf8' });
+    assert.ok(out54.includes('ترحيب إطار Never Land جاهز'), 'اختبار إطار الترحيب فشل');
+
+    const cfg54 = require(path54.join(root54, 'src', 'config')).defaults.welcome;
+    assert.strictEqual(cfg54.imageMode, 'frame', 'الوضع الافتراضي لازم «إطار Never Land»');
+    assert.strictEqual(cfg54.frameImage, 'assets/welcome-frame.png', 'مسار صورة الإطار خطأ');
+    assert.strictEqual(cfg54.channelId, '1549365058633736243', 'قناة الترحيب خطأ');
+    assert.strictEqual(cfg54.embed, false, 'الرسالة لازم تكون صورة + نص عادي بلا إمبد');
+    assert.ok(cfg54.message.includes('𝑊𝑒𝑙𝑐𝑜𝑚𝑒') && cfg54.message.includes('{inviter}'), 'نص رسالة الترحيب أو الداعي ناقص');
+    assert.ok(fs54.existsSync(path54.join(root54, 'assets', 'welcome-frame.png')), 'صورة الإطار غير موجودة');
+    assert.ok(read54('src/lib/welcomeFrame.js').includes('clip()'), 'قصّ الأفتار الدائري ناقص');
+    assert.ok(read54('src/systems/welcome.js').includes('sendTestWelcome'), 'إرسال الترحيب التجريبي ناقص');
+    console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');
   }
 
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');

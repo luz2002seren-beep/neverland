@@ -137,7 +137,7 @@ function pickRandom(arr) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** استبدال المتغيرات في رسائل الترحيب */
-function applyPlaceholders(text, { user, member, guild, level } = {}) {
+function applyPlaceholders(text, { user, member, guild, level, extra } = {}) {
   const memberCount = guild?.memberCount ?? 0;
   const map = {
     user: user ? `<@${user.id}>` : '',
@@ -158,6 +158,8 @@ function applyPlaceholders(text, { user, member, guild, level } = {}) {
   map.displayName = member?.displayName ?? user?.username ?? '';
   map.id = user?.id ?? '';
   map.mention = user ? `<@${user.id}>` : '';
+  /* متغيّرات إضافية (مثل الداعي {inviter}) */
+  if (extra && typeof extra === 'object') for (const [k, v] of Object.entries(extra)) map[k] = String(v ?? '');
   return String(text ?? '').replace(/\{(\w+)\}/g, (m, key) => (map[key] !== undefined ? map[key] : m));
 }
 

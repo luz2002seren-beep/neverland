@@ -210,6 +210,7 @@ router.get('/guilds/:guildId', async (req, res) => {
       logGroups: loggingSystem.EVENT_GROUPS,
       logEvents: Object.fromEntries(Object.entries(loggingSystem.EVENT_META).map(([key, meta]) => [key, { label: meta.label, emoji: meta.emoji, group: meta.group }])),
       cardAvailable: require('../../lib/welcomeCard').available(),
+      frameCardAvailable: require('../../lib/welcomeFrame').available(),
       autolineStyles: Object.entries(require('../../systems/autoline').GIF_STYLES).map(([key, meta]) => ({ key, ...meta })),
     },
     viewer: {
@@ -397,6 +398,7 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
   const { guildId } = req.params;
   if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
 
+  require('../../systems/welcome').ensureStyle(guildId);
   const guild = db.getGuild(guildId);
   const settings = guild.settings || {};
   const welcomeCfg = settings.welcome || {};
@@ -410,6 +412,7 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
     : `https://cdn.discordapp.com/embed/avatars/${Number(viewerId || 0) % 5}.png`;
 
   const card = require('../../lib/welcomeCard');
+  const welcomeFrame = require('../../lib/welcomeFrame');
   const applyPlaceholders = require('../../lib/utils').applyPlaceholders;
   const fakeUser = {
     username: viewerName,
@@ -417,6 +420,23 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
     displayName: viewerGlobal,
     displayAvatarURL: () => avatarSeed,
   };
+
+  /* 🖼️ إطار Never Land: نفس الصورة اللي تنزل للأعضاء (أفتار المشاهد داخل الدائرة) */
+  if ((welcomeCfg.imageMode || 'frame') === 'frame' && welcomeFrame.available(welcomeCfg.frameImage)) {
+    const made = await welcomeFrame
+      .generate({
+        avatarUrl: avatarSeed,
+        frame: welcomeCfg.frameImage,
+        roi: welcomeCfg.frameCircle || null,
+        format: 'png',
+      })
+      .catch(() => null);
+    if (made) {
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(made.buffer);
+    }
+  }
 
   const cardText = applyPlaceholders(welcomeCfg.cardMessage || 'أهلاً بك {displayName} في {server}', {
     user: viewerName,
@@ -980,6 +1000,30 @@ router.post('/guilds/:guildId/actions/:action', async (req, res) => {
   const channelId = req.body?.channelId || null;
 
   try {
+    /* 👋 ترحيب تجريبي: نرسل رسالة ترحيب حقيقية (الصورة + النص) في قناة الترحيب */
+    if (action === 'welcome') {
+      const welcome = require('../../systems/welcome');
+      const target = channelId || settings.welcome?.channelId;
+      if (!target) return res.status(400).json({ ok: false, message: 'حدّد قناة الترحيب أولًا.' });
+
+      const wanted = String(req.body?.memberId || '').trim();
+      let subject = wanted ? await guild.members.fetch(wanted).catch(() => null) : null;
+      if (!subject) subject = await guild.members.fetch(req.user?.id).catch(() => null);
+      if (!subject) {
+        /* نختار عضوًا حقيقيًا له أفتار: المالك أولًا ثم أول عضو بشري */
+        const owner = await guild.members.fetch(guild.ownerId).catch(() => null);
+        subject = owner || guild.members.cache.find((m) => !m.user.bot && m.user.displayAvatarURL) || guild.members.me;
+      }
+
+      const result = await welcome.sendTestWelcome(client, guild, subject, { channelId: target });
+      if (!result.ok) return res.status(500).json({ ok: false, message: `تعذّر إرسال الترحيب (${result.reason}).` });
+      return res.json({
+        ok: true,
+        message: `👋 انبعت ترحيب تجريبي في <#${result.channelId}> باسم ${result.member}`,
+        result,
+      });
+    }
+
     if (action === 'panel') {
       const tickets = require('../../systems/tickets');
       const target = channelId || settings.tickets.panelChannelId || settings.tickets.logChannelId;
@@ -1135,6 +1179,14 @@ router.get('/status', (req, res) => {
      * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
      * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
      */
+    /* 👋 الترحيب: آخر ترحيب انبعت + العضو + الداعي (تشخيص حيّ) */
+    welcome: (() => {
+      try {
+        return require('../../systems/welcome').status();
+      } catch {
+        return null;
+      }
+    })(),
     /* 🖼️ لوحة التذاكر: آخر تحديث تلقائي + القناة (تشخيص حيّ) */
     ticketsPanel: (() => {
       try {

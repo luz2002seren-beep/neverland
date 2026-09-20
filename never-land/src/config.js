@@ -138,19 +138,37 @@ const config = {
     },
     prefix: '!',
     welcome: {
-      enabled: false,
-      channelId: null,
-      message: 'أهلاً بك {user} في **{server}**، عدد الأعضاء الآن **{memberCount}**.',
+      enabled: true,
+      /* قناة الترحيب في سيرفر Never Land */
+      channelId: '1549365058633736243',
+      /**
+       * نص رسالة الترحيب — المتغيّرات:
+       * {user} المنشن • {displayName} اسم العضو • {username} • {server} • {memberCount}
+       * {inviter} اسم مَن أرسل رابط الدعوة • {inviterMention} منشنه • {inviteCode} كود الرابط
+       */
+      message:
+        '<a:os49:1461135643735490735> 𝑊𝑒𝑙𝑐𝑜𝑚𝑒 𝑡𝑜 𝑆𝑒𝑟𝑣𝑒𝑟 𝑁𝑒𝑣𝑒𝑟 𝐿𝑎𝑛𝑑.\n'
+        + '<a:os49:1461135643735490735> 𝑀𝑒𝑚𝑏𝑒𝑟 : {user}\n'
+        + '<a:os49:1461135643735490735> 𝐼𝑛𝑣 𝐵𝑦 : {inviter}',
       /** إرسال الرسالة داخل إطار Embed؟ false = صورة الترحيب + رسالة عادية (الطريقة الاحترافية) */
       embed: false,
       /** النص الذي يُرسم على صورة الترحيب نفسها */
       cardMessage: 'أهلاً بك {displayName} في {server}',
+      /**
+       * 🖼️ صورة الترحيب بإطار Never Land: تُرسم صورة العضو داخل الدائرة الفارغة.
+       *   frameImage  : مسار صورة الإطار (بدل بطاقة البوت العادية)
+       *   frameCircle : مكان الدائرة داخل الإطار بنسب من العرض/الارتفاع {cx,cy,r}
+       */
+      frameImage: 'assets/welcome-frame.png',
+      frameCircle: { cx: 0.33431, cy: 0.56543, r: 0.2525 },
+      /** ترقية الشكل مرة واحدة (بطاقة قديمة ← إطار Never Land) */
+      styleUpgraded: false,
       /** ترحيب الخاص: مطفّي افتراضيًا — سياسة الخاص بالبوت = تحذير · قبول تقديم · رفض تقديم فقط */
       dm: false,
       dmMessage: 'أهلاً بك في **{server}**. يُرجى الاطلاع على قوانين السيرفر قبل المشاركة.',
       autoDeleteAfter: 0,
-      /** صورة الترحيب: none | avatar | card | custom */
-      imageMode: 'card',
+      /** صورة الترحيب: frame (إطار Never Land بالأفتار) | card | avatar | custom | none */
+      imageMode: 'frame',
       /** رابط صورة مخصّصة (عند imageMode = custom) أو خلفية للبطاقة */
       imageUrl: null,
       cardBackground: null,

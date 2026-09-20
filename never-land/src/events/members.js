@@ -48,7 +48,7 @@ module.exports = [
         ],
       });
 
-      await welcome.handleMemberAdd(client, member);
+      await welcome.handleMemberAdd(client, member, { inviteInfo });
       db.bumpDaily(member.guild.id, 'joins');
     },
   },

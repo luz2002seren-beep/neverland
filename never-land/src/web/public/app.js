@@ -720,7 +720,7 @@ const SECTIONS = {
     group: 'الأعضاء',
     label: 'الترحيب والوداع',
     title: 'الترحيب والوداع',
-    desc: 'ترحيب بصورة بالأفتار + رسالة عادية بلا إطار، ورسائل الوداع والدعم.',
+    desc: 'صورة إطار Never Land وأفتار العضو داخل الدائرة + رسالة عادية بلا إطار، ورسائل الوداع والدعم.',
     render() {
       const frag = document.createDocumentFragment();
 
@@ -745,6 +745,7 @@ const SECTIONS = {
           dSelect(
             'welcome.imageMode',
             [
+              { value: 'frame', label: 'إطار Never Land (الأفتار داخل الدائرة)' },
               { value: 'card', label: 'بطاقة ترحيب بالأفتار (الطريقة الاحترافية)' },
               { value: 'avatar', label: 'صورة الأفتار فقط' },
               { value: 'custom', label: 'رابط صورة مخصّص' },
@@ -753,17 +754,43 @@ const SECTIONS = {
             { noneLabel: null, onAfter: () => { previewImg.src = `${previewPath}?t=${Date.now()}`; } },
           ),
         ]),
-        dField('النص المرسوم على الصورة', 'المتغيّرات: {displayName} · {username} · {server} · {memberCount}', [dInput('welcome.cardMessage', { full: true, placeholder: 'مثال: أهلاً بك {displayName} في {server}' })], { wide: true }),
+        dField('صورة الإطار', 'صورة السيرفر اللي فيها الدائرة الفارغة — يُرسم أفتار العضو داخل الدائرة', [dInput('welcome.frameImage', { full: true, onChange: () => { previewImg.src = `${previewPath}?t=${Date.now()}`; } })], { wide: true }),
+        dField('مكان الدائرة داخل الصورة', 'نسب من العرض/الارتفاع: cx (يمين) · cy (تحت) · r (نصف القطر)', [
+          dInput('welcome.frameCircle.cx', { narrow: true, placeholder: 'cx' }),
+          dInput('welcome.frameCircle.cy', { narrow: true, placeholder: 'cy' }),
+          dInput('welcome.frameCircle.r', { narrow: true, placeholder: 'r' }),
+        ]),
+        dField('النص المرسوم على الصورة', 'يُستخدم في «بطاقة ترحيب بالأفتار» — المتغيّرات: {displayName} · {username} · {server} · {memberCount}', [dInput('welcome.cardMessage', { full: true, placeholder: 'مثال: أهلاً بك {displayName} في {server}' })], { wide: true }),
         dField('خلفية البطاقة', 'رابط صورة (اختياري) — بدونها تُستخدم ألوان التدرّج', [dInput('welcome.cardBackground', { full: true, placeholder: 'https://...' })], { wide: true }),
         dField('تدرّج لون البطاقة', 'من لون إلى لون', [dInput('welcome.cardTheme.from', { narrow: true }), dInput('welcome.cardTheme.to', { narrow: true })]),
         dField('رابط الصورة المخصّصة', 'يُستخدم عند اختيار «رابط صورة مخصّص» — يدعم {avatar}', [dInput('welcome.imageUrl', { full: true, placeholder: 'https://...' })], { wide: true }),
         dField('إرفاق الصورة كملف', 'جودة أفضل من الرابط', [dSwitch('welcome.attachImage')]),
         dField('اختبار البطاقة', 'يرسل بطاقة نموذجية في قناة الترحيب', [testButton('إرسال بطاقة تجريبية', 'card')]),
+        dField('ترحيب تجريبي كامل', 'يرسل رسالة ترحيب حقيقية (الصورة + النص + الداعي) في قناة الترحيب', [
+          (() => {
+            const btn = el('button', { class: 'd-btn sm primary', html: `${ic('userPlus', 15)} أرسل ترحيب تجريبي` });
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              try {
+                const result = await api(`/guilds/${state.guildId}/actions/welcome`, {
+                  method: 'POST',
+                  body: { channelId: getPath('welcome.channelId') || null },
+                });
+                toast(result.message || 'انبعت الترحيب التجريبي — شوف الروم.');
+              } catch (err) {
+                toast(err.message || 'ما قدرت أرسل الترحيب.', true);
+              } finally {
+                btn.disabled = false;
+              }
+            });
+            return btn;
+          })(),
+        ]),
       ];
 
       const cardNode = dCard(
-        'صورة الترحيب (بطاقة بالأفتار)',
-        'صورة واحدة تجمع: أفتار العضو + اسمه + اسم السيرفر + رقم العضو — تُرسل مع رسالة عادية بدون إطار Embed.',
+        'صورة الترحيب (إطار Never Land بالأفتار)',
+        'الصورة اللي فيها الدائرة الفارغة، ويُرسم فيها أفتار العضو الجديد — تُرسل مع رسالة عادية بدون إطار Embed.',
         'image',
         cardFields,
       );
@@ -779,7 +806,7 @@ const SECTIONS = {
           [
             dField('تفعيل الترحيب', '', [dSwitch('welcome.enabled')]),
             dField('قناة الترحيب', '', [dSelect('welcome.channelId', channelOptions())]),
-            dField('نص الرسالة', 'يظهر مع صورة الترحيب (يدعم الإيموجيات الخارجية <:name:id>)', [dArea('welcome.message')], { wide: true }),
+            dField('نص الرسالة', 'يظهر تحت الصورة · المتغيّرات: {user} · {displayName} · {inviter} (مين أرسل الرابط) · {inviteCode} · {memberCount} — ويدعم الإيموجيات الخارجية <:name:id>', [dArea('welcome.message')], { wide: true }),
             dField(
               'شكل الرسالة',
               'الطريقة الاحترافية: صورة بالأفتار + رسالة عادية بلا إطار · أو داخل إطار Embed أنيق',
