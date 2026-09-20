@@ -295,6 +295,7 @@ router.get('/guilds/:guildId/command-room', async (req, res) => {
           bot: Boolean(m.author?.bot),
           pinned: Boolean(m.pinned),
           attachments: m.attachments?.size ?? 0,
+          attachmentUrls: [...(m.attachments?.values?.() ?? [])].map((a) => a.url),
           ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
           preview: String(m.content || '').slice(0, 70),
         })),
