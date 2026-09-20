@@ -2380,11 +2380,44 @@ const SECTIONS = {
       const addRow = el('div', { class: 'd-field-control' });
       [newId, newLabel, newEmoji, addType, restore].forEach((n) => addRow.appendChild(n));
 
+      /* معاينة صور اللوحة (الرئيسية + الزخرفية) ورسالة التذكرة */
+      const assetSrc = (value, fallback) => {
+        const raw = String(value || '').trim();
+        if (/^https?:\/\//i.test(raw)) return raw;
+        const base = raw ? raw.split('/').pop() : fallback;
+        return `/assets/${base || fallback}`;
+      };
+      const imageBox = (box, label, src) => {
+        box.appendChild(el('div', { class: 'd-empty', text: label }));
+        box.appendChild(el('img', { src, alt: label, style: 'max-width:100%;border-radius:12px;border:1px solid var(--line)' }));
+      };
+      const panelPreview = el('div', { class: 'd-sample cr-preview' });
+      const paintPanelPreview = () => {
+        panelPreview.textContent = '';
+        const hero = getPath('tickets.panelImage');
+        const foot = getPath('tickets.panelFooterImage');
+        if (hero) imageBox(panelPreview, 'صورة اللوحة (تنزل بدل النص):', assetSrc(hero, 'tickets-panel.webp'));
+        if (foot) imageBox(panelPreview, 'الصورة الزخرفية أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
+        if (!hero && !foot) panelPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صور محفوظة — اللوحة تنزل نصية.' }));
+      };
+      paintPanelPreview();
+      const openPreview = el('div', { class: 'd-sample cr-preview' });
+      const paintOpenPreview = () => {
+        openPreview.textContent = '';
+        const openImg = getPath('tickets.openImage');
+        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel.webp'));
+        else openPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صورة — الرسالة تنزل نصية.' }));
+      };
+      paintOpenPreview();
+
       const typeCount = types.length;
       return [
         buttonsCard,
-        dCard('رسالة فتح التذكرة (كل شي من عندك)', 'هذه الرسالة تُرسل داخل غرفة التذكرة لحظة فتحها — اكتب العنوان والوصف بنفسك.', 'messageEdit', [
-          dField('عنوان الرسالة', 'متغيّرات: {emoji} · {id} · {type} · {user} · {server}', [dInput('tickets.openTitle', { full: true })], { wide: true }),
+        dCard('رسالة فتح التذكرة', 'هذه الرسالة تُرسل داخل غرفة التذكرة لحظة فتحها — صورة بلا نص.', 'messageEdit', [
+          dField('صورة الرسالة', 'الصورة اللي تنزل داخل التذكرة (فارغة = ترجع الرسالة النصية)', [dInput('tickets.openImage', { full: true, onChange: () => paintOpenPreview() })], { wide: true }),
+          dField('صورة فقط', 'صورة بلا عنوان ولا وصف ولا حقول (زي الصورة اللي طلبتها)', [dSwitch('tickets.openImageOnly')]),
+          dField('معاينة الصورة', 'هذي الصورة اللي تطلع للأعضاء داخل التذكرة', [openPreview], { wide: true }),
+          dField('عنوان الرسالة', 'يُستخدم فقط إذا الصورة مطفّية · متغيّرات: {emoji} · {id} · {type} · {user} · {server}', [dInput('tickets.openTitle', { full: true })], { wide: true }),
           dField('الوصف', 'الأسطر الطويلة مدعومة (اضغط Enter لسطر جديد)', [dArea('tickets.openDescription')], { wide: true }),
           dField('سطر إضافي', 'يُضاف أسفل الوصف مع تعليمات كل نوع', [dArea('tickets.openIntro')], { wide: true }),
           dField('إظهار الحقول', 'صاحب التذكرة · النوع · الحالة', [dSwitch('tickets.openFields')]),
@@ -2397,7 +2430,12 @@ const SECTIONS = {
           dField('قناة أرشيف التذاكر', 'توصلها نسخة المحادثة عند الإغلاق', [dSelect('tickets.logChannelId', channelOptions())]),
           dField('أقصى تذاكر لكل عضو', '', [dNumber('tickets.maxOpenPerUser')]),
         ]),
-        dCard('شكل اللوحة', 'اللوحة اللي تنزل في قناة الدعم', 'image', [
+        dCard('شكل اللوحة', 'اللوحة اللي تنزل في قناة الدعم — صورة السيرفر + قائمة الأنواع تحتها (بلا نص)', 'image', [
+          dField('صورة اللوحة', 'الصورة هي اللوحة (بدل العنوان والوصف) — مسار داخل المشروع أو رابط · اتركها فارغة للوحة النصية', [dInput('tickets.panelImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+          dField('صورة فقط', 'بلا عنوان ولا وصف ولا حقول — الصورة لحالها', [dSwitch('tickets.panelImageOnly')]),
+          dField('صورة أسفل القائمة', 'صورة زخرفية تنزل تحت القائمة (فارغة = بلا صورة)', [dInput('tickets.panelFooterImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+          dField('معاينة الصور', 'هذي الصور اللي تنزل في ديسكورد مع اللوحة', [panelPreview], { wide: true }),
+          dField('نص القائمة المنسدلة', 'النص اللي يظهر قبل ما يختار العضو نوع التذكرة', [dInput('tickets.panelPlaceholder', { full: true })], { wide: true }),
           dField(
             'وضع اللوحة',
             typeCount > 5 ? 'تنبيه: الأزرار تسمح بخمسة أنواع كحد أقصى، وعندك ' + typeCount : `عدد الأنواع الحالي: ${typeCount}`,
@@ -2405,26 +2443,18 @@ const SECTIONS = {
               dSelect(
                 'tickets.panelMode',
                 [
-                  { value: 'buttons', label: 'أزرار (حتى 5 أنواع)' },
                   { value: 'select', label: 'قائمة منسدلة (حتى 25 نوعًا)' },
+                  { value: 'buttons', label: 'أزرار (حتى 5 أنواع)' },
                 ],
                 { noneLabel: null },
               ),
             ],
           ),
-          dField('عنوان البنل', '', [dInput('tickets.panelTitle', { full: true })], { wide: true }),
-          dField('وصف البنل', '', [dArea('tickets.panelDescription')], { wide: true }),
-          dField('قناة إرسال اللوحة', 'اختر القناة ثم اضغط إرسال (لا يُحفظ)', [
-            (() => {
-              const select = el('select', { class: 'd-select' });
-              select.appendChild(el('option', { value: '', text: '— اختر قناة —' }));
-              channelOptions().forEach((o) => select.appendChild(el('option', { value: o.value, text: o.label })));
-              select.value = state.panelChannelId || '';
-              select.addEventListener('change', () => { state.panelChannelId = select.value; });
-              return select;
-            })(),
-            testButton('نشر لوحة التذاكر', 'panel'),
-          ]),
+          dField('عنوان البنل', 'يُستخدم فقط إذا الصورة مطفّية', [dInput('tickets.panelTitle', { full: true })], { wide: true }),
+          dField('وصف البنل', 'يُستخدم فقط إذا الصورة مطفّية', [dArea('tickets.panelDescription')], { wide: true }),
+          dField('قناة نشر اللوحة', 'تُحفظ — واللوحة تنزل فيها تلقائيًا', [dSelect('tickets.panelChannelId', channelOptions())]),
+          dField('تحديث تلقائي', 'أي تعديل على الصورة أو الأنواع أو الوضع → البوت ينشر اللوحة من جديد لحاله', [dSwitch('tickets.panelAutoPost')]),
+          dField('إجراءات فورية', 'تنفّذ حالًا: تنظّف اللوحة القديمة وتنشر الجديدة', [testButton('نشر لوحة التذاكر', 'panel')]),
         ]),
         ...typeCards,
         dCard('إضافة نوع جديد', 'أضف أي نوع تذكرة تريده', 'plus', [dField('نوع جديد', '', [addRow], { wide: true })]),
@@ -2642,7 +2672,13 @@ function testButton(label, action = 'test') {
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     try {
-      const body = { type: state.section, channelId: state.panelChannelId || null };
+      const body = {
+        type: state.section,
+        /* قناة لوحة التذاكر: المختارة في الحقل المحفوظ (أو الاختيار المؤقّت) */
+        channelId: state.section === 'tickets'
+          ? (getPath('tickets.panelChannelId') || state.panelChannelId || null)
+          : (state.panelChannelId || null),
+      };
       const result = await api(`/guilds/${state.guildId}/actions/${action}`, { method: 'POST', body });
       toast(result.message || 'تم الإرسال — راجعه في ديسكورد.');
     } catch (err) {

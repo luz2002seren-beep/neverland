@@ -398,8 +398,28 @@ const config = {
       panelDescription: 'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.',
       responseTime: '24 ساعة',
       /** select = قائمة منسدلة • buttons = أزرار (حتى 5 أنواع) */
-      panelMode: 'buttons',
-      /* ملاحظة: اللوحة تُرسل رسالة واحدة فقط — بلا رسالة تعليمات منفصلة وبلا أي فوتر */
+      panelMode: 'select',
+      /* ملاحظة: اللوحة صورة + قائمة — بلا رسالة تعليمات منفصلة وبلا أي فوتر */
+      /**
+       * 🖼️ شكل اللوحة الجديد:
+       *   panelImage       : صورة اللوحة (هي اللوحة نفسها) — مسار داخل المشروع أو رابط خارجي
+       *                      (حطّها فاضية '' إذا تبي ترجع للوحة النصية القديمة)
+       *   panelImageOnly   : true = صورة فقط بلا عنوان ولا وصف ولا حقول
+       *   panelFooterImage : صورة زخرفية تنزل أسفل القائمة (فاضية = بلا صورة)
+       *   panelPlaceholder : نص القائمة المنسدلة قبل ما يختار العضو
+       *   panelChannelId   : قناة نشر اللوحة (تُحفظ تلقائيًا أول ما تنشر)
+       *   panelAutoPost    : نشر/تحديث اللوحة تلقائيًا لما تتغيّر الصورة أو الأنواع
+       */
+      panelImage: 'src/web/public/assets/tickets-panel.webp',
+      panelImageOnly: true,
+      panelFooterImage: 'src/web/public/assets/tickets-panel-footer.webp',
+      panelPlaceholder: 'اختر القائمة المناسبة لك',
+      panelChannelId: null,
+      panelAutoPost: true,
+      /** بصمة آخر لوحة منشورة (داخلية — تتحدّث لحالها) */
+      panelSignature: null,
+      /** ترقية شكل اللوحة مرة واحدة لكل سيرفر (داخلية — تنحفظ لحالها) */
+      panelLookUpgraded: false,
       /** الأنواع الأربعة الأساسية (دعم فني • توثيق • هدايا • تقديم إدارة) */
       types: [
         {
@@ -450,6 +470,13 @@ const config = {
       openIntro: '',
       openFields: true,
       openFooter: 'تذكرة #{id}',
+      /**
+       * 🖼️ رسالة فتح التذكرة: صورة بلا نص (زي اللوحة).
+       *   openImage     : الصورة اللي تنزل داخل غرفة التذكرة (فاضية '' = ترجع الرسالة النصية)
+       *   openImageOnly : true = صورة فقط · false = الصورة تُتجاهل ويطلع النص
+       */
+      openImage: 'src/web/public/assets/tickets-panel.webp',
+      openImageOnly: true,
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).
        * تُعدّل من الموقع (قسم التذاكر) أو بالأمر /tickets button.

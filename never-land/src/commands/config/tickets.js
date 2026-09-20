@@ -174,22 +174,16 @@ module.exports = {
       if (!settings.tickets.categoryId) {
         return interaction.reply({ embeds: [embeds.error('لم يُعدّ بعد', 'استخدم `/tickets setup` أولًا لتحديد القسم.')], flags: 64 });
       }
-      /* تنظيف اللوحات ورسائل التعليمات القديمة أولًا حتى ما تتكرر */
-      const cleaned = await tickets.cleanupOldPanels(channel, client, [settings.tickets.panelInfoMessage]);
-      const payloads = tickets.buildPanelPayloads(db.getGuildSettings(interaction.guildId), interaction.guild, client);
-      let sent = 0;
-      for (const payload of payloads) {
-        const message = await channel.send(payload).catch(() => null);
-        if (message) sent += 1;
-      }
-      if (!sent) return interaction.reply({ embeds: [embeds.error('فشل', 'ما قدرت أرسل اللوحة في هذه القناة.')], flags: 64 });
-
-      db.updateGuildSettings(interaction.guildId, { tickets: { enabled: true } });
+      /* نحفظ قناة اللوحة ثم ننشر النسخة الجديدة (صورة + قائمة) ونحفظ بصمتها */
+      db.updateGuildSettings(interaction.guildId, { tickets: { enabled: true, panelChannelId: channel.id } });
+      const posted = await tickets.ensurePanel(client, interaction.guild, { force: true });
+      if (!posted.ok) return interaction.reply({ embeds: [embeds.error('فشل', 'ما قدرت أرسل اللوحة في هذه القناة.')], flags: 64 });
+      const cleaned = posted.cleaned || 0;
       return interaction.reply({
         embeds: [
           embeds.success(
             'لوحة التذاكر',
-            `✅ تم إرسال اللوحة في ${channel} — رسالة واحدة، بلا فوتر وبلا رسالة تعليمات.${cleaned ? `\n> ونظّفت ${cleaned} رسالة قديمة.` : ''}`,
+            `✅ تم إرسال اللوحة في ${channel} — صورة السيرفر + ${db.getGuildSettings(interaction.guildId).tickets.panelMode === 'select' ? 'قائمة الأنواع' : 'أزرار الأنواع'}${db.getGuildSettings(interaction.guildId).tickets.panelFooterImage ? ' + صورة زخرفية' : ''} (بلا نص).${cleaned ? `\n> ونظّفت ${cleaned} رسالة قديمة.` : ''}`,
             { fields: [{ name: 'الوضع', value: db.getGuildSettings(interaction.guildId).tickets.panelMode === 'select' ? 'قائمة منسدلة' : 'أزرار', inline: true }] },
           ),
         ],

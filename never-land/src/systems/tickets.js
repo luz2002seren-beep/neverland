@@ -5,13 +5,18 @@
  * -------------------------------------------------------------
  * نظام التذاكر:
  *   • 4 أنواع افتراضية: الدعم الفني • التوثيق • الهدايا • تقديم إدارة
- *   • لوحة بنل بوضعين: أزرار (Buttons) أو قائمة منسدلة (Select)
+ *   • 🖼️ اللوحة **صورة كاملة بلا نص** (صورة السيرفر) وتحتها قائمة الأنواع المنسدلة
+ *     + صورة زخرفية اختيارية أسفل القائمة — زي اللوحات الاحترافية.
+ *   • لوحة بوضعين: أزرار (Buttons) أو قائمة منسدلة (Select)
+ *   • رسالة فتح التذكرة **صورة بلا نص** + أزرار تحكّم (استلام/إغلاق/أرشيف/إضافة عضو)
+ *   • نشر/تحديث اللوحة تلقائيًا لما تتغيّر (بصمة اللوحة) — بلا ما ترسل شي بيدك
  *   • دعم الإيموجيات الخارجية في اللوحة والأزرار والرسائل
- *   • رسالة تعليمات منفصلة مع البنل
- *   • رسالة ترحيب داخل التذكرة + أزرار تحكّم (استلام/إغلاق/أرشيف)
  * -------------------------------------------------------------
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const {
   ChannelType,
   PermissionFlagsBits,
@@ -20,8 +25,10 @@ const {
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
+  EmbedBuilder,
 } = require('discord.js');
 const db = require('../database');
+const config = require('../config');
 const { base } = require('../lib/embeds');
 const { t } = require('../lib/i18n');
 const { parseEmoji, customEmojiUrl } = require('../lib/emojis');
@@ -32,6 +39,57 @@ const BUTTON_STYLES = {
   Success: ButtonStyle.Success,
   Danger: ButtonStyle.Danger,
 };
+
+const ROOT = path.join(__dirname, '..', '..');
+
+/** صورة اللوحة الافتراضية (الصورة اللي تنزل بدل النص) */
+const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel.webp';
+
+/** الحالة الحيّة (تظهر في /api/status وللتشخيص) */
+const STATE = { guilds: {} };
+
+/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا */
+const PANEL_VERSION = 2;
+
+/**
+ * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
+ * @param {string|null|undefined} value
+ * @returns {string|null}
+ */
+function imagePath(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const full = path.isAbsolute(raw) ? raw : path.join(ROOT, raw);
+  return fs.existsSync(full) ? full : null;
+}
+
+/** اسم ملف آمن للإرفاق */
+function imageName(value, fallback = 'panel.png') {
+  const raw = String(value || '').split('?')[0].split('#')[0];
+  const base = path.basename(raw);
+  return /^[\w.\-]{3,64}$/.test(base) ? base : fallback;
+}
+
+/**
+ * يبني مرفق صورة للإرسال في ديسكورد.
+ * @returns {AttachmentBuilder|null}
+ */
+function imageAttachment(value, nameHint = null) {
+  const source = imagePath(value);
+  if (!source) return null;
+  try {
+    return new AttachmentBuilder(source, { name: nameHint || imageName(source) });
+  } catch {
+    return null;
+  }
+}
+
+/** إمبد صورة نظيف: بلا عنوان ولا وصف ولا حقول ولا تذييل ولا وقت */
+function imageEmbed(source) {
+  return new EmbedBuilder().setColor(0x5865f2).setImage(source);
+}
 
 /** إيموجي النوع جاهزًا للأزرار/القوائم (يدعم الخارجي) */
 const typeEmoji = (type) => parseEmoji(type?.emoji) ?? undefined;
@@ -58,50 +116,104 @@ function buildTypeButtons(types) {
 }
 
 /** قائمة منسدلة لفتح التذاكر */
-function buildTypeSelect(types) {
+function buildTypeSelect(types, cfg = null) {
   const options = types.slice(0, 25).map((type) => ({
     label: String(type.label).slice(0, 100),
     value: String(type.id).slice(0, 100),
     description: type.description ? String(type.description).slice(0, 100) : undefined,
     emoji: typeEmoji(type),
   }));
+  const placeholder = String(cfg?.panelPlaceholder || 'اختر القائمة المناسبة لك').slice(0, 150);
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId('ticket:open')
-      .setPlaceholder('اختر نوع التذكرة لفتحها...')
+      .setPlaceholder(placeholder || 'اختر القائمة المناسبة لك')
       .addOptions(options.length ? options : [{ label: 'الدعم الفني', value: 'support' }]),
   );
 }
 
 /**
- * بناء لوحة التذاكر: رسالة واحدة فقط (بلا رسالة تعليمات منفصلة، وبلا أي فوتر).
- * @returns {Array<object>} مصفوفة payloads جاهزة للإرسال (عنصر واحد)
+ * 🖼️ بناء لوحة التذاكر:
+ *   ١) رسالة الصورة (بدل النص) + قائمة/أزرار الأنواع تحتها
+ *   ٢) صورة زخرفية اختيارية أسفل القائمة
+ * وإذا كانت الصورة مطفّية (panelImage = '') يرجع للوحة النصية القديمة.
+ * @returns {Array<object>} مصفوفة payloads جاهزة للإرسال (1 أو 2 رسالة)
  */
 function buildPanelPayloads(settings, guild, client = null) {
   const cfg = settings.tickets;
   const types = cfg.types || [];
 
-  const embed = base({
-    color: 0x5865f2,
-    title: cfg.panelTitle || 'مركز الدعم',
-    description: cfg.panelDescription || 'اختر نوع التذكرة بالأسفل وسيُفتح لك روم خاص مع فريق الدعم.',
-    thumbnail: customEmojiUrl(types[0]?.emoji) ?? (guild?.iconURL?.({ size: 256 }) ?? null),
-    fields: types.slice(0, 4).map((type) => ({
-      name: `${type.emoji || ''} ${type.label}`.trim(),
-      value: type.description || '—',
-      inline: true,
-    })),
-    /* بلا فوتر إطلاقًا */
-  });
+  const components = cfg.panelMode === 'select' ? [buildTypeSelect(types, cfg)] : buildTypeButtons(types);
+  const payloads = [];
 
-  const components = cfg.panelMode === 'select' ? [buildTypeSelect(types)] : buildTypeButtons(types);
-  return [{ embeds: [embed], components }];
+  /* ١) الصورة الأساسية (hero) — هي اللوحة نفسها */
+  const heroValue = cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage;
+  const hero = imageAttachment(heroValue);
+  if (hero && cfg.panelImageOnly !== false) {
+    payloads.push({ files: [hero], embeds: [imageEmbed(`attachment://${hero.name}`)], components });
+  } else {
+    /* اللوحة النصية (الوضع القديم — تُستخدم إذا ما في صورة) */
+    const embed = base({
+      color: 0x5865f2,
+      title: cfg.panelTitle || 'مركز الدعم',
+      description: cfg.panelDescription || 'اختر نوع التذكرة بالأسفل وسيُفتح لك روم خاص مع فريق الدعم.',
+      thumbnail: customEmojiUrl(types[0]?.emoji) ?? (guild?.iconURL?.({ size: 256 }) ?? null),
+      fields: types.slice(0, 4).map((type) => ({
+        name: `${type.emoji || ''} ${type.label}`.trim(),
+        value: type.description || '—',
+        inline: true,
+      })),
+      /* بلا فوتر إطلاقًا */
+    });
+    payloads.push({ embeds: [embed], components });
+  }
+
+  /* ٢) الصورة الزخرفية أسفل القائمة (اختيارية) */
+  if (cfg.panelFooterImage) {
+    const name = imageName(cfg.panelFooterImage, 'panel-footer.png');
+    const footerFile = imageAttachment(cfg.panelFooterImage, hero && hero.name === name ? `footer-${name}` : name);
+    if (footerFile) payloads.push({ files: [footerFile], embeds: [imageEmbed(`attachment://${footerFile.name}`)] });
+  }
+
+  return payloads;
 }
 
-/** لوحة بسيطة (توافق مع الاستخدام القديم) */
+/** لوحة بسيطة (توافق مع الاستخدام القديم) — يرجّع الرسالة الأساسية */
 function buildPanel(settings, guild) {
-  const payloads = buildPanelPayloads(settings, guild);
-  return payloads[payloads.length - 1];
+  return buildPanelPayloads(settings, guild)[0];
+}
+
+/** أسماء ملفات الصور المستخدمة في اللوحة (لكشف النسخ القديمة عند التنظيف) */
+function panelImageNames(cfg = {}) {
+  const names = new Set();
+  const add = (value) => {
+    if (!value) return;
+    const source = imagePath(value);
+    if (!source) return;
+    names.add(imageName(source));
+    if (/^https?:\/\//i.test(source)) {
+      try { names.add(imageName(new URL(source).pathname)); } catch { /* رابط غريب — نتجاهل */ }
+    }
+  };
+  add(cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage);
+  add(cfg.panelFooterImage);
+  return [...names].filter(Boolean);
+}
+
+/** بصمة اللوحة: أي تغيير بالصورة/الأنواع/الوضع ⇒ البوت يحدّث اللوحة لحاله */
+function panelSignature(cfg = {}) {
+  const payload = {
+    v: PANEL_VERSION,
+    mode: cfg.panelMode || 'select',
+    placeholder: cfg.panelPlaceholder || '',
+    imageOnly: cfg.panelImageOnly !== false,
+    image: imageName(cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage),
+    footer: cfg.panelFooterImage ? imageName(cfg.panelFooterImage) : '',
+    title: cfg.panelTitle || '',
+    description: cfg.panelDescription || '',
+    types: (cfg.types || []).map((type) => [type.id, type.label, type.description || '', type.emoji || '']),
+  };
+  return crypto.createHash('sha1').update(JSON.stringify(payload)).digest('hex').slice(0, 16);
 }
 
 /** نصوص رسائل التعليمات القديمة (لتنظيف النسخ اللي انزلت قبل إزالة الميزة) */
@@ -116,9 +228,11 @@ const LEGACY_INFO_TEXTS = [
  * ورسائل التعليمات المنفصلة القديمة (نصها مطابق للقديم).
  * @returns {Promise<number>} عدد الرسائل المحذوفة
  */
-async function cleanupOldPanels(channel, client, extraTexts = []) {
+async function cleanupOldPanels(channel, client, extraTexts = [], opts = {}) {
   if (!channel?.messages?.fetch || !client?.user) return 0;
   const texts = [...extraTexts, ...LEGACY_INFO_TEXTS].filter(Boolean).map((x) => String(x).trim());
+  /* أسماء صور اللوحة (الأساسية + الزخرفية) — أي رسالة صور قديمة للبوت تنحذف مع اللوحة */
+  const imageNames = opts.imageNames?.length ? opts.imageNames : panelImageNames(opts.config || {});
   let removed = 0;
   try {
     const batch = await channel.messages.fetch({ limit: 50 });
@@ -126,10 +240,17 @@ async function cleanupOldPanels(channel, client, extraTexts = []) {
       if (message.author?.id !== client.user.id) continue;
       const isPanel = (message.components || []).some((row) =>
         (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
+      /* رسالة الصورة الزخرفية: إمبد صورة لملف من صور اللوحة (بلا أي نص) */
+      const embedUrls = (message.embeds || [])
+        .map((embed) => embed?.image?.url || embed?.data?.image?.url || '')
+        .filter(Boolean)
+        .join(' ');
+      const isPanelImage = Boolean(embedUrls) && !String(message.content || '').trim()
+        && imageNames.some((name) => embedUrls.includes(name));
       const content = String(message.content || '').trim();
       /* مطابقة دقيقة للنص المحفوظ، أو أي نسخة تبدأ بـ«كيف أحصل على الدعم» (كل صيغ رسالة التعليمات القديمة) */
       const isIntro = Boolean(content) && (texts.some((txt) => content === txt) || /^[*_\s]*كيف أحصل على الدعم/.test(content));
-      if (!isPanel && !isIntro) continue;
+      if (!isPanel && !isPanelImage && !isIntro) continue;
       await message.delete().catch(() => {});
       removed += 1;
     }
@@ -323,19 +444,25 @@ async function createTicket(client, guild, user, typeId) {
     ];
   const openFooter = cfg.openFooter ? fill(cfg.openFooter) : undefined;
 
+  /* 🖼️ رسالة فتح التذكرة: صورة بلا نص (إذا الصورة مفعّلة) — وإلا ترجع الرسالة النصية */
+  const openImageValue = cfg.openImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.openImage;
+  const openFile = cfg.openImageOnly === false ? null : imageAttachment(openImageValue);
+  const openEmbed = openFile
+    ? imageEmbed(`attachment://${openFile.name}`)
+    : base({
+      color: 0x5865f2,
+      title: openTitle.slice(0, 256),
+      description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
+      fields: openFields,
+      footer: openFooter,
+    });
+
   await channel
     .send({
       content: mentions,
-      embeds: [
-        base({
-          color: 0x5865f2,
-          title: openTitle.slice(0, 256),
-          description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
-          fields: openFields,
-          footer: openFooter,
-        }),
-      ],
+      embeds: [openEmbed],
       components: [ticketControls(ticket.id, false, cfg)],
+      files: openFile ? [openFile] : [],
     })
     .catch(() => {});
 
@@ -433,6 +560,157 @@ async function closeTicket(client, channel, closedBy, { reason = null, deleteCha
   return { ok: true, ticket };
 }
 
+/**
+ * 🔎 يبحث عن قناة اللوحة: القناة المحفوظة، وإلا القناة اللي فيها لوحة منشورة قبل.
+ * @returns {Promise<object|null>}
+ */
+async function findPanelChannel(guild, cfg = {}) {
+  const saved = cfg.panelChannelId
+    ? guild.channels.cache.get(cfg.panelChannelId) || (await guild.channels.fetch(cfg.panelChannelId).catch(() => null))
+    : null;
+  if (saved?.isTextBased?.()) return saved;
+
+  const isPanelMessage = (message, botId) => {
+    if (!botId || message.author?.id !== botId) return false;
+    return (message.components || []).some((row) =>
+      (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
+  };
+
+  const channels = [...guild.channels.cache.values()].filter((c) => c?.isTextBased?.() && !c.isThread?.());
+  /* نبدأ بالقنوات اللي اسمها يوحي إنها قناة تذاكر، وبعدها نكمل على الباقي (بحد أقصى 25 قناة) */
+  const looksLikeTickets = (c) => /ticket|تذكر|دعم|support|help|الدعم/i.test(String(c.name || ''));
+  const ordered = [...channels.filter(looksLikeTickets), ...channels.filter((c) => !looksLikeTickets(c))].slice(0, 25);
+
+  for (const channel of ordered) {
+    const batch = await channel.messages.fetch({ limit: 10 }).catch(() => null);
+    if (!batch) continue;
+    for (const message of batch.values()) {
+      if (isPanelMessage(message, guild.client?.user?.id)) return channel;
+    }
+  }
+  return null;
+}
+
+/**
+ * ترقية شكل اللوحة (مرة واحدة لكل سيرفر): السيرفرات اللي كانت على «أزرار» بالافتراضي القديم
+ * تتحوّل للقائمة المنسدلة زي اللوحة الجديدة (نفس شكل الصورة اللي طُلبت).
+ * الترقية تنحفظ بعلامة panelLookUpgraded حتى ما تتعارض مع أي اختيار بعدها من الموقع.
+ * @returns {string|null} الوضع الجديد إذا صارت الترقية
+ */
+function upgradePanelLook(guildId) {
+  try {
+    const raw = db.getGuildSettings(guildId)?.tickets || {};
+    if (raw.panelLookUpgraded === true) return null;
+    const toSelect = raw.panelMode === 'buttons';
+    db.updateGuildSettings(guildId, { tickets: { panelLookUpgraded: true, ...(toSelect ? { panelMode: 'select' } : {}) } });
+    return toSelect ? 'select' : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🖼️ يتأكد إن لوحة التذاكر منشورة وحديثة (نفس الصور والأنواع والوضع).
+ * إذا تغيّر أي شي أو ما كانت منشورة ⇒ ينظّف النسخة القديمة وينشر الجديدة.
+ * @returns {Promise<{ok:boolean, reason:string, channelId?:string, sent?:number, cleaned?:number}>}
+ */
+async function ensurePanel(client, guild, { force = false } = {}) {
+  if (!guild?.channels) return { ok: false, reason: 'noGuild' };
+
+  const upgraded = upgradePanelLook(guild.id);
+  const settings = upgraded ? db.getGuildSettings(guild.id) : db.getGuildSettings(guild.id);
+  const cfg = settings.tickets || {};
+
+  if (!cfg.enabled) return { ok: false, reason: 'disabled' };
+  if (cfg.panelAutoPost === false && !force) return { ok: false, reason: 'autoOff' };
+
+  const channel = await findPanelChannel(guild, cfg);
+  if (!channel) return { ok: false, reason: 'noChannel' };
+
+  const signature = panelSignature(cfg);
+  if (!force && cfg.panelSignature === signature && cfg.panelChannelId === channel.id) {
+    STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), channelId: channel.id, upToDate: true, lastEnsureAt: Date.now(), lastError: null };
+    return { ok: true, reason: 'upToDate', channelId: channel.id, sent: 0, cleaned: 0 };
+  }
+
+  const cleaned = await cleanupOldPanels(channel, client, [cfg.panelInfoMessage], { config: cfg });
+  const payloads = buildPanelPayloads(settings, guild, client);
+  let sent = 0;
+  for (const payload of payloads) {
+    const message = await channel.send(payload).catch((err) => {
+      STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), lastError: `panel: ${err.message}` };
+      return null;
+    });
+    if (message) sent += 1;
+  }
+
+  if (!sent) {
+    STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), channelId: channel.id, lastEnsureAt: Date.now(), lastError: 'sendFailed' };
+    return { ok: false, reason: 'sendFailed', channelId: channel.id, sent: 0, cleaned };
+  }
+
+  db.updateGuildSettings(guild.id, { tickets: { panelChannelId: channel.id, panelSignature: signature } });
+  STATE.guilds[guild.id] = {
+    ...(STATE.guilds[guild.id] || {}),
+    channelId: channel.id,
+    upToDate: true,
+    sent,
+    lastCleaned: cleaned,
+    lastEnsureAt: Date.now(),
+    lastError: null,
+  };
+  return { ok: true, reason: 'posted', channelId: channel.id, sent, cleaned };
+}
+
+/** المؤقّتات المؤجّلة لكل سيرفر (تجميع الحفظ السريع من الموقع) */
+const PENDING = new Map();
+
+/** ينشر/يحدّث لوحة التذاكر لسيرفر واحد بهدوء */
+async function runEnsure(client, guildId) {
+  const guild = client?.guilds?.cache?.get(guildId);
+  if (!guild) return null;
+  try {
+    const result = await ensurePanel(client, guild);
+    if (result.ok && result.reason === 'posted') {
+      console.log(`[لوحة التذاكر] تحديث تلقائي في السيرفر ${guildId} — ${result.sent} رسالة · تنظيف ${result.cleaned || 0}`);
+    }
+    return result;
+  } catch (err) {
+    STATE.guilds[guildId] = { ...(STATE.guilds[guildId] || {}), lastError: err.message, lastEnsureAt: Date.now() };
+    console.error('[تنبيه] تعذّر تحديث لوحة التذاكر:', err.message);
+    return null;
+  }
+}
+
+/** يجدول تحديث اللوحة بعد لحظات (لما تُحفظ الإعدادات من الموقع) */
+function scheduleEnsure(client, guildId, delay = 2500) {
+  if (!client || !guildId) return;
+  clearTimeout(PENDING.get(guildId));
+  const timer = setTimeout(() => {
+    PENDING.delete(guildId);
+    runEnsure(client, guildId);
+  }, Math.max(300, delay));
+  timer.unref?.();
+  PENDING.set(guildId, timer);
+}
+
+/** يتأكد من لوحات كل السيرفرات (يُستدعى عند تشغيل البوت) */
+async function ensureAll(client) {
+  const results = [];
+  for (const guild of client?.guilds?.cache?.values() || []) {
+    /* تأخير بسيط بين السيرفرات حتى ما نضرب الحدود */
+    // eslint-disable-next-line no-await-in-loop
+    results.push(await runEnsure(client, guild.id));
+  }
+  return results.filter(Boolean);
+}
+
+/** حالة اللوحة (للتشخيص من /api/status) */
+function status(guildId = null) {
+  if (guildId) return STATE.guilds[guildId] || null;
+  return STATE.guilds;
+}
+
 /** بناء الأرشيف عند الطلب */
 async function buildArchive(channel) {
   const ticket = db.getTicketByChannel(channel.id);
@@ -447,6 +725,14 @@ async function buildArchive(channel) {
 module.exports = {
   buildPanel,
   buildPanelPayloads,
+  ensurePanel,
+  ensureAll,
+  scheduleEnsure,
+  panelSignature,
+  panelImageNames,
+  imagePath,
+  status,
+  DEFAULT_PANEL_IMAGE,
   buildTypeButtons,
   buildTypeSelect,
   ticketControls,

@@ -10,6 +10,7 @@
  *   POST   /api/guilds/:id/settings   (حفظ الإعدادات — تدعم الدمج الجزئي)
  *   GET    /api/guilds/:id/cases
  *   GET    /api/guilds/:id/tickets
+ *   GET    /api/guilds/:id/tickets/panel   (تشخيص لوحة التذاكر الحيّة)
  *   GET    /api/guilds/:id/levels
  *   POST   /api/guilds/:id/tickets/:ticketId/close
  * -------------------------------------------------------------
@@ -365,6 +366,16 @@ router.post('/guilds/:guildId/settings', async (req, res) => {
   const guild = db.getGuild(guildId);
   const merged = mergeSettings(guild.settings, patch);
   db.updateGuildSettings(guildId, merged);
+
+  /* 🖼️ لوحة التذاكر: أي تعديل على إعدادات التذاكر (صورة/أنواع/وضع) يعيد نشرها تلقائيًا */
+  if (patch.tickets) {
+    const liveClient = safeClient();
+    if (liveClient?.isReady?.()) {
+      try {
+        require('../../systems/tickets').scheduleEnsure(liveClient, guildId);
+      } catch { /* نتجاهل — اللوحة تنحدّث عند إعادة التشغيل */ }
+    }
+  }
 
   /* سجل النشاط: من غيّر شو */
   audit.guild(req, guildId, {
@@ -874,6 +885,69 @@ router.get('/guilds/:guildId/command-replies', async (req, res) => {
   return res.json({ items, textByDefault: replyFormat.TEXT_BY_DEFAULT });
 });
 
+/* 🖼️ تشخيص مباشر للوحة التذاكر: هل الصورة منشورة + القائمة + الصورة الزخرفية */
+router.get('/guilds/:guildId/tickets/panel', async (req, res) => {
+  const guildId = guildId0(req);
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+
+  const client = safeClient();
+  const guild = client?.guilds?.cache?.get(guildId);
+  const tickets = require('../../systems/tickets');
+  const cfg = db.getGuildSettings(guildId)?.tickets || {};
+  const out = {
+    config: {
+      enabled: Boolean(cfg.enabled),
+      panelMode: cfg.panelMode,
+      panelImage: cfg.panelImage,
+      panelImageOnly: cfg.panelImageOnly,
+      panelFooterImage: cfg.panelFooterImage,
+      panelPlaceholder: cfg.panelPlaceholder,
+      panelChannelId: cfg.panelChannelId || null,
+      panelAutoPost: cfg.panelAutoPost,
+      openImage: cfg.openImage,
+      openImageOnly: cfg.openImageOnly,
+      signature: cfg.panelSignature || null,
+      wantedSignature: tickets.panelSignature(cfg),
+      types: (cfg.types || []).map((type) => ({ id: type.id, label: type.label, description: type.description || '' })),
+    },
+    status: tickets.status(guildId),
+    live: null,
+  };
+
+  const channel = guild && cfg.panelChannelId
+    ? guild.channels.cache.get(cfg.panelChannelId) || (await guild.channels.fetch(cfg.panelChannelId).catch(() => null))
+    : null;
+
+  if (channel?.isTextBased?.()) {
+    const fetched = await channel.messages.fetch({ limit: 20 }).catch(() => null);
+    if (fetched) {
+      const isPanel = (m) => (m.components || []).some((row) =>
+        (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
+      out.live = {
+        channelName: channel.name,
+        count: fetched.size,
+        panel: [...fetched.values()].filter(isPanel).map((m) => ({
+          id: m.id,
+          image: m.embeds?.[0]?.image?.url || null,
+          hasText: Boolean(String(m.embeds?.[0]?.title || m.embeds?.[0]?.description || m.content || '').trim()),
+          kind: (m.components || []).some((row) => (row.components || []).some((c) => c.type === 3)) ? 'select' : 'buttons',
+          ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
+        })),
+        images: [...fetched.values()]
+          .filter((m) => (m.embeds || []).some((embed) => embed?.image?.url))
+          .slice(0, 6)
+          .map((m) => ({
+            id: m.id,
+            image: m.embeds[0].image.url,
+            ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
+          })),
+      };
+    }
+  }
+
+  return res.json(out);
+});
+
 /* ------------------------- إجراءات تجريبية من اللوحة ------------------------- */
 /**
  * POST /api/guilds/:guildId/actions/:action
@@ -900,16 +974,18 @@ router.post('/guilds/:guildId/actions/:action', async (req, res) => {
   try {
     if (action === 'panel') {
       const tickets = require('../../systems/tickets');
-      const target = channelId || settings.tickets.logChannelId;
+      const target = channelId || settings.tickets.panelChannelId || settings.tickets.logChannelId;
       if (!target) return res.status(400).json({ ok: false, message: 'حدّد قناة إرسال اللوحة أولًا.' });
       const channel = await guild.channels.fetch(target).catch(() => null);
       if (!channel?.isTextBased?.()) return res.status(400).json({ ok: false, message: 'القناة غير صالحة لإرسال اللوحة.' });
-      const cleaned = await tickets.cleanupOldPanels(channel, client, [settings.tickets.panelInfoMessage]);
-      const payloads = tickets.buildPanelPayloads(settings, guild, client);
-      for (const payload of payloads) await channel.send(payload);
+      /* نحفظ القناة ثم ننشر اللوحة الجديدة ونحفظ بصمتها (تحديث تلقائي بعدها لأي تعديل) */
+      db.updateGuildSettings(guildId, { tickets: { panelChannelId: channel.id } });
+      const result = await tickets.ensurePanel(client, guild, { force: true });
+      if (!result.ok) return res.status(500).json({ ok: false, message: 'تعذّر نشر اللوحة في هذه القناة.' });
       return res.json({
         ok: true,
-        message: `✅ تم نشر اللوحة في #${channel.name}${cleaned ? ` — ونظّفت ${cleaned} رسالة قديمة` : ''}`,
+        message: `✅ تم نشر اللوحة في #${channel.name} (${result.sent} رسالة)${result.cleaned ? ` — ونظّفت ${result.cleaned} رسالة قديمة` : ''}`,
+        panel: result,
       });
     }
 
@@ -1051,6 +1127,14 @@ router.get('/status', (req, res) => {
      * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
      * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
      */
+    /* 🖼️ لوحة التذاكر: آخر تحديث تلقائي + القناة (تشخيص حيّ) */
+    ticketsPanel: (() => {
+      try {
+        return require('../../systems/tickets').status();
+      } catch {
+        return null;
+      }
+    })(),
     /* 🧹 روم الأوامر: آخر نشر/تنظيف + كم رسالة انمسحت (تشخيص حيّ) */
     commandRoom: (() => {
       try {

@@ -373,6 +373,8 @@ async function main() {
         enabled: true,
         categoryId: '700000000000000007',
         types: [{ id: 'support', label: 'دعم', emoji: '🎫' }],
+        /* نفحص مسار النص أولًا (لو المدير طفّى الصورة) */
+        openImageOnly: false,
         openTitle: '🎫 تذكرة {id} — {type}',
         openDescription: 'هلا {user} — اشرح مشكلتك بالتفصيل.',
         openIntro: 'اكتب كل التفاصيل مرة وحدة حتى نساعدك بسرعة.',
@@ -418,6 +420,27 @@ async function main() {
     assert.strictEqual((data2.fields || []).length, 0, 'إطفاء الحقول ما اشتغل');
     ok('مفتاح «إظهار الحقول» يطفي حقول رسالة الفتح');
 
+    /* الوضع الافتراضي الجديد: رسالة الفتح **صورة بلا نص** */
+    resetSettings({
+      tickets: {
+        ...db.getGuildSettings(GUILD).tickets,
+        openImageOnly: true,
+        openImage: 'src/web/public/assets/tickets-panel.webp',
+      },
+    });
+    sentRooms.length = 0;
+    const third = await tickets.createTicket({ user: { id: '100000000000000002' } }, guild, { id: '200000000000000077', username: 'Nora', tag: 'Nora#0001' }, 'support');
+    assert.strictEqual(third.ok, true, 'فتح تذكرة ثالثة فشل');
+    const payload3 = sentRooms[0];
+    const data3 = payload3.embeds?.[0]?.data || {};
+    assert.ok(String(data3.image?.url || '').startsWith('attachment://'), 'رسالة الفتح لازم تكون صورة: ' + data3.image?.url);
+    assert.ok(!data3.title && !data3.description && !data3.footer, 'رسالة الفتح صورة فقط — بلا نص');
+    assert.strictEqual((payload3.files || []).length, 1, 'ملف الصورة ما انرفق برسالة الفتح');
+    assert.ok(String(payload3.content).includes('<@200000000000000077>'), 'منشن صاحب التذكرة انشال');
+    const openButtons = payload3.components?.[0]?.components || [];
+    assert.strictEqual(openButtons.length, 4, 'أزرار التحكّم ناقصة من رسالة الفتح');
+    ok('رسالة فتح التذكرة صورة بلا نص + المنشن وأزرار التحكّم (استلام · إغلاق · أرشيف · إضافة عضو)');
+
     const ticketsSrc = fs.readFileSync(path.join(__dirname, 'src', 'systems', 'tickets.js'), 'utf8');
     assert.ok(/openTitle/.test(ticketsSrc) && /openDescription/.test(ticketsSrc), 'رسالة الفتح ما صارت تُبنى من الإعدادات');
     assert.ok(/openFooter/.test(ticketsSrc) && /openFields/.test(ticketsSrc), 'التذييل/الحقول ما صارت قابلة للتعديل');
@@ -425,7 +448,10 @@ async function main() {
     for (const key of ['tickets.openTitle', 'tickets.openDescription', 'tickets.openIntro', 'tickets.openFields', 'tickets.openFooter']) {
       assert.ok(appSrc.includes(key), `حقل ${key} ناقص من اللوحة`);
     }
-    ok('اللوحة فيها: عنوان · وصف · سطر إضافي · حقول · تذييل لرسالة فتح التذكرة');
+    for (const key of ['tickets.openImage', 'tickets.openImageOnly', 'tickets.panelImage', 'tickets.panelFooterImage', 'tickets.panelPlaceholder']) {
+      assert.ok(appSrc.includes(key), `حقل الصور الجديد ${key} ناقص من اللوحة`);
+    }
+    ok('اللوحة فيها: صورة اللوحة + الصورة الزخرفية + صورة رسالة الفتح — وكذلك العنوان والوصف والسطر والحقول والتذييل');
   }
 
   console.log('\n═══ ١٠) صفحة «ردود أوامر» في الموقع + مسار الـ API ═══');

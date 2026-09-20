@@ -150,7 +150,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
   const tickets = require('../src/systems/tickets');
   const ticketPanel = tickets.buildPanel(settings, { id: '1' });
-  assert.ok(ticketPanel.embeds[0].data.title.includes('الدعم'), 'لوحة التذاكر خطأ');
+  const panelImageRef = ticketPanel.embeds[0].data.image?.url || '';
+  assert.ok(panelImageRef.startsWith('attachment://'), 'لوحة التذاكر لازم تنزل صورة (بدل النص)');
+  assert.ok(
+    !ticketPanel.embeds[0].data.title && !ticketPanel.embeds[0].data.description,
+    'اللوحة صورة فقط — بلا عنوان ولا وصف',
+  );
+  assert.ok(Array.isArray(ticketPanel.files) && ticketPanel.files.length === 1, 'اللوحة ما ترسل ملف الصورة');
   const firstControl = ticketPanel.components[0].components[0];
   const controlCount = ticketPanel.components.flatMap((row) => row.components).length;
   assert.ok(
@@ -224,24 +230,42 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   const ticketsSystem = require('../src/systems/tickets');
   const tSettings = db.getGuildSettings('999999999999999999');
   const payloads = ticketsSystem.buildPanelPayloads(tSettings, { id: '1', iconURL: () => null }, null);
-  assert.strictEqual(payloads.length, 1, 'اللوحة لازم تكون رسالة واحدة فقط');
-  const tPanel = payloads[payloads.length - 1];
+  assert.ok(payloads.length <= 2, 'اللوحة لازم تكون رسالة الصورة + صورة زخرفية كحد أقصى');
+  const tPanel = payloads[0];
   assert.ok(tPanel.embeds[0], 'البنل بدون embed');
+  assert.ok(String(tPanel.embeds[0].data.image?.url || '').startsWith('attachment://'), 'اللوحة لازم تنزل صورة بدل النص');
+  assert.ok(!tPanel.embeds[0].data.title && !tPanel.embeds[0].data.description, 'اللوحة صورة فقط — بلا نص');
   assert.ok(!tPanel.content, 'اللوحة ما لازم يكون فيها رسالة تعليمات منفصلة');
   assert.strictEqual(tPanel.embeds[0].data.footer, undefined, 'اللوحة فيها فوتر — لازم بلا فوتر');
+  assert.strictEqual(tPanel.files.length, 1, 'اللوحة لازم ترسل ملف الصورة');
   assert.ok(typeof ticketsSystem.cleanupOldPanels === 'function', 'تنظيف اللوحات القديمة ناقص');
   const tTypes = tSettings.tickets.types;
   assert.strictEqual(tTypes.length, 4, 'يجب أن تكون الأنواع 4');
   assert.deepStrictEqual(tTypes.map((t2) => t2.id), ['support', 'verify', 'gift', 'staff']);
-  const tRows = tPanel.components;
-  const flatButtons = tRows.flatMap((r) => r.components);
+
+  // القائمة المنسدلة هي الوضع الافتراضي: 4 أنواع مع وصف كل نوع ونص القائمة
+  const tSelect = tPanel.components[0].components[0];
+  assert.strictEqual(tSelect.options.length, 4, 'القائمة المنسدلة لا تحتوي 4 أنواع');
+  assert.strictEqual(tSelect.data.placeholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
+  assert.ok(tSelect.options.every((o) => o.data.description), 'كل نوع لازم يكون له وصف');
+  assert.ok(tSelect.options[0].data.value.startsWith('support'), 'customId/قيمة الخيار خاطئة');
+
+  // الصورة الزخرفية أسفل القائمة (رسالة ثانية بلا مكوّنات)
+  assert.strictEqual(payloads.length, 2, 'لازم تنزل صورة زخرفية أسفل القائمة');
+  assert.ok(String(payloads[1].embeds[0].data.image?.url || '').includes('footer'), 'الصورة الزخرفية خطأ');
+  assert.strictEqual(payloads[1].components, undefined, 'الصورة الزخرفية بلا مكوّنات');
+
+  // وضع الأزرار (لو بدّله من الموقع)
+  const buttonsPayload = ticketsSystem.buildPanelPayloads({ ...tSettings, tickets: { ...tSettings.tickets, panelMode: 'buttons' } }, {})[0];
+  const flatButtons = buttonsPayload.components.flatMap((r) => r.components);
   assert.strictEqual(flatButtons.length, 4, 'يجب 4 أزرار للأنواع');
   assert.ok(flatButtons[0].data.custom_id.startsWith('ticket:open:'), 'customId خاطئ');
 
-  // وضع القائمة المنسدلة
-  const selectPayload = ticketsSystem.buildPanelPayloads({ ...tSettings, tickets: { ...tSettings.tickets, panelMode: 'select' } }, {}).pop();
-  assert.strictEqual(selectPayload.components[0].components[0].options.length, 4, 'القائمة المنسدلة لا تحتوي 4 أنواع');
- console.log('  [تم] اللوحة رسالة واحدة نظيفة (بلا فوتر وبلا رسالة تعليمات) + تعمل بالأزرار والقائمة مع 4 أنواع');
+  // لو طفّيت الصورة ⇒ ترجع اللوحة النصية القديمة
+  const textOnly = ticketsSystem.buildPanelPayloads({ ...tSettings, tickets: { ...tSettings.tickets, panelImage: '' } }, { id: '1', iconURL: () => null });
+  assert.ok(textOnly[0].embeds[0].data.title, 'لما الصورة مطفّية لازم يرجع العنوان النصي');
+  assert.ok(!textOnly[0].files?.length, 'اللوحة النصية بلا ملف صورة');
+ console.log('  [تم] اللوحة صورة + قائمة ٤ أنواع بوصف لكل نوع + صورة زخرفية (وبلا فوتر) — والنص يرجع لو الصورة مطفّية');
 
  console.log('[اختبار] اختبار 14: الخط الفاصل والتفاعلات التلقائية');
   const autolineSystem = require('../src/systems/autoline');
@@ -2030,7 +2054,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "(async()=>{const n=await t.cleanupOldPanels(channel,{user:{id:'bot-1'}},[]);",
       "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
       "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
-      "if(p.length!==1||p[0].content||p[0].embeds[0].data.footer) throw new Error('اللوحة مش نظيفة');",
+      "if(p.length!==2||p[0].content||p[0].embeds[0].data.footer) throw new Error('اللوحة مش نظيفة');",
+      "if(!String(p[0].embeds[0].data.image.url).startsWith('attachment://')||p[0].embeds[0].data.title) throw new Error('اللوحة لازم صورة بلا نص');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
     ].join('')], { cwd: root47, encoding: 'utf8' });
     assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
@@ -2306,6 +2331,47 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read52('src/web/public/app.js').includes("label: 'روم الأوامر'"), 'قسم روم الأوامر ناقص من اللوحة');
     assert.ok(read52('src/web/routes/api.js').includes('command-room/:action'), 'مسارات روم الأوامر ناقصة');
     assert.ok(read52('src/web/routes/api.js').includes('commandRoom: (() => {'), 'حالة روم الأوامر ناقصة من /api/status');
+  }
+
+ console.log('[اختبار] 53: لوحة التذاكر بالصورة بدل النص + رسالة فتح التذكرة بالصورة');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path53 = require('node:path');
+    const fs53 = require('node:fs');
+    const root53 = path53.join(__dirname, '..');
+    const read53 = (rel) => fs53.readFileSync(path53.join(root53, rel), 'utf8');
+
+    const out53 = execFileSync('node', ['tickets-panel-image-test.js'], { cwd: root53, encoding: 'utf8' });
+    assert.ok(out53.includes('لوحة التذاكر بالصورة'), 'اختبار لوحة التذاكر بالصورة فشل');
+
+    /* الإعدادات الافتراضية */
+    const cfg53 = require(path53.join(root53, 'src', 'config'));
+    const t53 = cfg53.defaults.tickets;
+    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel.webp', 'صورة اللوحة الافتراضية خطأ');
+    assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
+    assert.ok(String(t53.panelFooterImage).includes('tickets-panel-footer'), 'الصورة الزخرفية ناقصة');
+    assert.strictEqual(t53.panelPlaceholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
+    assert.strictEqual(t53.panelMode, 'select', 'وضع اللوحة الافتراضي لازم قائمة منسدلة');
+    assert.strictEqual(t53.panelAutoPost, true, 'التحديث التلقائي للوحة لازم مفعّل');
+    assert.strictEqual(t53.openImage, t53.panelImage, 'صورة رسالة فتح التذكرة ناقصة');
+    assert.strictEqual(t53.openImageOnly, true, 'رسالة فتح التذكرة لازم تكون صورة');
+
+    /* ملفات الصور */
+    for (const name53 of ['tickets-panel.webp', 'tickets-panel-footer.webp']) {
+      assert.ok(fs53.existsSync(path53.join(root53, 'src', 'web', 'public', 'assets', name53)), `الصورة ناقصة: ${name53}`);
+    }
+
+    /* البوت + الموقع + الـ API */
+    assert.ok(read53('src/systems/tickets.js').includes('async function ensurePanel'), 'التحديث التلقائي للوحة ناقص');
+    assert.ok(read53('src/systems/tickets.js').includes('imageEmbed'), 'إمبد الصورة النظيف ناقص');
+    assert.ok(read53('src/events/ready.js').includes('ensureAll(client)'), 'الفحص التلقائي للوحة غير مربوط بالإقلاع');
+    assert.ok(read53('src/web/routes/api.js').includes('scheduleEnsure'), 'تحديث اللوحة بعد الحفظ ناقص');
+    assert.ok(read53('src/web/routes/api.js').includes("'/guilds/:guildId/tickets/panel'"), 'مسار تشخيص لوحة التذاكر ناقص');
+    const dash53 = read53('src/web/public/app.js');
+    for (const key53 of ['tickets.panelImage', 'tickets.panelFooterImage', 'tickets.panelPlaceholder', 'tickets.panelChannelId', 'tickets.panelAutoPost', 'tickets.openImage', 'tickets.openImageOnly']) {
+      assert.ok(dash53.includes(key53), `حقل ${key53} ناقص من اللوحة`);
+    }
+    console.log('  [تم] اللوحة صورة بلا نص + قائمة الأنواع + صورة زخرفية · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
   }
 
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');

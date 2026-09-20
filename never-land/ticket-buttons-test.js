@@ -144,9 +144,11 @@ function main() {
     { id: 'plain', label: 'استفسار', emoji: '', description: '', buttonStyle: 'Secondary' },
   ];
   settings.tickets.panelMode = 'buttons';
+  settings.tickets.panelImage = '';
+  settings.tickets.panelFooterImage = '';
   const guild = { id: GUILD, iconURL: () => null };
   const payloads = tickets.buildPanelPayloads(settings, guild);
-  const panel = payloads[payloads.length - 1];
+  const panel = payloads[0];
   const panelButtons = rowJson(panel.components[0]);
   assert.strictEqual(panelButtons[0].label, 'دعم VIP');
   assert.strictEqual(panelButtons[0].emoji.id, '423456789012345678');

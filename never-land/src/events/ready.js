@@ -101,6 +101,21 @@ module.exports = {
       console.error('[تنبيه] تعذّر تشغيل روم الأوامر:', err.message);
     }
 
+    /* 🖼️ لوحة التذاكر: نشر/تحديث تلقائي (صورة اللوحة + القائمة) لما تتغيّر */
+    setTimeout(() => {
+      try {
+        require('../systems/tickets')
+          .ensureAll(client)
+          .then((results) => {
+            const posted = results.filter((r) => r.reason === 'posted').length;
+            console.log(`[لوحة التذاكر] فحص تلقائي — ${results.length} سيرفر · تحديث ${posted}`);
+          })
+          .catch(() => {});
+      } catch (err) {
+        console.error('[تنبيه] تعذّر فحص لوحة التذاكر:', err.message);
+      }
+    }, 6000).unref?.();
+
     // التذكيرات: كل 15 ثانية
     setInterval(async () => {
       const due = db.dueReminders();
