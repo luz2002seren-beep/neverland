@@ -86,6 +86,19 @@ function imageAttachment(value, nameHint = null) {
   }
 }
 
+/** يبسّط اسم القناة (يطير الحروف المزخرفة ོ・𝑻𝒊𝒄𝒌𝒆𝒕𝒔 ⇒ tickets) */
+function plainName(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/** هل اسم القناة يدل على قناة تذاكر؟ */
+function looksLikeTickets(channel) {
+  return /ticket|تذكر|دعم|support|help/.test(plainName(channel?.name));
+}
+
 /** إمبد صورة نظيف: بلا عنوان ولا وصف ولا حقول ولا تذييل ولا وقت */
 function imageEmbed(source) {
   return new EmbedBuilder().setColor(0x5865f2).setImage(source);
@@ -578,7 +591,6 @@ async function findPanelChannel(guild, cfg = {}) {
 
   const channels = [...guild.channels.cache.values()].filter((c) => c?.isTextBased?.() && !c.isThread?.());
   /* نبدأ بالقنوات اللي اسمها يوحي إنها قناة تذاكر، وبعدها نكمل على الباقي (بحد أقصى 25 قناة) */
-  const looksLikeTickets = (c) => /ticket|تذكر|دعم|support|help|الدعم/i.test(String(c.name || ''));
   const ordered = [...channels.filter(looksLikeTickets), ...channels.filter((c) => !looksLikeTickets(c))].slice(0, 25);
 
   for (const channel of ordered) {
@@ -587,6 +599,16 @@ async function findPanelChannel(guild, cfg = {}) {
     for (const message of batch.values()) {
       if (isPanelMessage(message, guild.client?.user?.id)) return channel;
     }
+  }
+
+  /*
+   * ما في لوحة منشورة قبل؟ نستخدم قناة التذاكر نفسها (داخل قسم التذاكر واسمها يدل عليها)
+   * حتى اللوحة الجديدة تنزل لحالها بلا ما تختار قناة بيدك.
+   */
+  if (cfg.categoryId) {
+    const inCategory = channels.filter((c) => String(c.parentId || '') === String(cfg.categoryId));
+    const candidate = inCategory.find(looksLikeTickets) || (inCategory.length === 1 ? inCategory[0] : null);
+    if (candidate) return candidate;
   }
   return null;
 }

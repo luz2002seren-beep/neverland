@@ -223,6 +223,19 @@ async function main() {
     ok('ensurePanel: ينشر أول مرة (ويحذف اللوحة القديمة) · ما يكرّر بلا تغيير · يعيد النشر عند التغيير · ويحترم الإطفاء');
   }
 
+  console.log('\n═══ ٥-ب) لو ما في لوحة منشورة ولا قناة محفوظة → قناة التذاكر نفسها ═══');
+  {
+    const ticketsChannel = { ...mkChannel(PANEL_CHANNEL, 'ོ・𝑻𝒊𝒄𝒌𝒆𝒕𝒔', []), parentId: '800000000000000777' };
+    const chatChannel = { ...mkChannel(OTHER_CHANNEL, 'ོ・𝑪𝒉𝒂𝒕', []), parentId: '800000000000000888' };
+    const guild = mkGuild([ticketsChannel, chatChannel]);
+    resetTickets({ enabled: true, categoryId: '800000000000000777', panelChannelId: null, panelSignature: null, panelAutoPost: true, panelMode: 'select' });
+    const result = await tickets.ensurePanel({ user: { id: BOT } }, guild, {});
+    assert.strictEqual(result.ok, true, 'لازم يلقى قناة التذاكر وينشر: ' + result.reason);
+    assert.strictEqual(result.channelId, PANEL_CHANNEL, 'البوت نشر في قناة غلط');
+    assert.strictEqual(chatChannel.state.sent.length, 0, 'انبعت شي في روم عام — خطأ');
+    ok('ما في لوحة منشورة ولا قناة محفوظة؟ البوت ينشر في قناة التذاكر داخل قسم التذاكر لحاله');
+  }
+
   console.log('\n═══ ٦) ترقية شكل اللوحة مرة واحدة (أزرار ← قائمة منسدلة) ═══');
   {
     const panelChannel = mkChannel(PANEL_CHANNEL, '・𝑇𝑖𝑐𝑘𝑒𝑡𝑠', []);
