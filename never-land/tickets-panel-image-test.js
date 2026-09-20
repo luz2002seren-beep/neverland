@@ -168,7 +168,13 @@ async function main() {
     const sig = tickets.panelSignature(base);
     assert.strictEqual(sig, tickets.panelSignature({ ...base }), 'البصمة لازم تكون ثابتة لو ما تغيّر شي');
     assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/commands-room.png' }), 'تغيير الصورة لازم يغيّر البصمة');
-    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: FOOTER }), 'إضافة خط تحت القائمة لازم يغيّر البصمة');
+    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: 'src/web/public/assets/commands-room.png' }), 'إضافة خط تحت القائمة لازم يغيّر البصمة');
+    /* القيم المنقرضة (webp/خط قديم) تُعتبر «بلا صورة» ⇒ نفس بصمة الوضع الحالي (بلا إعادة نشر عبثية) */
+    assert.strictEqual(
+      tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/tickets-panel.webp', panelFooterImage: FOOTER }),
+      sig,
+      'النسخ المنقرضة لازم تُحسب كأنها هي الصورة الشفافة الحالية',
+    );
     assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelMode: 'buttons' }), 'تغيير الوضع لازم يغيّر البصمة');
     assert.notStrictEqual(
       sig,
@@ -243,6 +249,32 @@ async function main() {
     ok('ما في لوحة منشورة ولا قناة محفوظة؟ البوت ينشر في قناة التذاكر داخل قسم التذاكر لحاله');
   }
 
+  console.log('\n═══ ٥-ج) تصليح الإعدادات المحفوظة القديمة (صورة سوداء/خط محذوف) ═══');
+  {
+    const panelChannel = mkChannel(PANEL_CHANNEL, '・𝑇𝑖𝑐𝑘𝑒𝑡𝑠', []);
+    const guild = mkGuild([panelChannel]);
+    /* إعدادات محفوظة قديمة: صورة webp + خط زخرفي — الملفات ما عادت موجودة */
+    resetTickets({
+      enabled: true,
+      panelImage: 'src/web/public/assets/tickets-panel.webp',
+      panelFooterImage: 'src/web/public/assets/tickets-panel-footer.webp',
+      openImage: 'src/web/public/assets/tickets-panel.webp',
+      panelChannelId: PANEL_CHANNEL,
+      panelSignature: null,
+      panelAutoPost: true,
+    });
+    const result = await tickets.ensurePanel({ user: { id: BOT } }, guild, {});
+    assert.strictEqual(result.ok, true, 'التصليح فشل: ' + result.reason);
+    assert.strictEqual(result.sent, 1, 'لازم رسالة واحدة (بلا خط)');
+    const stored = db.getGuildSettings(GUILD).tickets;
+    assert.strictEqual(stored.panelImage, HERO, 'الصورة المحفوظة ما تصلّحت');
+    assert.strictEqual(stored.panelFooterImage, '', 'الخط المحفوظ ما انشال');
+    assert.strictEqual(stored.openImage, HERO, 'صورة التذكرة المحفوظة ما تصلّحت');
+    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.png'], 'المنشور ما صار PNG');
+    assert.strictEqual(panelChannel.state.sent.at(-1).payload.embeds, undefined, 'المنشور فيه إمبد');
+    ok('إعدادات قديمة (webp + خط) تصلّحت لحالها: PNG شفاف · بلا خط · وبلا إمبد');
+  }
+
   console.log('\n═══ ٦) ترقية شكل اللوحة مرة واحدة (أزرار ← قائمة منسدلة) ═══');
   {
     const panelChannel = mkChannel(PANEL_CHANNEL, '・𝑇𝑖𝑐𝑘𝑒𝑡𝑠', []);
@@ -295,7 +327,8 @@ async function main() {
     assert.ok(/scheduleEnsure/.test(apiSrc), 'حفظ الإعدادات ما يحدّث اللوحة تلقائيًا');
     assert.ok(/tickets\/panel'/.test(apiSrc), 'مسار تشخيص لوحة التذاكر ناقص');
     assert.ok(/ticketsPanel/.test(apiSrc), 'حالة لوحة التذاكر ناقصة من /api/status');
-    assert.ok(/panelFooterImage/.test(apiSrc), 'الصورة الزخرفية ناقصة من مسار التشخيص');
+    assert.ok(/panelFooterImage/.test(apiSrc), 'الخط تحت القائمة ناقص من مسار التشخيص');
+    assert.ok(apiSrc.includes('storedPanelImage') && apiSrc.includes('effectiveImages'), 'التشخيص ما يبيّن الصورة الفعّالة');
     assert.ok(/kind: m.embeds\?\.length \? 'embed' : 'attachment'/.test(apiSrc), 'التشخيص ما يفرّق بين المرفق والإمبد');
     assert.ok(!/imageEmbed/.test(fs.readFileSync(path.join(__dirname, 'src', 'systems', 'tickets.js'), 'utf8')), 'خلّفت دالة إمبد الصورة — لازم صورة عادية بلا إمبد');
 

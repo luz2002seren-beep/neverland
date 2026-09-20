@@ -75,6 +75,33 @@ function imageName(value, fallback = 'panel.png') {
 }
 
 /**
+ * 🩹 تصحيح قيمة صورة محفوظة: لو الملف غير موجود أو كانت نسخة قديمة (بخلفية سوداء/خط)
+ * نرجع للبديل — حتى الإعدادات المحفوظة القديمة تتصلّح لحالها بلا ما تلمس شي بيدك.
+ * @param {string|null|undefined} value القيمة المحفوظة
+ * @param {string} fallback البديل (مسار الصورة الافتراضية أو '' لبلا صورة)
+ * @returns {string} القيمة الصالحة
+ */
+function resolveImageValue(value, fallback = '') {
+  if (value === undefined || value === null) return fallback;
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  /* نسخة قديمة منقرضة (كانت بخلفية سوداء أو خط زخرفي) ⇒ البديل */
+  if (LEGACY_IMAGE_NAMES.includes(path.basename(raw))) return fallback;
+  const full = path.isAbsolute(raw) ? raw : path.join(ROOT, raw);
+  return fs.existsSync(full) ? raw : fallback;
+}
+
+/** القيم الفعّالة للصور (بعد التصحيح) — تُستخدم في البناء والبصمة والتشخيص */
+function effectiveImages(cfg = {}) {
+  return {
+    panelImage: resolveImageValue(cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage, DEFAULT_PANEL_IMAGE),
+    panelFooterImage: resolveImageValue(cfg.panelFooterImage, ''),
+    openImage: resolveImageValue(cfg.openImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.openImage, DEFAULT_PANEL_IMAGE),
+  };
+}
+
+/**
  * يبني مرفق صورة للإرسال في ديسكورد.
  * @returns {AttachmentBuilder|null}
  */
@@ -157,8 +184,8 @@ function buildPanelPayloads(settings, guild, client = null) {
   const payloads = [];
 
   /* ١) الصورة الأساسية (hero) — هي اللوحة نفسها */
-  const heroValue = cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage;
-  const hero = imageAttachment(heroValue);
+  const images = effectiveImages(cfg);
+  const hero = imageAttachment(images.panelImage);
   if (hero && cfg.panelImageOnly !== false) {
     /* 🖼️ صورة عادية: مرفق مباشر بلا أي إمبد (ولا نص) + القائمة تحتها */
     payloads.push({ files: [hero], components });
@@ -179,10 +206,10 @@ function buildPanelPayloads(settings, guild, client = null) {
     payloads.push({ embeds: [embed], components });
   }
 
-  /* ٢) الصورة الزخرفية أسفل القائمة (اختيارية) */
-  if (cfg.panelFooterImage) {
-    const name = imageName(cfg.panelFooterImage, 'panel-footer.png');
-    const footerFile = imageAttachment(cfg.panelFooterImage, hero && hero.name === name ? `footer-${name}` : name);
+  /* ٢) الصورة الزخرفية أسفل القائمة (اختيارية — فاضية = بلا خط) */
+  if (images.panelFooterImage) {
+    const name = imageName(images.panelFooterImage, 'panel-footer.png');
+    const footerFile = imageAttachment(images.panelFooterImage, hero && hero.name === name ? `footer-${name}` : name);
     /* الصورة الزخرفية كذلك صورة عادية بلا إمبد */
     if (footerFile) payloads.push({ files: [footerFile] });
   }
@@ -216,13 +243,14 @@ function panelImageNames(cfg = {}) {
 
 /** بصمة اللوحة: أي تغيير بالصورة/الأنواع/الوضع ⇒ البوت يحدّث اللوحة لحاله */
 function panelSignature(cfg = {}) {
+  const images = effectiveImages(cfg);
   const payload = {
     v: PANEL_VERSION,
     mode: cfg.panelMode || 'select',
     placeholder: cfg.panelPlaceholder || '',
     imageOnly: cfg.panelImageOnly !== false,
-    image: imageName(cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage),
-    footer: cfg.panelFooterImage ? imageName(cfg.panelFooterImage) : '',
+    image: imageName(images.panelImage),
+    footer: images.panelFooterImage ? imageName(images.panelFooterImage) : '',
     title: cfg.panelTitle || '',
     description: cfg.panelDescription || '',
     types: (cfg.types || []).map((type) => [type.id, type.label, type.description || '', type.emoji || '']),
@@ -463,8 +491,7 @@ async function createTicket(client, guild, user, typeId) {
   const openFooter = cfg.openFooter ? fill(cfg.openFooter) : undefined;
 
   /* 🖼️ رسالة فتح التذكرة: صورة بلا نص (إذا الصورة مفعّلة) — وإلا ترجع الرسالة النصية */
-  const openImageValue = cfg.openImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.openImage;
-  const openFile = cfg.openImageOnly === false ? null : imageAttachment(openImageValue);
+  const openFile = cfg.openImageOnly === false ? null : imageAttachment(effectiveImages(cfg).openImage);
 
   await channel
     .send({
@@ -657,6 +684,24 @@ async function ensurePanel(client, guild, { force = false } = {}) {
   const channel = await findPanelChannel(guild, cfg);
   if (!channel) return { ok: false, reason: 'noChannel' };
 
+  /*
+   * 🩹 تصليح الإعدادات المحفوظة القديمة (صورة منقرضة أو خط زخرفي مشيل):
+   * نكتب القيم الفعّالة في الإعدادات حتى اللوحة والموقع يعرضون الصح.
+   */
+  const wanted = effectiveImages(cfg);
+  if (
+    String(cfg.panelImage ?? '') !== wanted.panelImage
+    || String(cfg.panelFooterImage ?? '') !== wanted.panelFooterImage
+    || String(cfg.openImage ?? '') !== wanted.openImage
+  ) {
+    db.updateGuildSettings(guild.id, {
+      tickets: { panelImage: wanted.panelImage, panelFooterImage: wanted.panelFooterImage, openImage: wanted.openImage },
+    });
+    cfg.panelImage = wanted.panelImage;
+    cfg.panelFooterImage = wanted.panelFooterImage;
+    cfg.openImage = wanted.openImage;
+  }
+
   const signature = panelSignature(cfg);
   if (!force && cfg.panelSignature === signature && cfg.panelChannelId === channel.id) {
     STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), channelId: channel.id, upToDate: true, lastEnsureAt: Date.now(), lastError: null };
@@ -757,6 +802,8 @@ module.exports = {
   buildPanelPayloads,
   ensurePanel,
   ensureAll,
+  effectiveImages,
+  resolveImageValue,
   scheduleEnsure,
   panelSignature,
   panelImageNames,

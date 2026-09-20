@@ -898,9 +898,10 @@ router.get('/guilds/:guildId/tickets/panel', async (req, res) => {
     config: {
       enabled: Boolean(cfg.enabled),
       panelMode: cfg.panelMode,
-      panelImage: cfg.panelImage,
+      panelImage: tickets.effectiveImages(cfg).panelImage,
       panelImageOnly: cfg.panelImageOnly,
-      panelFooterImage: cfg.panelFooterImage,
+      panelFooterImage: tickets.effectiveImages(cfg).panelFooterImage,
+      storedPanelImage: cfg.panelImage ?? null,
       panelPlaceholder: cfg.panelPlaceholder,
       panelChannelId: cfg.panelChannelId || null,
       panelAutoPost: cfg.panelAutoPost,
