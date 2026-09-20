@@ -162,9 +162,17 @@ async function main() {
     /* ما فيه تثبيت افتراضيًا */
     assert.strictEqual(room.configFor(GUILD).pin, false, 'التثبيت لازم يكون مطفّي افتراضيًا');
     assert.strictEqual(room.configFor(GUILD).repost, true, 'إعادة النشر لازم تكون مفعّلة افتراضيًا');
-    const pinCalls = channel.state.sent.filter((s) => s.type === 'pin').length;
+    let pinCalls = channel.state.sent.filter((s) => s.type === 'pin').length;
     assert.strictEqual(pinCalls, 0, 'ما لازم يثبّت الرسالة');
     ok('بلا تثبيت: الرسالة تظهر عادية مو مثبّتة');
+
+    /* حتى لو إعداد قديم فيه pin=true — وضع إعادة النشر يلغي التثبيت */
+    db.updateGuildSettings(GUILD, { commandRoom: { pin: true, repost: true } });
+    await room.publish(client, guild);
+    pinCalls = channel.state.sent.filter((s) => s.type === 'pin').length;
+    assert.strictEqual(pinCalls, 0, 'إعداد تثبيت قديم ما لازم يثبّت مع إعادة النشر');
+    ok('إعداد تثبيت قديم (pin=true) ما يعمل مع إعادة النشر — الرسالة تبقى غير مثبّتة');
+    db.updateGuildSettings(GUILD, {});
 
     /* وضع التعديل (repost=false) يبقى متاحًا */
     db.updateGuildSettings(GUILD, { commandRoom: { repost: false } });

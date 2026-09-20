@@ -122,7 +122,8 @@ async function publish(client, guild, { force = false } = {}) {
   if (!sent) return { ok: false, reason: 'sendFailed' };
 
   saveBanner(guild.id, sent.id);
-  if (cfg.pin) await sent.pin().catch(() => {});
+  /* التثبيت ما إله معنى مع إعادة النشر كل دورة (الرسالة تُحذف وتُستبدل) — فما نثبّت */
+  if (cfg.pin && !cfg.repost) await sent.pin().catch(() => {});
   return { ok: true, messageId: sent.id, edited: false, channelId: channel.id };
 }
 

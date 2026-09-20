@@ -1727,7 +1727,7 @@ const SECTIONS = {
           dField('الروم', 'الروم المخصّص للأوامر', [channelSelect], { wide: true }),
           dField('كل كم ثانية يُنظَّف؟', 'الحد الأدنى ١٥ ثانية — الافتراضي ٦٠', [dNumber('commandRoom.intervalSeconds', { min: 15, max: 3600 })]),
           dField('إعادة النشر كل دورة', 'يحذف الرسالة ويبعت وحدة جديدة كل دورة — ما تظهر «تم التعديل»', [dSwitch('commandRoom.repost')]),
-          dField('تثبيت الرسالة', 'افتراضيًا مطفّي: الرسالة تظهر عادية بلا تثبيت', [dSwitch('commandRoom.pin')]),
+          dField('تثبيت الرسالة', 'مطفّي افتراضيًا — وما يشتغل أصلًا لما «إعادة النشر» مفعّلة (الرسالة تنحذف وتُستبدل كل دورة)', [dSwitch('commandRoom.pin')]),
           dField('نص الرسالة', 'يُنشر كما هو (بلا ترجمة) مع صورة السيرفر', [dArea('commandRoom.text')], { wide: true }),
           dField('صورة الرسالة', 'مسار داخل المشروع أو رابط خارجي', [dInput('commandRoom.image', { full: true })], { wide: true }),
           dField('الصورة الحالية', 'هذي الصورة اللي تنزل مع الرسالة', [preview], { wide: true }),
