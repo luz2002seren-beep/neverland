@@ -1555,7 +1555,7 @@ const SECTIONS = {
       wrap.appendChild(box);
 
       const MODES = [
-        { value: 'default', label: 'الافتراضي (زي برو بوت)' },
+        { value: 'default', label: 'الافتراضي' },
         { value: 'text', label: 'رسالة نصية' },
         { value: 'embed', label: 'إمبد (إطار)' },
       ];

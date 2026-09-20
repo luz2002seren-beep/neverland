@@ -622,13 +622,13 @@ function leaderboardEmbed(guildId, rowsOrOptions = [], lang = 'ar', pageArg = 1,
 }
 
 /**
- * 🏆 لوحة المتصدّرين بتنظيم ProBot حرفيًا:
+ * 🏆 لوحة المتصدّرين بالتنظيم المعروف (توب داي · توب ويك · توب منث):
  *   • العنوان: توب — الفترة · النوع (مثال: توب — توب داي · كتابي)
  *   • كل سطر: ميدالية/رقم + المنشن + الخبرة + المستوى
  *   • الفوتر: الصفحة من المجموع + وقت التجديد
  * تُستخدم في /top (سلاش) وفي أوامر الشات: t day · t week · t month · t text week 2
  */
-function proBotTopEmbed(guildId, { period = 'day', source = 'all', page = 1, perPage = 10 } = {}, lang = 'ar') {
+function topBoardEmbed(guildId, { period = 'day', source = 'all', page = 1, perPage = 10 } = {}, lang = 'ar') {
   const ar = lang === 'ar';
   const pageNum = Math.max(1, Number(page) || 1);
   const board = getBoard(guildId, { period, source, page: pageNum, perPage });
@@ -729,7 +729,7 @@ module.exports = {
   getBoard,
   rankEmbed,
   leaderboardEmbed,
-  proBotTopEmbed,
+  topBoardEmbed,
   sourcesEmbed,
   levelFromXp,
   PERIODS: periods.PERIODS,

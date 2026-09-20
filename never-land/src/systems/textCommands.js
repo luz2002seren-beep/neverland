@@ -88,7 +88,7 @@ const SUB_TRIGGERS = {
     اظهر: 'show',
     اظهرو: 'show',
   },
-  /* التوب: يقبل القيم بشكل برو بوت — t day · t week · t month · t text week 2 */
+  /* التوب: يقبل القيم المختصرة — t day · t week · t month · t text week 2 */
   top: {
     'توب داي': { sub: null, defaults: { الفترة: 'day' } },
     'توب ويك': { sub: null, defaults: { الفترة: 'week' } },
@@ -597,7 +597,7 @@ function optionDefs(command, sub) {
       map.set(option.name, {
         type: option.type,
         required: Boolean(option.required),
-        /* الخيارات المسموحة (choices) — تُستخدم لمطابقة القيم زي برو بوت: t day · t text week 2 */
+        /* الخيارات المسموحة (choices) — تُستخدم لمطابقة القيم المختصرة: t day · t text week 2 */
         choices: Array.isArray(option.choices) ? option.choices.map((c) => String(c.value).toLowerCase()) : null,
       });
     }

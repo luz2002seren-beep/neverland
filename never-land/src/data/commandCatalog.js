@@ -100,7 +100,7 @@ const COMMANDS = {
   top: {
     category: 'general',
     label: 'المتصدّرون',
-    what: 'لوحة المتصدّرين بنفس تنظيم ProBot: توب داي · توب ويك · توب منث، كتابي أو صوتي، مع صفحات.',
+    what: 'لوحة المتصدّرين: توب داي · توب ويك · توب منث — كتابي أو صوتي أو تفاعل، مع صفحات.',
     usage: ['top [النوع] [الفترة] [الصفحة]', 't day · t week · t month'],
     examples: ['top', 'top day', 'top week', 'top month', 'top text day', 'top voice week 2', 't day', 't text week 2'],
     aliases: ['leaderboard', 'lb', 't'],

@@ -3,7 +3,7 @@
 /**
  * commands/general/top.js
  * -------------------------------------------------------------
- * /top — لوحة المتصدّرين بنفس تنظيم ProBot حرفيًا:
+ * /top — لوحة المتصدّرين بنفس تنظيم لوحات الترتيب المعروفة:
  *
  *   /top                  ⇒ توب اليوم (كتابي + صوتي)
  *   /top day              ⇒ توب اليوم
@@ -58,12 +58,12 @@ module.exports = {
     const options = { period: safePeriod, source: safeSource, page, perPage: 10 };
     const board = leveling.getBoard(interaction.guildId, options);
 
-    /* القيم غير الصالحة ما تطلع خطأ — ترجع للأفتراضي زي برو بوت */
+    /* القيم غير الصالحة ما تطلع خطأ — ترجع للأفتراضي المعروفة */
     const pages = Math.max(1, Math.ceil(board.total / options.perPage));
     const safePage = Math.min(page, pages);
 
     return interaction.reply({
-      embeds: [leveling.proBotTopEmbed(interaction.guildId, { ...options, page: safePage }, lang)],
+      embeds: [leveling.topBoardEmbed(interaction.guildId, { ...options, page: safePage }, lang)],
       flags: board.total ? undefined : 64,
     });
   },

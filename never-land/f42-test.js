@@ -3,7 +3,7 @@
 /**
  * f42-test.js
  * -------------------------------------------------------------
- * ١) /top زي برو بوت: توب داي · توب ويك · توب منث + كتابي/صوتي + صفحات
+ * ١) /top بأسلوب اللوحات المعروفة: توب داي · توب ويك · توب منث + كتابي/صوتي + صفحات
  * ٢) أوامر الشات القصيرة: t day · t week · t month · توب منث
  * ٣) سياسة الرسائل الخاصة: ٣ حالات فقط (تحذير · قبول · رفض)
  * ٤) شكل الرد: نص عادي أو إمبد (replyFormat) — والعقوبات نصية افتراضيًا
@@ -46,7 +46,7 @@ function resetSettings(patch = {}) {
 }
 
 async function main() {
-  console.log('\n═══ ١) التوب: الفترات الثلاث (داي · ويك · منث) زي برو بوت ═══');
+  console.log('\n═══ ١) التوب: الفترات الثلاث (داي · ويك · منث) ═══');
   {
     assert.strictEqual(periods.monthKey(new Date('2026-09-20T10:00:00Z')), '2026-09', 'مفتاح الشهر لازم YYYY-MM');
     assert.strictEqual(periods.monthKey(new Date('2026-10-01T00:10:00Z')), '2026-10', 'مفتاح الشهر عبر الشهور خطأ');
@@ -85,10 +85,10 @@ async function main() {
     ok('كل خبرة تُحدّث الفترات الثلاث (يوم 30 · أسبوع 30 · شهر 30)');
   }
 
-  console.log('\n═══ ٣) شكل رد /top زي برو بوت (إمبيد بنفس التنظيم) ═══');
+  console.log('\n═══ ٣) شكل رد /top (إمبيد بنفس التنظيم) ═══');
   {
     resetSettings();
-    const embed = leveling.proBotTopEmbed(GUILD, { period: 'day', source: 'text', page: 1, perPage: 10 }, 'ar');
+    const embed = leveling.topBoardEmbed(GUILD, { period: 'day', source: 'text', page: 1, perPage: 10 }, 'ar');
     const data = embed.toJSON ? embed.toJSON() : embed.data || embed;
     assert.ok(data.title, 'إمبيد التوب بلا عنوان');
     assert.ok(/توب/.test(data.title), 'العنوان لازم يبدأ بـ«توب»: ' + data.title);
@@ -121,7 +121,7 @@ async function main() {
     assert.ok(/require\('\.\.\/\.\.\/lib\/periods'\)/.test(topSrc), 'أمر التوب ما صار يستعمل الفترات المشتركة');
     assert.ok(/isPeriod/.test(topSrc), 'التحقق من الفترة ناقص');
     assert.ok(/month/.test(topSrc), 'خيار «توب منث» ناقص من الأمر');
-    assert.ok(/proBotTopEmbed/.test(topSrc), 'أمر التوب ما صار يستعمل شكل برو بوت');
+    assert.ok(/topBoardEmbed/.test(topSrc), 'أمر التوب ما صار يستعمل اللوحة الجديدة');
     assert.ok(/text/.test(topSrc) && /voice/.test(topSrc), 'خيارات المصدر (كتابي/صوتي) ناقصة');
 
     const tcSrc = fs.readFileSync(path.join(__dirname, 'src', 'systems', 'textCommands.js'), 'utf8');
@@ -161,7 +161,7 @@ async function main() {
     assert.ok(/🥇|🥈|🥉|توب/.test(flat), 'رد t day ما فيه ترتيب');
     ok('t day بالشات يشتغل ويفتح لوحة التوب (نفس /top)');
 
-    /* كلمة غير صالحة (t banana) ⇒ ترجع للافتراضي بلا خطأ زي برو بوت */
+    /* كلمة غير صالحة (t banana) ⇒ ترجع للافتراضي بلا خطأ */
     replies.length = 0;
     const msg2 = { ...msg, content: 't banana' };
     const handled2 = await textCommands.handleMessage(client, msg2, 'ar');
@@ -439,7 +439,7 @@ async function main() {
     ok('صفحة «ردود أوامر» + مسار API للمعاينة (محمي بصلاحيات السيرفر)');
   }
 
-  console.log(`\n🎉 f42 كامل: التوب زي برو بوت · ٣ حالات خاص · تذكير · تذاكر · ردود قابلة للتعديل (${checks} فحوص)\n`);
+  console.log(`\n🎉 f42 كامل: التوب (داي/ويك/منث) · ٣ حالات خاص · تذكير · تذاكر · ردود قابلة للتعديل (${checks} فحوص)\n`);
 }
 
 main().catch((err) => {

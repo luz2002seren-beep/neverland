@@ -2216,7 +2216,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(tc50.includes('resolveIdArguments'), 'دعم الآيدي في أوامر الشات ناقص');
   }
 
- console.log('[اختبار] 51: التوب زي برو بوت + ٣ حالات خاص + تذكير + ردود أوامر قابلة للتعديل');
+ console.log('[اختبار] 51: التوب (داي · ويك · منث) + ٣ حالات خاص + تذكير + ردود أوامر قابلة للتعديل');
   {
     const { execFileSync } = require('node:child_process');
     const path51 = require('node:path');
@@ -2227,11 +2227,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8' });
     assert.ok(out51.includes('f42 كامل'), 'اختبار f42 فشل');
 
-    /* التوب: فترة الشهر + شكل برو بوت + الاختصاص t */
+    /* التوب: فترة الشهر + الشكل الجديد + الاسم المختصر t */
     const periods51 = read51('src/lib/periods.js');
     assert.ok(periods51.includes('monthKey'), 'مفتاح الشهر ناقص');
     assert.ok(periods51.includes('توب منث'), 'اسم «توب منث» ناقص');
-    assert.ok(read51('src/commands/general/top.js').includes('proBotTopEmbed'), 'التوب ما صار بشكل برو بوت');
+    assert.ok(read51('src/commands/general/top.js').includes('topBoardEmbed'), 'التوب ما صار بشكل اللوحة الجديدة');
     const tc51 = read51('src/systems/textCommands.js');
     assert.ok(tc51.includes('توب منث'), 'كلمة «توب منث» بالشات ناقصة');
 
@@ -2239,7 +2239,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const dm51 = read51('src/lib/dmPolicy.js');
     assert.ok(dm51.includes("['warn', 'applicationAccepted', 'applicationRejected']"), 'قائمة حالات الخاص الـ٣ ناقصة');
     assert.ok(!read51('src/systems/leveling.js').includes('dmPolicy'), 'الترقية لازم تكون بلا رسالة خاصة');
-    assert.ok(read51('src/systems/leveling.js').includes('proBotTopEmbed'), 'شكل توب برو بوت ناقص من نظام الخبرة');
+    assert.ok(read51('src/systems/leveling.js').includes('topBoardEmbed'), 'شكل لوحة التوب ناقص من نظام الخبرة');
 
     /* شكل الردود: نص أو إمبد لكل أمر */
     assert.ok(read51('src/lib/replyFormat.js').includes('TEXT_BY_DEFAULT'), 'قائمة العقوبات النصية ناقصة');

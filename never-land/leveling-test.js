@@ -160,7 +160,7 @@ const client = { user: { id: 'bot-1' } };
   assert.strictEqual(periods.weekKey(new Date('2026-09-14T00:10:00Z')), periods.weekKey(new Date('2026-09-20T23:50:00Z')), 'الأسبوع لازم يبدأ الإثنين وينتهي الأحد');
   assert.ok(periods.msUntilReset('day', new Date('2026-09-18T10:00:00Z')) === 14 * 3600 * 1000, 'وقت تجديد اليوم خطأ');
   assert.ok(periods.resetLabel('week', new Date('2026-09-18T10:00:00Z')).includes('يوم'), 'وصف تجديد الأسبوع خطأ');
-  /* صار في «توب منث» كذلك زي برو بوت + «كل الأوقات» */
+  /* صار في «توب منث» كذلك + «كل الأوقات» */
   assert.strictEqual(periods.PERIOD_KEYS.join(','), 'day,month,week,all');
   assert.ok(periods.PERIODS.month && periods.periodKey('month'), 'فترة الشهر ناقصة');
   assert.strictEqual(periods.SOURCE_KEYS.join(','), 'all,text,voice,interact');
