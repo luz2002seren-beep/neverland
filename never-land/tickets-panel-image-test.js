@@ -45,13 +45,14 @@ const HERO = 'src/web/public/assets/tickets-panel.webp';
 const FOOTER = 'src/web/public/assets/tickets-panel-footer.webp';
 
 /** رسالة وهمية */
-const mkMessage = (id, { author = BOT, content = '', components = [], images = [] } = {}) => ({
+const mkMessage = (id, { author = BOT, content = '', components = [], images = [], attachments = [] } = {}) => ({
   id,
   author: { id: author, bot: author === BOT },
   content,
   pinned: false,
   components: components.map((customId) => ({ components: [{ customId }] })),
   embeds: images.map((url) => ({ image: { url } })),
+  attachments: new Map(attachments.map((a) => [a.name, a])),
   createdTimestamp: Date.now(),
   delete: async () => { mkMessage.deleted.push(id); return true; },
 });
@@ -117,9 +118,8 @@ async function main() {
     assert.strictEqual(payloads.length, 2, 'اللوحة لازم تنزل برسالتين: الصورة + الصورة الزخرفية');
 
     const hero = payloads[0];
-    assert.ok(String(hero.embeds[0].data.image?.url || '').startsWith('attachment://tickets-panel'), 'اللوحة لازم تكون صورة');
-    assert.ok(!hero.embeds[0].data.title && !hero.embeds[0].data.description && !hero.embeds[0].data.footer, 'اللوحة صورة فقط — بلا نص ولا تذييل');
-    assert.ok(!hero.embeds[0].data.timestamp, 'اللوحة بلا وقت ظاهر');
+    /* 🖼️ صورة عادية: مرفق مباشر — بلا أي إمبد (ولا عنوان ولا وصف ولا تذييل) */
+    assert.strictEqual(hero.embeds, undefined, 'اللوحة لازم تكون صورة عادية بلا إمبد');
     assert.strictEqual(hero.files.length, 1, 'ملف الصورة ناقص');
     assert.ok(!hero.content, 'اللوحة بلا أي نص معها');
 
@@ -130,8 +130,8 @@ async function main() {
     assert.deepStrictEqual(select.options.map((o) => o.data.value), ['support', 'verify', 'gift', 'staff'], 'ترتيب الأنواع خطأ');
 
     const footer = payloads[1];
-    assert.ok(String(footer.embeds[0].data.image?.url || '').includes('tickets-panel-footer'), 'الصورة الزخرفية خطأ');
-    assert.strictEqual(footer.embeds[0].data.title, undefined, 'الصورة الزخرفية بلا نص');
+    assert.strictEqual(footer.embeds, undefined, 'الصورة الزخرفية لازم تكون صورة عادية بلا إمبد');
+    assert.deepStrictEqual(footer.files.map((f) => f.name), ['tickets-panel-footer.webp'], 'الصورة الزخرفية خطأ');
     assert.strictEqual(footer.components, undefined, 'الصورة الزخرفية بلا مكوّنات');
     ok('اللوحة صورة كاملة (بلا عنوان/وصف/تذييل) + قائمة «اختر القائمة المناسبة لك» بـ4 أنواع بوصف + صورة زخرفية أسفلها');
   }
@@ -144,7 +144,7 @@ async function main() {
       { id: GUILD, iconURL: () => null },
     );
     assert.strictEqual(textPanel.length, 1, 'اللوحة النصية رسالة واحدة');
-    assert.ok(textPanel[0].embeds[0].data.title, 'العنوان النصي رجع فاضي');
+    assert.ok(textPanel[0].embeds?.[0]?.data?.title, 'العنوان النصي رجع فاضي');
     assert.ok(!textPanel[0].files?.length, 'اللوحة النصية بلا ملف صورة');
     assert.ok(textPanel[0].components[0].components[0].data.custom_id.startsWith('ticket:open:'), 'أزرار الأنواع ناقصة');
 
@@ -152,7 +152,7 @@ async function main() {
       { tickets: { ...base, panelImage: HERO, panelFooterImage: '', panelImageOnly: false } },
       { id: GUILD, iconURL: () => null },
     );
-    assert.ok(noImageOnly[0].embeds[0].data.title, 'panelImageOnly=false لازم ترجع اللوحة النصية');
+    assert.ok(noImageOnly[0].embeds?.[0]?.data?.title, 'panelImageOnly=false لازم ترجع اللوحة النصية');
     ok('إطفاء الصورة (أو panelImageOnly=false) يرجّع اللوحة النصية بأزرار الأنواع — ما في شي انكسر');
   }
 
@@ -190,7 +190,8 @@ async function main() {
     assert.strictEqual(first.sent, 2, 'لازم رسالتين (الصورة + الزخرفية)');
     assert.deepStrictEqual(mkMessage.deleted, ['old-panel'], 'اللوحة القديمة ما انحذفت');
     assert.strictEqual(panelChannel.state.sent.length, 2, 'ما انبعتت اللوحة في القناة الصح');
-    assert.ok(String(panelChannel.state.sent[0].payload.embeds[0].data.image.url).includes('tickets-panel.webp'), 'اللوحة المنشورة ليست صورة');
+    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.webp'], 'اللوحة المنشورة ليست صورة');
+    assert.strictEqual(panelChannel.state.sent[0].payload.embeds, undefined, 'اللوحة المنشورة فيها إمبد — لازم صورة عادية');
 
     const saved = db.getGuildSettings(GUILD).tickets;
     assert.strictEqual(saved.panelChannelId, PANEL_CHANNEL, 'قناة اللوحة ما انحفظت');
@@ -266,6 +267,7 @@ async function main() {
     const messages = [
       mkMessage('m-panel', { components: ['ticket:open'] }),
       mkMessage('m-footer', { images: ['https://cdn.discordapp.com/attachments/1/2/tickets-panel-footer.webp'] }),
+      mkMessage('m-plain-footer', { attachments: [{ name: 'tickets-panel-footer.webp', url: 'https://cdn.discordapp.com/attachments/3/4/tickets-panel-footer.webp' }] }),
       mkMessage('m-hero', { images: ['https://cdn.discordapp.com/attachments/1/2/tickets-panel.webp'], components: ['ticket:open'] }),
       mkMessage('m-intro', { content: '**كيف أحصل على الدعم؟**\nاضغط الزر المناسب لنوع طلبك 👇' }),
       mkMessage('m-user', { author: 'user-1', content: 'محتاج مساعدة', images: ['https://cdn.discordapp.com/attachments/9/9/random.png'] }),
@@ -273,7 +275,7 @@ async function main() {
     const channel = mkChannel(PANEL_CHANNEL, '・𝑇𝑖𝑐𝑘𝑒𝑡𝑠', messages);
     mkMessage.deleted = [];
     const removed = await tickets.cleanupOldPanels(channel, { user: { id: BOT } }, [], { config: { panelImage: HERO, panelFooterImage: FOOTER } });
-    assert.strictEqual(removed, 4, 'لازم ينحذف: اللوحة + الزخرفية + نسخة ثانية + رسالة التعليمات');
+    assert.strictEqual(removed, 5, 'لازم ينحذف: اللوحة + الزخرفية (إمبد + مرفق) + نسخة ثانية + رسالة التعليمات');
     assert.ok(!mkMessage.deleted.includes('m-user'), 'رسالة العضو انحذفت — لازم تبقى');
     ok('التنظيف يحذف اللوحة القديمة (أي نسخة) + الصورة الزخرفية + رسالة التعليمات — ويترك رسائل الأعضاء');
   }
@@ -288,6 +290,8 @@ async function main() {
     assert.ok(/tickets\/panel'/.test(apiSrc), 'مسار تشخيص لوحة التذاكر ناقص');
     assert.ok(/ticketsPanel/.test(apiSrc), 'حالة لوحة التذاكر ناقصة من /api/status');
     assert.ok(/panelFooterImage/.test(apiSrc), 'الصورة الزخرفية ناقصة من مسار التشخيص');
+    assert.ok(/kind: m.embeds\?\.length \? 'embed' : 'attachment'/.test(apiSrc), 'التشخيص ما يفرّق بين المرفق والإمبد');
+    assert.ok(!/imageEmbed/.test(fs.readFileSync(path.join(__dirname, 'src', 'systems', 'tickets.js'), 'utf8')), 'خلّفت دالة إمبد الصورة — لازم صورة عادية بلا إمبد');
 
     const cmdSrc = fs.readFileSync(path.join(__dirname, 'src', 'commands', 'config', 'tickets.js'), 'utf8');
     assert.ok(/ensurePanel/.test(cmdSrc), 'أمر /tickets panel ما صار يستخدم مسار الصورة');

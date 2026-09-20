@@ -923,22 +923,29 @@ router.get('/guilds/:guildId/tickets/panel', async (req, res) => {
     if (fetched) {
       const isPanel = (m) => (m.components || []).some((row) =>
         (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
+      /* الصور الحين مرفقات عادية (بلا إمبد)، والنسخ القديمة كانت إمبد — نغطّي الحالتين */
+      const imageOf = (m) => m.embeds?.find((embed) => embed?.image?.url)?.image?.url
+        || [...(m.attachments?.values?.() ?? [])].find((a) => /^image\//.test(String(a.contentType || '')) || /\.(png|jpe?g|webp|gif)$/i.test(String(a.name || '')))?.url
+        || null;
       out.live = {
         channelName: channel.name,
         count: fetched.size,
         panel: [...fetched.values()].filter(isPanel).map((m) => ({
           id: m.id,
-          image: m.embeds?.[0]?.image?.url || null,
+          image: imageOf(m),
+          attachments: m.attachments?.size ?? 0,
+          embeds: m.embeds?.length ?? 0,
           hasText: Boolean(String(m.embeds?.[0]?.title || m.embeds?.[0]?.description || m.content || '').trim()),
           kind: (m.components || []).some((row) => (row.components || []).some((c) => c.type === 3)) ? 'select' : 'buttons',
           ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
         })),
         images: [...fetched.values()]
-          .filter((m) => (m.embeds || []).some((embed) => embed?.image?.url))
+          .filter((m) => imageOf(m))
           .slice(0, 6)
           .map((m) => ({
             id: m.id,
-            image: m.embeds[0].image.url,
+            image: imageOf(m),
+            kind: m.embeds?.length ? 'embed' : 'attachment',
             ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
           })),
       };

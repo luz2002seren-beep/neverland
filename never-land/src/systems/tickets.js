@@ -5,10 +5,10 @@
  * -------------------------------------------------------------
  * نظام التذاكر:
  *   • 4 أنواع افتراضية: الدعم الفني • التوثيق • الهدايا • تقديم إدارة
- *   • 🖼️ اللوحة **صورة كاملة بلا نص** (صورة السيرفر) وتحتها قائمة الأنواع المنسدلة
+ *   • 🖼️ اللوحة **صورة عادية بلا نص وبلا إمبد** (مرفق مباشر) وتحتها قائمة الأنواع المنسدلة
  *     + صورة زخرفية اختيارية أسفل القائمة — زي اللوحات الاحترافية.
  *   • لوحة بوضعين: أزرار (Buttons) أو قائمة منسدلة (Select)
- *   • رسالة فتح التذكرة **صورة بلا نص** + أزرار تحكّم (استلام/إغلاق/أرشيف/إضافة عضو)
+ *   • رسالة فتح التذكرة **صورة عادية بلا إمبد** + أزرار تحكّم (استلام/إغلاق/أرشيف/إضافة عضو)
  *   • نشر/تحديث اللوحة تلقائيًا لما تتغيّر (بصمة اللوحة) — بلا ما ترسل شي بيدك
  *   • دعم الإيموجيات الخارجية في اللوحة والأزرار والرسائل
  * -------------------------------------------------------------
@@ -25,7 +25,6 @@ const {
   ButtonBuilder,
   ButtonStyle,
   AttachmentBuilder,
-  EmbedBuilder,
 } = require('discord.js');
 const db = require('../database');
 const config = require('../config');
@@ -48,8 +47,8 @@ const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel.webp';
 /** الحالة الحيّة (تظهر في /api/status وللتشخيص) */
 const STATE = { guilds: {} };
 
-/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا */
-const PANEL_VERSION = 2;
+/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (3 = صورة عادية بلا إمبد) */
+const PANEL_VERSION = 3;
 
 /**
  * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
@@ -97,11 +96,6 @@ function plainName(value) {
 /** هل اسم القناة يدل على قناة تذاكر؟ */
 function looksLikeTickets(channel) {
   return /ticket|تذكر|دعم|support|help/.test(plainName(channel?.name));
-}
-
-/** إمبد صورة نظيف: بلا عنوان ولا وصف ولا حقول ولا تذييل ولا وقت */
-function imageEmbed(source) {
-  return new EmbedBuilder().setColor(0x5865f2).setImage(source);
 }
 
 /** إيموجي النوع جاهزًا للأزرار/القوائم (يدعم الخارجي) */
@@ -163,7 +157,8 @@ function buildPanelPayloads(settings, guild, client = null) {
   const heroValue = cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage;
   const hero = imageAttachment(heroValue);
   if (hero && cfg.panelImageOnly !== false) {
-    payloads.push({ files: [hero], embeds: [imageEmbed(`attachment://${hero.name}`)], components });
+    /* 🖼️ صورة عادية: مرفق مباشر بلا أي إمبد (ولا نص) + القائمة تحتها */
+    payloads.push({ files: [hero], components });
   } else {
     /* اللوحة النصية (الوضع القديم — تُستخدم إذا ما في صورة) */
     const embed = base({
@@ -185,7 +180,8 @@ function buildPanelPayloads(settings, guild, client = null) {
   if (cfg.panelFooterImage) {
     const name = imageName(cfg.panelFooterImage, 'panel-footer.png');
     const footerFile = imageAttachment(cfg.panelFooterImage, hero && hero.name === name ? `footer-${name}` : name);
-    if (footerFile) payloads.push({ files: [footerFile], embeds: [imageEmbed(`attachment://${footerFile.name}`)] });
+    /* الصورة الزخرفية كذلك صورة عادية بلا إمبد */
+    if (footerFile) payloads.push({ files: [footerFile] });
   }
 
   return payloads;
@@ -253,13 +249,17 @@ async function cleanupOldPanels(channel, client, extraTexts = [], opts = {}) {
       if (message.author?.id !== client.user.id) continue;
       const isPanel = (message.components || []).some((row) =>
         (row.components || []).some((c) => String(c.customId || '').startsWith('ticket:open')));
-      /* رسالة الصورة الزخرفية: إمبد صورة لملف من صور اللوحة (بلا أي نص) */
+      /* رسائل صور اللوحة: إمبد صورة (النسخ القديمة) أو مرفق مباشر (النسخة الجديدة) — بلا أي نص */
       const embedUrls = (message.embeds || [])
         .map((embed) => embed?.image?.url || embed?.data?.image?.url || '')
         .filter(Boolean)
         .join(' ');
-      const isPanelImage = Boolean(embedUrls) && !String(message.content || '').trim()
-        && imageNames.some((name) => embedUrls.includes(name));
+      const attachmentNames = [...(message.attachments?.values?.() ?? [])]
+        .map((a) => String(a.name || a.url || ''))
+        .join(' ');
+      const source = `${embedUrls} ${attachmentNames}`.trim();
+      const isPanelImage = Boolean(source) && !String(message.content || '').trim()
+        && imageNames.some((name) => source.includes(name));
       const content = String(message.content || '').trim();
       /* مطابقة دقيقة للنص المحفوظ، أو أي نسخة تبدأ بـ«كيف أحصل على الدعم» (كل صيغ رسالة التعليمات القديمة) */
       const isIntro = Boolean(content) && (texts.some((txt) => content === txt) || /^[*_\s]*كيف أحصل على الدعم/.test(content));
@@ -460,22 +460,25 @@ async function createTicket(client, guild, user, typeId) {
   /* 🖼️ رسالة فتح التذكرة: صورة بلا نص (إذا الصورة مفعّلة) — وإلا ترجع الرسالة النصية */
   const openImageValue = cfg.openImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.openImage;
   const openFile = cfg.openImageOnly === false ? null : imageAttachment(openImageValue);
-  const openEmbed = openFile
-    ? imageEmbed(`attachment://${openFile.name}`)
-    : base({
-      color: 0x5865f2,
-      title: openTitle.slice(0, 256),
-      description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
-      fields: openFields,
-      footer: openFooter,
-    });
 
   await channel
     .send({
+      /* 🖼️ صورة عادية بلا إمبد: المرفق لحاله + المنشن + أزرار التحكّم */
       content: mentions,
-      embeds: [openEmbed],
       components: [ticketControls(ticket.id, false, cfg)],
-      files: openFile ? [openFile] : [],
+      ...(openFile
+        ? { files: [openFile] }
+        : {
+          embeds: [
+            base({
+              color: 0x5865f2,
+              title: openTitle.slice(0, 256),
+              description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
+              fields: openFields,
+              footer: openFooter,
+            }),
+          ],
+        }),
     })
     .catch(() => {});
 

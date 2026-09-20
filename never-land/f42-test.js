@@ -432,10 +432,9 @@ async function main() {
     const third = await tickets.createTicket({ user: { id: '100000000000000002' } }, guild, { id: '200000000000000077', username: 'Nora', tag: 'Nora#0001' }, 'support');
     assert.strictEqual(third.ok, true, 'فتح تذكرة ثالثة فشل');
     const payload3 = sentRooms[0];
-    const data3 = payload3.embeds?.[0]?.data || {};
-    assert.ok(String(data3.image?.url || '').startsWith('attachment://'), 'رسالة الفتح لازم تكون صورة: ' + data3.image?.url);
-    assert.ok(!data3.title && !data3.description && !data3.footer, 'رسالة الفتح صورة فقط — بلا نص');
+    assert.strictEqual(payload3.embeds, undefined, 'رسالة الفتح لازم تكون صورة عادية بلا إمبد');
     assert.strictEqual((payload3.files || []).length, 1, 'ملف الصورة ما انرفق برسالة الفتح');
+    assert.deepStrictEqual(payload3.files.map((f) => f.name), ['tickets-panel.webp'], 'ملف صورة رسالة الفتح خطأ');
     assert.ok(String(payload3.content).includes('<@200000000000000077>'), 'منشن صاحب التذكرة انشال');
     const openButtons = payload3.components?.[0]?.components || [];
     assert.strictEqual(openButtons.length, 4, 'أزرار التحكّم ناقصة من رسالة الفتح');

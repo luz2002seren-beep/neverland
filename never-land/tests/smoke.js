@@ -150,12 +150,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
   const tickets = require('../src/systems/tickets');
   const ticketPanel = tickets.buildPanel(settings, { id: '1' });
-  const panelImageRef = ticketPanel.embeds[0].data.image?.url || '';
-  assert.ok(panelImageRef.startsWith('attachment://'), 'لوحة التذاكر لازم تنزل صورة (بدل النص)');
-  assert.ok(
-    !ticketPanel.embeds[0].data.title && !ticketPanel.embeds[0].data.description,
-    'اللوحة صورة فقط — بلا عنوان ولا وصف',
-  );
+  assert.strictEqual(ticketPanel.embeds, undefined, 'لوحة التذاكر لازم تنزل صورة عادية بلا إمبد');
   assert.ok(Array.isArray(ticketPanel.files) && ticketPanel.files.length === 1, 'اللوحة ما ترسل ملف الصورة');
   const firstControl = ticketPanel.components[0].components[0];
   const controlCount = ticketPanel.components.flatMap((row) => row.components).length;
@@ -232,11 +227,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   const payloads = ticketsSystem.buildPanelPayloads(tSettings, { id: '1', iconURL: () => null }, null);
   assert.ok(payloads.length <= 2, 'اللوحة لازم تكون رسالة الصورة + صورة زخرفية كحد أقصى');
   const tPanel = payloads[0];
-  assert.ok(tPanel.embeds[0], 'البنل بدون embed');
-  assert.ok(String(tPanel.embeds[0].data.image?.url || '').startsWith('attachment://'), 'اللوحة لازم تنزل صورة بدل النص');
-  assert.ok(!tPanel.embeds[0].data.title && !tPanel.embeds[0].data.description, 'اللوحة صورة فقط — بلا نص');
-  assert.ok(!tPanel.content, 'اللوحة ما لازم يكون فيها رسالة تعليمات منفصلة');
-  assert.strictEqual(tPanel.embeds[0].data.footer, undefined, 'اللوحة فيها فوتر — لازم بلا فوتر');
+  assert.strictEqual(tPanel.embeds, undefined, 'اللوحة لازم تنزل صورة عادية بلا أي إمبد');
+  assert.ok(!tPanel.content, 'اللوحة ما لازم يكون فيها أي نص');
   assert.strictEqual(tPanel.files.length, 1, 'اللوحة لازم ترسل ملف الصورة');
   assert.ok(typeof ticketsSystem.cleanupOldPanels === 'function', 'تنظيف اللوحات القديمة ناقص');
   const tTypes = tSettings.tickets.types;
@@ -252,7 +244,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
   // الصورة الزخرفية أسفل القائمة (رسالة ثانية بلا مكوّنات)
   assert.strictEqual(payloads.length, 2, 'لازم تنزل صورة زخرفية أسفل القائمة');
-  assert.ok(String(payloads[1].embeds[0].data.image?.url || '').includes('footer'), 'الصورة الزخرفية خطأ');
+  assert.deepStrictEqual(payloads[1].files.map((f) => f.name), ['tickets-panel-footer.webp'], 'الصورة الزخرفية خطأ');
+  assert.strictEqual(payloads[1].embeds, undefined, 'الصورة الزخرفية لازم تكون صورة عادية بلا إمبد');
   assert.strictEqual(payloads[1].components, undefined, 'الصورة الزخرفية بلا مكوّنات');
 
   // وضع الأزرار (لو بدّله من الموقع)
@@ -1975,12 +1968,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const c=require('./src/config');",
       "const s={tickets:{...c.defaults.tickets,types:[{id:'x',label:'اختبار',emoji:'🎫',buttonStyle:'Primary'}]}};",
       "const p=t.buildPanelPayloads(s,{id:'g',iconURL:()=>null});",
-      "const f=p[p.length-1].embeds[0].data.footer;",
+      "const footers=(list)=>list.flatMap(x=>(x.embeds||[]).map(e=>e.data.footer)).filter(Boolean);",
+      "const f=footers(p)[0];",
       "if(f) throw new Error('بنل التذاكر لسا فيه فوتر: '+f.text);",
       "if(!(t.cleanupOldPanels instanceof Function)) throw new Error('cleanupOldPanels ناقص');",
       "const s2={tickets:{...c.defaults.tickets,panelFooter:'Never Land — فريق الدعم'}};",
       "const p2=t.buildPanelPayloads(s2,{id:'g',iconURL:()=>null});",
-      "const f2=p2[p2.length-1].embeds[0].data.footer;",
+      "const f2=footers(p2)[0];",
       "if(f2 && /Never Land/.test(f2.text)) throw new Error('اسم المشروع لسا يطلع في الفوتر');",
       "console.log('OK');",
     ].join('')], { cwd: root46, encoding: 'utf8' });
@@ -2054,8 +2048,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "(async()=>{const n=await t.cleanupOldPanels(channel,{user:{id:'bot-1'}},[]);",
       "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
       "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
-      "if(p.length!==2||p[0].content||p[0].embeds[0].data.footer) throw new Error('اللوحة مش نظيفة');",
-      "if(!String(p[0].embeds[0].data.image.url).startsWith('attachment://')||p[0].embeds[0].data.title) throw new Error('اللوحة لازم صورة بلا نص');",
+      "if(p.length!==2||p[0].content||p[0].embeds) throw new Error('اللوحة مش نظيفة');",
+      "if(p[0].files.length!==1||p[1].files.length!==1) throw new Error('اللوحة لازم تنزل صور مرفقة');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
     ].join('')], { cwd: root47, encoding: 'utf8' });
     assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
@@ -2363,7 +2357,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     /* البوت + الموقع + الـ API */
     assert.ok(read53('src/systems/tickets.js').includes('async function ensurePanel'), 'التحديث التلقائي للوحة ناقص');
-    assert.ok(read53('src/systems/tickets.js').includes('imageEmbed'), 'إمبد الصورة النظيف ناقص');
+    assert.ok(!read53('src/systems/tickets.js').includes('imageEmbed'), 'لازم صورة عادية بلا إمبد (بلا دالة إمبد صور)');
+    assert.ok(/payloads\.push\(\{ files: \[hero\], components \}\)/.test(read53('src/systems/tickets.js')), 'اللوحة ما تنزل كمرفق عادي');
     assert.ok(read53('src/events/ready.js').includes('ensureAll(client)'), 'الفحص التلقائي للوحة غير مربوط بالإقلاع');
     assert.ok(read53('src/web/routes/api.js').includes('scheduleEnsure'), 'تحديث اللوحة بعد الحفظ ناقص');
     assert.ok(read53('src/web/routes/api.js').includes("'/guilds/:guildId/tickets/panel'"), 'مسار تشخيص لوحة التذاكر ناقص');
