@@ -210,7 +210,13 @@ router.get('/guilds/:guildId', async (req, res) => {
       logGroups: loggingSystem.EVENT_GROUPS,
       logEvents: Object.fromEntries(Object.entries(loggingSystem.EVENT_META).map(([key, meta]) => [key, { label: meta.label, emoji: meta.emoji, group: meta.group }])),
       cardAvailable: require('../../lib/welcomeCard').available(),
-      frameCardAvailable: require('../../lib/welcomeFrame').available(),
+      frameCardAvailable: (() => {
+        try {
+          return require('../../lib/welcomeFrame').available();
+        } catch {
+          return false;
+        }
+      })(),
       autolineStyles: Object.entries(require('../../systems/autoline').GIF_STYLES).map(([key, meta]) => ({ key, ...meta })),
     },
     viewer: {
@@ -394,7 +400,8 @@ router.post('/guilds/:guildId/settings', async (req, res) => {
  * يرجّع صورة الترحيب (PNG) حسب إعدادات السيرفر الحالية — تُعرض مباشرة في اللوحة.
  * الصورة تُبنى بنفس كود البوت تمامًا (src/lib/welcomeCard.js).
  */
-router.get('/guilds/:guildId/welcome/card', async (req, res) => {
+router.get('/guilds/:guildId/welcome/card', async (req, res, next) => {
+  try {
   const { guildId } = req.params;
   if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
 
@@ -412,7 +419,12 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
     : `https://cdn.discordapp.com/embed/avatars/${Number(viewerId || 0) % 5}.png`;
 
   const card = require('../../lib/welcomeCard');
-  const welcomeFrame = require('../../lib/welcomeFrame');
+  let welcomeFrame = null;
+  try {
+    welcomeFrame = require('../../lib/welcomeFrame');
+  } catch {
+    welcomeFrame = null;
+  }
   const applyPlaceholders = require('../../lib/utils').applyPlaceholders;
   const fakeUser = {
     username: viewerName,
@@ -422,7 +434,7 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
   };
 
   /* 🖼️ إطار Never Land: نفس الصورة اللي تنزل للأعضاء (أفتار المشاهد داخل الدائرة) */
-  if ((welcomeCfg.imageMode || 'frame') === 'frame' && welcomeFrame.available(welcomeCfg.frameImage)) {
+  if (welcomeFrame && (welcomeCfg.imageMode || 'frame') === 'frame' && welcomeFrame.available(welcomeCfg.frameImage)) {
     const made = await welcomeFrame
       .generate({
         avatarUrl: avatarSeed,
@@ -463,6 +475,9 @@ router.get('/guilds/:guildId/welcome/card', async (req, res) => {
   res.setHeader('Content-Type', 'image/png');
   res.setHeader('Cache-Control', 'no-store');
   return res.end(buffer);
+  } catch (err) {
+    return next(err);
+  }
 });
 
 /* ------------------------------- مكتبة الأوامر ------------------------------- */

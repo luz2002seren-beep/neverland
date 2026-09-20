@@ -15,7 +15,12 @@ const db = require('../database');
 const { base } = require('../lib/embeds');
 const { applyPlaceholders } = require('../lib/utils');
 const welcomeCard = require('../lib/welcomeCard');
-const welcomeFrame = require('../lib/welcomeFrame');
+let welcomeFrame = null;
+try {
+  welcomeFrame = require('../lib/welcomeFrame');
+} catch {
+  console.warn('[تنبيه] مولّد إطار الترحيب غير متوفّر — سنستخدم البطاقة العادية.');
+}
 
 /* حالة حيّة (تظهر في /api/status وللتشخيص) */
 const STATE = { guilds: {} };
@@ -137,7 +142,7 @@ async function buildWelcomeImage(client, member, settings, opts = {}) {
   }
 
   /* 🖼️ إطار Never Land: صورة الإطار + أفتار العضو داخل الدائرة الفارغة */
-  if (mode === 'frame' && welcomeFrame.available(cfg.frameImage)) {
+  if (mode === 'frame' && welcomeFrame?.available(cfg.frameImage)) {
     const made = await welcomeFrame.generate({
       avatarUrl: member.user.displayAvatarURL({ size: 512, extension: 'png' }),
       frame: cfg.frameImage,
@@ -299,7 +304,7 @@ async function previewCard(client, member) {
   const cfg = settings.welcome || {};
 
   /* إطار Never Land: نفس الصورة اللي تنزل للأعضاء */
-  if ((cfg.imageMode || 'frame') === 'frame' && welcomeFrame.available(cfg.frameImage)) {
+  if ((cfg.imageMode || 'frame') === 'frame' && welcomeFrame?.available(cfg.frameImage)) {
     const made = await welcomeFrame.generate({
       avatarUrl: member.user.displayAvatarURL({ size: 512, extension: 'png' }),
       frame: cfg.frameImage,
