@@ -1194,10 +1194,19 @@ router.get('/status', (req, res) => {
      * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
      * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
      */
-    /* 👋 الترحيب: آخر ترحيب انبعت + العضو + الداعي (تشخيص حيّ) */
+    /* 👋 الترحيب: آخر ترحيب انبعت + العضو + الداعي + إيموجيات ناقصة (تشخيص حيّ) */
     welcome: (() => {
       try {
-        return require('../../systems/welcome').status();
+        const welcome = require('../../systems/welcome');
+        const client = safeClient();
+        const out = { ...welcome.status() };
+        const missing = {};
+        for (const guild of client?.guilds?.cache?.values() || []) {
+          const found = welcome.missingEmojis(guild, db.getGuildSettings(guild.id)?.welcome?.message);
+          if (found.length) missing[guild.id] = found;
+        }
+        out.missingEmojis = missing;
+        return out;
       } catch {
         return null;
       }

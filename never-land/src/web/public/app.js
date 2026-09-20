@@ -352,10 +352,13 @@ function dButtonPreview(getValues) {
   return { node, refresh };
 }
 
-function dArea(path, { placeholder = '' } = {}) {
+function dArea(path, { placeholder = '', onChange = null } = {}) {
   const area = el('textarea', { class: 'd-textarea', placeholder });
   area.value = getPath(path) ?? '';
-  area.addEventListener('input', () => setPath(path, area.value));
+  area.addEventListener('input', () => {
+    setPath(path, area.value);
+    if (onChange) onChange(area.value);
+  });
   return area;
 }
 
@@ -788,6 +791,37 @@ const SECTIONS = {
         ]),
       ];
 
+      /* فحص الإيموجيات: نبيّن أي إيموجي في النص مو موجود بالسيرفر (بينطبع كنص) */
+      const emojiCheck = el('div', { class: 'd-sample cr-preview' });
+      const paintEmojiCheck = () => {
+        emojiCheck.textContent = '';
+        const text = String(getPath('welcome.message') || '');
+        const known = new Map((state.meta.emojis || []).map((e) => [String(e.id), e]));
+        const tags = [...text.matchAll(/<(a?):([\w~]+):(\d{5,})>/g)];
+        const missing = [];
+        const seen = new Set();
+        tags.forEach(([, animated, name, id]) => {
+          if (seen.has(id)) return;
+          seen.add(id);
+          if (!known.has(id)) missing.push({ name, id, animated: Boolean(animated) });
+        });
+        if (!tags.length) {
+          emojiCheck.appendChild(el('div', { class: 'd-empty', text: 'ما في إيموجيات خارجية في النص — كل شي تمام.' }));
+          return;
+        }
+        if (!missing.length) {
+          emojiCheck.appendChild(el('div', { class: 'd-empty', text: 'كل الإيموجيات الموجودة في النص مسجّلة عندك في السيرفر — راح تظهر صح.' }));
+          return;
+        }
+        missing.forEach((m) => {
+          const row = el('div', { class: 'd-empty' });
+          row.appendChild(el('b', { text: `${m.name} ` }));
+          row.appendChild(el('span', { text: `(${m.animated ? 'متحرك' : 'ثابت'} · ${m.id}) — مو موجود في السيرفر، وراح ينطبع كنص «:${m.name}:». أضِفه للسيرفر ويرجع يظهر تلقائيًا.` }));
+          emojiCheck.appendChild(row);
+        });
+      };
+      paintEmojiCheck();
+
       const cardNode = dCard(
         'صورة الترحيب (إطار Never Land بالأفتار)',
         'الصورة اللي فيها الدائرة الفارغة، ويُرسم فيها أفتار العضو الجديد — تُرسل مع رسالة عادية بدون إطار Embed.',
@@ -806,7 +840,8 @@ const SECTIONS = {
           [
             dField('تفعيل الترحيب', '', [dSwitch('welcome.enabled')]),
             dField('قناة الترحيب', '', [dSelect('welcome.channelId', channelOptions())]),
-            dField('نص الرسالة', 'يظهر تحت الصورة · المتغيّرات: {user} · {displayName} · {inviter} (مين أرسل الرابط) · {inviteCode} · {memberCount} — ويدعم الإيموجيات الخارجية <:name:id>', [dArea('welcome.message')], { wide: true }),
+            dField('نص الرسالة', 'يظهر تحت الصورة · المتغيّرات: {user} · {displayName} · {inviter} (مين أرسل الرابط) · {inviteCode} · {memberCount} — ويدعم الإيموجيات الخارجية <:name:id>', [dArea('welcome.message', { onChange: () => paintEmojiCheck() })], { wide: true }),
+            dField('فحص الإيموجيات', 'ديسكورد ما يعرض إيموجي سيرفر ثاني — لازم الإيموجي يكون موجود عندك في السيرفر', [emojiCheck], { wide: true }),
             dField(
               'شكل الرسالة',
               'الطريقة الاحترافية: صورة بالأفتار + رسالة عادية بلا إطار · أو داخل إطار Embed أنيق',

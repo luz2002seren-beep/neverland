@@ -107,6 +107,12 @@ module.exports = {
       let upgraded = 0;
       for (const guild of client.guilds.cache.values()) {
         if (welcomeSystem.ensureStyle(guild.id)) upgraded += 1;
+        /* إيموجيات نص الترحيب: أي إيموجي مو موجود بالسيرفر نرفعه لحاله (حتى يظهر صح) */
+        const welcomeCfg = db.getGuildSettings(guild.id)?.welcome;
+        if (welcomeSystem.missingEmojis(guild, welcomeCfg?.message).length) {
+          const fix = await welcomeSystem.ensureEmojis(guild, welcomeCfg).catch(() => null);
+          if (fix?.added?.length) console.log(`[الترحيب] إيموجيات مضافة في ${guild.id}: ${fix.added.map((a) => a.name).join(' · ')}`);
+        }
       }
       console.log(`[الترحيب] الفحص التلقائي — ${client.guilds.cache.size} سيرفر · ترقية ${upgraded}`);
     } catch (err) {

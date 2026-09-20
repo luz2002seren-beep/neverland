@@ -228,6 +228,49 @@ async function main() {
     ok('الإقلاع يرقّي · الموقع فيه حقول الإطار وزر «ترحيب تجريبي» · والتشخيص يبيّن آخر ترحيب');
   }
 
+  console.log('\n═══ ٧) تصحيح الإيموجيات الناقصة (نص الترحيب) ═══');
+  {
+    const welcome = require('./src/systems/welcome');
+    const NL_ID = '1461135643735490735';
+    const guild = {
+      id: GUILD,
+      emojis: {
+        cache: new Map([[NL_ID, { id: NL_ID }]]),
+        create: async () => ({ id: '999888777666555444', name: 'os49', animated: true }),
+      },
+    };
+    assert.ok(typeof welcome.missingEmojis === 'function', 'دالة فحص الإيموجيات الناقصة ناقصة');
+
+    const missing = welcome.missingEmojis(guild, `<a:os49:${NL_ID}> نص <a:extra:123456789012345678>`);
+    assert.strictEqual(missing.length, 1, 'لازم يكشف الإيموجي الناقص فقط (وحدة وحدة)');
+    assert.strictEqual(missing[0].name, 'extra');
+    assert.strictEqual(welcome.missingEmojis(guild, 'بلا إيموجيات خارجية').length, 0, 'ما في إيموجيات ⇒ بلا تنبيه');
+    assert.ok(typeof welcome.ensureEmojis === 'function', 'دالة تصحيح الإيموجيات ناقصة');
+
+    const orig = db.updateGuildSettings;
+    let saved = null;
+    db.updateGuildSettings = (gid, patch) => { saved = [gid, patch]; return patch; };
+    let received = null;
+    const busy = {
+      id: GUILD,
+      emojis: {
+        cache: new Map(),
+        create: async (opts) => { received = opts; return { id: '999', name: 'os49', animated: true }; },
+      },
+    };
+    const res = await welcome.ensureEmojis(busy, { message: `<a:os49:${NL_ID}> 𝑊𝑒𝑙𝑐𝑜𝑚𝑒` });
+    db.updateGuildSettings = orig;
+
+    assert.strictEqual(res.added.length, 1, 'لازم يرفع الإيموجي الناقص للسيرفر');
+    assert.strictEqual(res.added[0].newId, '999');
+    assert.ok(received && Buffer.isBuffer(received.attachment) && received.attachment.length > 100, 'لازم ينزّل صورة الإيموجي من CDN ويرفعها كملف');
+    assert.ok(saved && saved[1].welcome.message.includes('<a:os49:999>'), 'لازم يبدّل رقم الإيموجي في النص المحفوظ');
+    assert.ok(saved[1].welcome.message.includes('𝑊𝑒𝑙𝑐𝑜𝑚𝑒'), 'باقي النص لازم يبقى كما هو');
+
+    assert.ok(/ensureEmojis/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يصحّح الإيموجيات');
+    ok('الإيموجي الناقص يُرفع تلقائيًا للسيرفر ويُبدَّل رابطه في النص (بدل ما ينطبع «:os49:»)');
+  }
+
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);
 }
 

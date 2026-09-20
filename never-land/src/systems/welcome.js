@@ -195,7 +195,12 @@ async function buildWelcomeImage(client, member, settings, opts = {}) {
 async function handleMemberAdd(client, member, { inviteInfo = null } = {}) {
   const { guild } = member;
   ensureStyle(guild.id);
-  const settings = db.getGuildSettings(guild.id);
+  let settings = db.getGuildSettings(guild.id);
+  /* تصحيح أي إيموجي ناقص في النص (مرة واحدة — بعدها يصير موجود) */
+  if (missingEmojis(guild, settings.welcome?.message).length) {
+    await ensureEmojis(guild, settings.welcome).catch(() => {});
+    settings = db.getGuildSettings(guild.id);
+  }
   const lang = settings.language || 'ar';
 
   /* --------- 1) الرتب التلقائية --------- */
@@ -398,6 +403,86 @@ async function sendTestWelcome(client, guild, member, { inviteInfo = null, chann
   return { ok: true, messageId: message.id, channelId: target, member: subject.user.tag, inviter: inviterVars(inviteInfo).inviter };
 }
 
+/**
+ * 🔎 فحص الإيموجيات الخارجية في نص الترحيب: هل هي موجودة فعلًا في السيرفر؟
+ * ديسكورد ما يعرض إيموجي سيرفر ثاني (يطبعه كنص «:os49:») — فننبّه المدير.
+ * @returns {Array<{name:string, id:string, animated:boolean}>} الإيموجيات الناقصة
+ */
+function missingEmojis(guild, text) {
+  const missing = [];
+  const seen = new Set();
+  const source = String(text || '');
+  const re = /<(a?):([\w~]+):(\d{5,})>/g;
+  let match = re.exec(source);
+  while (match) {
+    const [, animated, name, id] = match;
+    if (!seen.has(id) && !guild?.emojis?.cache?.has?.(id)) {
+      seen.add(id);
+      missing.push({ name, id, animated: Boolean(animated) });
+    }
+    match = re.exec(source);
+  }
+  return missing;
+}
+
+/**
+ * 🔁 تصحيح الإيموجيات الناقصة: أي إيموجي خارجي في نص الترحيب وغير موجود في السيرفر
+ * ننزّله من سيرفرات ديسكورد (CDN العام) ونرفعه للسيرفر، ثم نبدّل رقمه في النص المحفوظ.
+ * السبب: ديسكورد ما يعرض إيموجي سيرفر ثاني (يطبعه كنص «:os49:»).
+ * @returns {Promise<{added:Array<{name:string,oldId:string,newId:string}>, failed:Array}>}
+ */
+async function ensureEmojis(guild, settings) {
+  const result = { added: [], failed: [] };
+  if (!guild?.emojis?.create) return result;
+  /* نقبل الشكلين: كائن إعدادات السيرفر أو كائن قسم الترحيب مباشرة */
+  const cfg = settings?.welcome && typeof settings.welcome === 'object' ? settings.welcome : (settings || {});
+  const text = String(cfg.message || '');
+  const missing = missingEmojis(guild, text);
+  if (!missing.length) return result;
+
+  let message = text;
+  for (const emoji of missing) {
+    try {
+      const ext = emoji.animated ? 'gif' : 'png';
+      const res = await fetch(`https://cdn.discordapp.com/emojis/${emoji.id}.${ext}?size=128`, {
+        headers: { 'User-Agent': 'Never Land/1.0' },
+      });
+      if (!res.ok) {
+        result.failed.push({ ...emoji, reason: `fetch_${res.status}` });
+        continue;
+      }
+      const buffer = Buffer.from(await res.arrayBuffer());
+      if (!buffer.length) {
+        result.failed.push({ ...emoji, reason: 'empty' });
+        continue;
+      }
+      /* اسم الإيموجي المسموح: 2–32 حرفًا [a-zA-Z0-9_] */
+      const safeName = String(emoji.name).replace(/[^\w]/g, '_').slice(0, 32) || 'nl_emoji';
+      const created = await guild.emojis.create({
+        attachment: buffer,
+        name: safeName.length >= 2 ? safeName : `nl_${safeName}`,
+        reason: 'إيموجي رسالة الترحيب (تصحيح تلقائي)',
+      });
+      if (!created?.id) {
+        result.failed.push({ ...emoji, reason: 'create_failed' });
+        continue;
+      }
+      message = message.split(`<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`).join(`<${created.animated ? 'a' : ''}:${created.name}:${created.id}>`);
+      result.added.push({ name: emoji.name, oldId: emoji.id, newId: created.id });
+    } catch (err) {
+      result.failed.push({ ...emoji, reason: err.message });
+    }
+  }
+
+  if (result.added.length && message !== text) {
+    try {
+      db.updateGuildSettings(guild.id, { welcome: { ...cfg, message } });
+      console.log(`[الترحيب] أُضيف ${result.added.length} إيموجي للسيرفر ${guild.id} وتحدّث نص الترحيب.`);
+    } catch { /* نتجاهل */ }
+  }
+  return result;
+}
+
 /** حالة الترحيب (للتشخيص) */
 function status(guildId = null) {
   if (guildId) return STATE.guilds[guildId] || null;
@@ -414,6 +499,8 @@ module.exports = {
   previewCard,
   sendTestWelcome,
   inviterVars,
+  missingEmojis,
+  ensureEmojis,
   ensureStyle,
   status,
 };

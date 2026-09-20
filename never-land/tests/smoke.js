@@ -2417,6 +2417,12 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(fs54.existsSync(path54.join(root54, 'assets', 'welcome-frame.png')), 'صورة الإطار غير موجودة');
     assert.ok(read54('src/lib/welcomeFrame.js').includes('clip()'), 'قصّ الأفتار الدائري ناقص');
     assert.ok(read54('src/systems/welcome.js').includes('sendTestWelcome'), 'إرسال الترحيب التجريبي ناقص');
+    /* إيموجيات النص: فحص + تصحيح تلقائي (ديسكورد ما يعرض إيموجي سيرفر ثاني) */
+    const welcome54 = require(path54.join(root54, 'src', 'systems', 'welcome'));
+    assert.ok(typeof welcome54.missingEmojis === 'function' && typeof welcome54.ensureEmojis === 'function', 'تصحيح الإيموجيات الناقصة ناقص');
+    assert.ok(read54('src/events/ready.js').includes('ensureEmojis'), 'الإقلاع لازم يصحّح إيموجيات الترحيب');
+    assert.ok(read54('src/web/public/app.js').includes('فحص الإيموجيات'), 'لوحة الترحيب لازم تعرض فحص الإيموجيات');
+    assert.ok(out54.includes('تصحيح الإيموجيات الناقصة'), 'مجموعة فحص الإيموجيات في اختبار الإطار ناقصة');
     console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');
   }
 
