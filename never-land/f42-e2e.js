@@ -37,7 +37,7 @@ db.updateGuildSettings(G, {});
 
 const user = (id, name) => ({
   id, username: name, tag: `${name}#0001`, bot: false,
-  toString: () => `<@${id}>`, displayAvatarURL: () => 'https://cdn.example/a.png',
+  toString: () => `<@${id}>`, displayAvatarURL: () => 'https://cdn.discordapp.com/avatars/1/a.png',
   send: async () => ({}),
 });
 const member = (id, name) => ({

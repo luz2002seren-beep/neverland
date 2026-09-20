@@ -158,9 +158,12 @@ async function main() {
     };
     const handled = await textCommands.handleMessage(client, msg, 'ar');
     assert.strictEqual(handled, true, 'أمر الشات t day ما انعالج');
-    const flat = JSON.stringify(replies);
-    assert.ok(/توب|top/i.test(flat), 'رد t day ما فيه لوحة توب: ' + flat.slice(0, 160));
-    assert.ok(/🥇|🥈|🥉|توب/.test(flat), 'رد t day ما فيه ترتيب');
+    /* الرد يمر بمحرّك الردود كامل (شكل + ترجمة + خط) — نفحص بنية لوحة التوب */
+    const topPayload = replies.find((p) => (p.embeds || []).length) || {};
+    const topData = topPayload.embeds?.[0]?.data || topPayload.embeds?.[0] || {};
+    assert.ok(String(topData.title || '').includes('🏆'), 'رد t day ما فيه عنوان لوحة التوب: ' + JSON.stringify(topData).slice(0, 120));
+    assert.ok(/🥇|🥈|🥉|<@\d+/.test(String(topData.description || '')), 'رد t day ما فيه ترتيب أعضاء: ' + String(topData.description || '').slice(0, 120));
+    assert.ok((topData.fields || []).length >= 3, 'رد t day ما فيه حقول اللوحة');
     ok('t day بالشات يشتغل ويفتح لوحة التوب (نفس /top)');
 
     /* كلمة غير صالحة (t banana) ⇒ ترجع للافتراضي بلا خطأ */

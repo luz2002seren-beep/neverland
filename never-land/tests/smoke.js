@@ -2227,6 +2227,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8' });
     assert.ok(out51.includes('f42 كامل'), 'اختبار f42 فشل');
 
+    /* أوامر الشات (قفل · احذر · امسح · بان) لازم تطلع نص عادي مو إمبد */
+    const outTxt = execFileSync('node', ['f42-text-e2e.js'], { cwd: root51, encoding: 'utf8' });
+    assert.ok(outTxt.includes('أوامر الشات كلها نص عادي'), 'أوامر الشات ما صارت نص');
+    assert.ok(read51('src/systems/textCommands.js').includes('wrapInteraction(fake)'), 'أوامر الشات ما صارت تمر بمحرّك شكل الردود');
+
     /* التوب: فترة الشهر + الشكل الجديد + الاسم المختصر t */
     const periods51 = read51('src/lib/periods.js');
     assert.ok(periods51.includes('monthKey'), 'مفتاح الشهر ناقص');

@@ -105,6 +105,15 @@ const SUB_TRIGGERS = {
     أضف: { sub: 'add' },
   },
   /* «مسح» لحالها تنظّف ١٠٠ رسالة — زي أمر التنظيف في البوتات المعروفة */
+  /* التحذيرات: «تحذير @عضو سبب» = إضافة تحذير (بدل ما يصير الأمر ساكت بلا رد) */
+  warn: {
+    'تحذير': { sub: 'add' },
+    'انذار': { sub: 'add' },
+    'حذر': { sub: 'add' },
+    'تحذيرات': { sub: 'list', defaults: { 'العضو': null } },
+  },
+  /* إسكات/فك الإسكات بكلمة واحدة */
+  timeout: { 'اسكات': { sub: 'add' }, 'اسكت': { sub: 'add' }, 'صامت': { sub: 'add' }, 'فك الاسكات': { sub: 'remove' }, 'شيل الاسكات': { sub: 'remove' } },
   purge: {
     مسح: { sub: 'messages', defaults: { العدد: 100 } },
     نظف: { sub: 'messages', defaults: { العدد: 100 } },
@@ -755,6 +764,18 @@ async function handleMessage(client, message) {
 
   const fake = makeFakeInteraction(client, message, command, args, sub, subDefaults);
   await resolveIdArguments(fake, client);
+
+  /*
+   * ⚠️ مهم: التفاعل الوهمي لازم يمر بنفس محرّك ردود البوت (شكل الرد + الترجمة + الخط)
+   * حتى تطلع ردود أوامر الشات زي «قفل» · «احذر» · «امسح» · «بان» **نصًا عاديًا بلا إمبد**
+   * نفس ما تطلع من السلاش — وإلا كان الرد يوصل بإطاره (إمبد) لأن هذا المسار ما كان ملفوفًا.
+   */
+  try {
+    require('../lib/replies').wrapInteraction(fake);
+  } catch (err) {
+    console.error('[تنبيه] تعذّر تجهيز شكل ردود أمر الشات:', err.message);
+  }
+
   try {
     await command.run(client, fake, 'ar');
 
