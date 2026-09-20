@@ -194,6 +194,18 @@ function dInput(path, { placeholder = '', narrow = false, type = 'text', full = 
   return input;
 }
 
+/* قائمة أكواد/روابط مفصولة بفواصل ⇒ مصفوفة في الإعدادات */
+function dList(path, { placeholder = '', full = false } = {}) {
+  const input = el('input', { class: `d-input${full ? ' full' : ''}`, placeholder });
+  const value = getPath(path);
+  input.value = Array.isArray(value) ? value.join(' · ') : (value || '');
+  input.addEventListener('input', () => {
+    const list = input.value.split(/[\s,·]+/).map((v) => v.trim()).filter(Boolean);
+    setPath(path, list);
+  });
+  return input;
+}
+
 function dNumber(path, { min = 0, max = 100000 } = {}) {
   const input = el('input', { class: 'd-input narrow', type: 'number', min, max });
   input.value = getPath(path) ?? 0;
@@ -779,7 +791,9 @@ const SECTIONS = {
                   method: 'POST',
                   body: { channelId: getPath('welcome.channelId') || null },
                 });
-                toast(result.message || 'انبعت الترحيب التجريبي — شوف الروم.');
+                const r = result.result || {};
+                const extra = r.separateMessages ? ` · رسالة الصورة: ${r.imageMessageId} · رسالة النص: ${r.textMessageId}` : '';
+                toast((result.message || 'انبعت الترحيب التجريبي — شوف الروم.') + extra);
               } catch (err) {
                 toast(err.message || 'ما قدرت أرسل الترحيب.', true);
               } finally {
@@ -790,6 +804,10 @@ const SECTIONS = {
           })(),
         ]),
       ];
+
+      function welcomePublicCodes() {
+        return dList('welcome.publicInviteCodes', { full: true, placeholder: 'مثال: NeverLand · discord.gg/xxxx' });
+      }
 
       /* فحص الإيموجيات: نبيّن أي إيموجي في النص مو موجود بالسيرفر (بينطبع كنص) */
       const emojiCheck = el('div', { class: 'd-sample cr-preview' });
@@ -852,6 +870,13 @@ const SECTIONS = {
                 ]),
               ],
             ),
+            dField('طريقة الإرسال', '«الصورة أولًا» = رسالة فيها الصورة بالأول، وبعدها رسالة فيها النص (زي ما طلبت)', [
+              dChips('welcome.imageFirst', [ { value: true, label: 'الصورة أولًا ثم النص (رسالتان)' }, { value: false, label: 'رسالة واحدة (صورة + نص)' } ]),
+            ], { wide: true }),
+            dField('منشن الداعي في {inviter}', 'مفعّل = {inviter} يطلع منشن · مطفأ = اسم الداعي فقط', [dSwitch('welcome.inviterMention')]),
+            dField('منشن الدعوة العامة', 'آيدي العضو الذي يُمنشن لما تكون الدعوة عامة (رابط عام/فانيتي) أو صاحبها غير معروف — بدل «غير معروف»', [dInput('welcome.publicInviterId', { full: true, placeholder: 'مثال: 1345866950776979547' })], { wide: true }),
+            dField('أكواد الدعوات العامة', 'روابط/أكواد تُعتبر عامة ⇒ يُمنشن صاحب الدعوة العام بدل صانع الرابط — افصل بينها بفاصلة أو سطر', [welcomePublicCodes()], { wide: true }),
+            dField('إيموجي بديل (يونيكود)', 'يُستخدم وقت الإرسال إذا تعذّر رفع الإيموجي الخارجي للسيرفر — بدل ما ينطبع :os49: نصًا', [dInput('welcome.emojiFallback', { narrow: true, placeholder: 'بدون' })]),
             dField('حذف تلقائي بعد (ثانية)', '0 = لا يُحذف', [dNumber('welcome.autoDeleteAfter')]),
             dField('رسالة خاصة للعضو', 'يوصل الترحيب بالخاص', [dSwitch('welcome.dm')]),
             dField('نص الخاص', '', [dArea('welcome.dmMessage')], { wide: true }),

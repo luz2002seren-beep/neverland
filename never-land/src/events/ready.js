@@ -110,7 +110,7 @@ module.exports = {
         /* إيموجيات نص الترحيب: أي إيموجي مو موجود بالسيرفر نرفعه لحاله (حتى يظهر صح) */
         const welcomeCfg = db.getGuildSettings(guild.id)?.welcome;
         if (welcomeSystem.missingEmojis(guild, welcomeCfg?.message).length) {
-          const fix = await welcomeSystem.ensureEmojis(guild, welcomeCfg).catch(() => null);
+          const fix = await welcomeSystem.ensureEmojis(guild, welcomeCfg, { client }).catch(() => null);
           if (fix?.added?.length) console.log(`[الترحيب] إيموجيات مضافة في ${guild.id}: ${fix.added.map((a) => a.name).join(' · ')}`);
         }
       }

@@ -56,17 +56,62 @@ function ensureStyle(guildId) {
   }
 }
 
+/** كود دعوة من نص/رابط: نحفظ الجزء الأخير فقط */
+function normalizeInviteCode(value) {
+  return String(value || '').trim().replace(/^<|>$/g, '').replace(/^https?:\/\/(discord\.gg|discord\.com\/invite)\//i, '').toLowerCase();
+}
+
+/**
+ * 🧩 هل الدعوة عامة؟ (رابط عام/فانيتي · دعوة بوت · أو ما عرفنا صاحبها)
+ * الخاص = رابط صنعه عضو بشري ⇒ يُمنشن هو. العام ⇒ يُمنشن publicInviterId.
+ */
+function isPublicInvite(inviteInfo, guild = null, cfg = null) {
+  const defaults = require('../config').defaults.welcome;
+  const settings = cfg || defaults;
+  if (!inviteInfo?.code && !inviteInfo?.inviter) return true;
+
+  const code = normalizeInviteCode(inviteInfo?.code);
+  const list = (settings.publicInviteCodes || defaults.publicInviteCodes || []).map(normalizeInviteCode).filter(Boolean);
+  if (code && list.includes(code)) return true;
+
+  const vanity = normalizeInviteCode(guild?.vanityURLCode);
+  if (code && vanity && code === vanity) return true;
+
+  const inviter = inviteInfo?.inviter;
+  if (!inviter) return true;
+  if (inviter.bot) return true;
+  return false;
+}
+
 /**
  * متغيّرات الداعي (Inv By) — تُستخدم في نص الترحيب.
+ *  • دعوة خاصة ⇒ منشن صاحب الدعوة (أو اسمه لو المنشن مطفأ).
+ *  • دعوة عامة/غير معروفة ⇒ منشن publicInviterId (بدل «غير معروف»).
  * @param {object|null} inviteInfo { code, inviter, uses }
+ * @param {object|null} cfg إعدادات قسم الترحيب (اختياري — يُقرأ من الافتراضي)
+ * @param {object|null} guild السيرفر (لكشف الفانيتي)
  */
-function inviterVars(inviteInfo) {
+function inviterVars(inviteInfo, cfg = null, guild = null) {
+  const defaults = require('../config').defaults.welcome;
+  const settings = cfg && typeof cfg === 'object' ? cfg : defaults;
+  const useMention = settings.inviterMention === undefined ? defaults.inviterMention !== false : settings.inviterMention !== false;
+  const fallbackId = String(settings.publicInviterId ?? defaults.publicInviterId ?? '').trim();
+  const fallbackMention = /^\d{5,}$/.test(fallbackId) ? `<@${fallbackId}>` : null;
+
   const inviter = inviteInfo?.inviter || null;
+  const isPublic = isPublicInvite(inviteInfo, guild, settings);
+  const privateInviter = inviter && !isPublic ? inviter : null;
+
+  const name = privateInviter ? (privateInviter.globalName || privateInviter.displayName || privateInviter.username || null) : null;
+  const mention = privateInviter ? `<@${privateInviter.id}>` : fallbackMention;
+
   return {
-    inviter: inviter ? (inviter.globalName || inviter.displayName || inviter.username || 'غير معروف') : 'غير معروف',
-    inviterName: inviter ? (inviter.globalName || inviter.username || 'غير معروف') : 'غير معروف',
-    inviterMention: inviter ? `<@${inviter.id}>` : 'غير معروف',
+    inviter: useMention ? (mention || 'غير معروف') : (name || (fallbackMention ? fallbackMention : 'غير معروف')),
+    inviterName: name || 'غير معروف',
+    inviterMention: mention || 'غير معروف',
     inviteCode: inviteInfo?.code || 'غير معروف',
+    inviterIsPublic: isPublic,
+    inviterId: privateInviter?.id || null,
   };
 }
 
@@ -197,8 +242,11 @@ async function handleMemberAdd(client, member, { inviteInfo = null } = {}) {
   ensureStyle(guild.id);
   let settings = db.getGuildSettings(guild.id);
   /* تصحيح أي إيموجي ناقص في النص (مرة واحدة — بعدها يصير موجود) */
+  let failedEmojis = new Set();
   if (missingEmojis(guild, settings.welcome?.message).length) {
-    await ensureEmojis(guild, settings.welcome).catch(() => {});
+    const fix = await ensureEmojis(guild, settings.welcome, { client }).catch(() => null);
+    /* اللي فشل رفعه (بلا صلاحية مثلًا) نبدّله بإيموجي يونيكود وقت الإرسال */
+    failedEmojis = new Set((fix?.failed || []).map((f) => f.id));
     settings = db.getGuildSettings(guild.id);
   }
   const lang = settings.language || 'ar';
@@ -217,16 +265,23 @@ async function handleMemberAdd(client, member, { inviteInfo = null } = {}) {
 
   /* --------- 2) رسالة الترحيب في القناة --------- */
   if (settings.welcome?.enabled && settings.welcome.channelId) {
-    const payload = await buildWelcomePayload(client, member, settings, { inviteInfo });
-    const message = await sendTo(client, guild, settings.welcome.channelId, payload, settings.welcome.autoDeleteAfter || 0);
+    const payloads = await buildWelcomeMessages(client, member, settings, { inviteInfo, failedEmojis });
+    const messages = await sendWelcomeMessages(client, guild, settings.welcome.channelId, payloads, settings.welcome.autoDeleteAfter || 0);
+    const vars = inviterVars(inviteInfo, settings.welcome, guild);
     STATE.guilds[guild.id] = {
       lastWelcomeAt: Date.now(),
       lastMember: { id: member.id, tag: member.user.tag },
-      inviter: inviterVars(inviteInfo).inviter,
+      inviter: vars.inviter,
+      inviterIsPublic: vars.inviterIsPublic,
+      inviterId: vars.inviterId,
       channelId: settings.welcome.channelId,
       imageMode: settings.welcome.imageMode || 'frame',
-      sent: Boolean(message),
-      messageId: message?.id || null,
+      sent: messages.length > 0,
+      messageId: messages[0]?.id || null,
+      imageMessageId: messages[0]?.id || null,
+      textMessageId: messages[1]?.id || null,
+      messageIds: messages.map((m) => m.id),
+      separateMessages: payloads.length > 1,
       test: false,
     };
   }
@@ -337,13 +392,64 @@ async function previewCard(client, member) {
 }
 
 /**
- * بناء رسالة الترحيب كاملة (صورة + نص) — تُستخدم عند دخول عضو وعند الاختبار.
+ * 🔁 إيموجيات ما قدرنا نرفعها للسيرفر ⇒ نبدّلها بإيموجي يونيكود وقت الإرسال
+ * (حتى ما يطلع «:os49:» نصًا قبيحًا في الرسالة).
+ */
+function sanitizeEmojiText(text, failedIds, fallback = '✨') {
+  if (!failedIds?.size) return text;
+  let out = String(text);
+  for (const id of failedIds) {
+    out = out.replace(new RegExp(`<a?:[\\w~]+:${id}>`, 'g'), fallback);
+  }
+  return out.replace(/[ \t]{2,}/g, ' ');
+}
+
+/**
+ * 📤 رسائل الترحيب الجاهزة للإرسال: الصورة برسالة أولى ثم النص برسالة ثانية.
+ * (وضع Embed يبقى رسالة واحدة — لأنه صورة داخل إمبد.)
+ * @returns {Array<object>} مصفوفة حمولات تُرسل بالترتيب
+ */
+async function buildWelcomeMessages(client, member, settings, { inviteInfo = null, failedEmojis = null } = {}) {
+  const cfg = settings.welcome || {};
+  const defaults = require('../config').defaults.welcome;
+  const full = await buildWelcomePayload(client, member, settings, { inviteInfo, failedEmojis });
+  if (cfg.embed !== false) return [full];
+
+  const fallback = cfg.emojiFallback ?? defaults.emojiFallback ?? '✨';
+  const content = sanitizeEmojiText(full.content, failedEmojis, fallback);
+  const textPayload = { content, embeds: [], allowedMentions: { parse: ['users'] } };
+  const files = full.files || [];
+  if (!files.length) return [textPayload];
+
+  const imageFirst = cfg.imageFirst === undefined ? defaults.imageFirst !== false : cfg.imageFirst !== false;
+  if (!imageFirst) return [{ ...textPayload, files }];
+  return [{ files, allowedMentions: { parse: [] } }, textPayload];
+}
+
+/** إرسال مجموعة رسائل الترحيب بالترتيب (الصورة أولًا) — يرجع الرسائل المرسلة */
+async function sendWelcomeMessages(client, guild, channelId, payloads, autoDeleteAfter = 0) {
+  const sent = [];
+  for (const payload of payloads) {
+    const message = await sendTo(client, guild, channelId, payload, autoDeleteAfter);
+    if (!message) break;
+    sent.push(message);
+  }
+  return sent;
+}
+
+/**
+ * بناء رسالة الترحيب كاملة (صورة + نص) في حمولة واحدة — تُستخدم للمعاينة.
  * @returns {{content:?string, embeds:Array, files:Array}}
  */
-async function buildWelcomePayload(client, member, settings, { inviteInfo = null } = {}) {
+async function buildWelcomePayload(client, member, settings, { inviteInfo = null, failedEmojis = null } = {}) {
   const guild = member.guild;
-  const vars = inviterVars(inviteInfo);
-  const text = applyPlaceholders(settings.welcome.message, { user: member.user, member, guild, extra: vars });
+  const vars = inviterVars(inviteInfo, settings.welcome, guild);
+  const fallbackEmoji = settings.welcome.emojiFallback ?? (require('../config').defaults.welcome.emojiFallback || '✨');
+  const text = sanitizeEmojiText(
+    applyPlaceholders(settings.welcome.message, { user: member.user, member, guild, extra: vars }),
+    failedEmojis,
+    fallbackEmoji,
+  );
   const plain = settings.welcome.embed === false;
   const { files, imageRef } = await buildWelcomeImage(client, member, settings, { asFile: plain });
 
@@ -386,21 +492,39 @@ async function sendTestWelcome(client, guild, member, { inviteInfo = null, chann
     || guild.members.me;
   if (!subject) return { ok: false, reason: 'noMember' };
 
-  const payload = await buildWelcomePayload(client, subject, settings, { inviteInfo });
-  const message = await sendTo(client, guild, target, payload, 0);
-  if (!message) return { ok: false, reason: 'sendFailed' };
+  const payloads = await buildWelcomeMessages(client, subject, settings, { inviteInfo });
+  const messages = await sendWelcomeMessages(client, guild, target, payloads, 0);
+  if (!messages.length) return { ok: false, reason: 'sendFailed' };
 
+  const vars = inviterVars(inviteInfo, settings.welcome, guild);
   STATE.guilds[guild.id] = {
     lastWelcomeAt: Date.now(),
     lastMember: { id: subject.id, tag: subject.user.tag },
-    inviter: inviterVars(inviteInfo).inviter,
+    inviter: vars.inviter,
+    inviterIsPublic: vars.inviterIsPublic,
+    inviterId: vars.inviterId,
     channelId: target,
     imageMode: settings.welcome.imageMode || 'frame',
     sent: true,
-    messageId: message.id,
+    messageId: messages[0].id,
+    imageMessageId: messages[0].id,
+    textMessageId: messages[1]?.id || null,
+    messageIds: messages.map((m) => m.id),
+    separateMessages: payloads.length > 1,
     test: true,
   };
-  return { ok: true, messageId: message.id, channelId: target, member: subject.user.tag, inviter: inviterVars(inviteInfo).inviter };
+  return {
+    ok: true,
+    messageId: messages[0].id,
+    messageIds: messages.map((m) => m.id),
+    imageMessageId: messages[0].id,
+    textMessageId: messages[1]?.id || null,
+    separateMessages: payloads.length > 1,
+    channelId: target,
+    member: subject.user.tag,
+    inviter: vars.inviter,
+    inviterIsPublic: vars.inviterIsPublic,
+  };
 }
 
 /**
@@ -431,7 +555,7 @@ function missingEmojis(guild, text) {
  * السبب: ديسكورد ما يعرض إيموجي سيرفر ثاني (يطبعه كنص «:os49:»).
  * @returns {Promise<{added:Array<{name:string,oldId:string,newId:string}>, failed:Array}>}
  */
-async function ensureEmojis(guild, settings) {
+async function ensureEmojis(guild, settings, { client = null } = {}) {
   const result = { added: [], failed: [] };
   if (!guild?.emojis?.create) return result;
   /* نقبل الشكلين: كائن إعدادات السيرفر أو كائن قسم الترحيب مباشرة */
@@ -458,17 +582,32 @@ async function ensureEmojis(guild, settings) {
       }
       /* اسم الإيموجي المسموح: 2–32 حرفًا [a-zA-Z0-9_] */
       const safeName = String(emoji.name).replace(/[^\w]/g, '_').slice(0, 32) || 'nl_emoji';
-      const created = await guild.emojis.create({
-        attachment: buffer,
-        name: safeName.length >= 2 ? safeName : `nl_${safeName}`,
-        reason: 'إيموجي رسالة الترحيب (تصحيح تلقائي)',
-      });
+      const name = safeName.length >= 2 ? safeName : `nl_${safeName}`;
+
+      /* ١) نرفعه للسيرفر (الأفضل — يظهر لكل الأعضاء) · ٢) وإلا لإيموجيات البوت نفسها (بلا صلاحيات السيرفر) */
+      let created = null;
+      let reason = 'create_failed';
+      try {
+        created = await guild.emojis.create({ attachment: buffer, name, reason: 'إيموجي رسالة الترحيب (تصحيح تلقائي)' });
+      } catch (err) {
+        reason = err.message;
+        created = null;
+      }
+      if (!created?.id && client?.application?.emojis?.create) {
+        try {
+          created = await client.application.emojis.create({ attachment: buffer, name });
+          if (created?.id) reason = null;
+        } catch (err) {
+          reason = err.message;
+          created = null;
+        }
+      }
       if (!created?.id) {
-        result.failed.push({ ...emoji, reason: 'create_failed' });
+        result.failed.push({ ...emoji, reason });
         continue;
       }
       message = message.split(`<${emoji.animated ? 'a' : ''}:${emoji.name}:${emoji.id}>`).join(`<${created.animated ? 'a' : ''}:${created.name}:${created.id}>`);
-      result.added.push({ name: emoji.name, oldId: emoji.id, newId: created.id });
+      result.added.push({ name: emoji.name, oldId: emoji.id, newId: created.id, scope: created.guild ? 'guild' : 'app' });
     } catch (err) {
       result.failed.push({ ...emoji, reason: err.message });
     }
@@ -499,6 +638,9 @@ module.exports = {
   previewCard,
   sendTestWelcome,
   inviterVars,
+  isPublicInvite,
+  buildWelcomeMessages,
+  sendWelcomeMessages,
   missingEmojis,
   ensureEmojis,
   ensureStyle,

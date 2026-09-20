@@ -2423,6 +2423,14 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read54('src/events/ready.js').includes('ensureEmojis'), 'الإقلاع لازم يصحّح إيموجيات الترحيب');
     assert.ok(read54('src/web/public/app.js').includes('فحص الإيموجيات'), 'لوحة الترحيب لازم تعرض فحص الإيموجيات');
     assert.ok(out54.includes('تصحيح الإيموجيات الناقصة'), 'مجموعة فحص الإيموجيات في اختبار الإطار ناقصة');
+    /* الإرسال: الصورة أولًا ثم النص · منشن الداعي · الإيموجي الخارجي */
+    assert.strictEqual(cfg54.imageFirst, true, 'لازم الصورة تُرسل أولًا ثم النص');
+    assert.strictEqual(cfg54.inviterMention, true, 'لازم {inviter} يكون منشن');
+    assert.strictEqual(cfg54.publicInviterId, '1345866950776979547', 'آيدي منشن الدعوة العامة خطأ');
+    assert.ok(cfg54.emojiFallback, 'الإيموجي البديل ناقص');
+    assert.ok(typeof welcome54.isPublicInvite === 'function' && typeof welcome54.buildWelcomeMessages === 'function' && typeof welcome54.sendWelcomeMessages === 'function', 'دوال الإرسال الجديدة ناقصة');
+    assert.ok(read54('src/systems/welcome.js').includes('client.application.emojis.create'), 'دعم إيموجي البوت (خارجي) ناقص');
+    assert.ok(out54.includes('الصورة تُرسل أولًا ثم النص'), 'مجموعة فحص الإرسال في اختبار الإطار ناقصة');
     console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');
   }
 

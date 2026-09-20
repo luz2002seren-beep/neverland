@@ -177,14 +177,14 @@ async function run() {
     assert.ok(custom.content.includes('ahmed') && custom.content.includes('مجتمع Never Land') && custom.content.includes('482'), 'المتغيّرات ما تبدّلت في النص');
 
     /* {inviter} = مَن أرسل رابط الدعوة (يعطيه events/members.js) */
-    const invited = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: '{user} دخل بفضل {inviter} ({inviterMention}) — رابط {inviteCode}' } }, {
-      inviteInfo: { code: 'NLx1', inviter: { id: '300000000000000009', username: 'Owner', globalName: 'مالك السيرفر' } },
+    const invited = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: '{user} دخل بفضل {inviter} ({inviterName} · {inviterMention}) — رابط {inviteCode}' } }, {
+      inviteInfo: { code: 'NLx1', inviter: { id: '300000000000000009', username: 'Owner', globalName: 'مالك السيرفر', bot: false } },
     });
-    assert.ok(invited.content.includes('مالك السيرفر'), 'متغيّر {inviter} ما اشتغل');
-    assert.ok(invited.content.includes('<@300000000000000009>'), 'متغيّر {inviterMention} ما اشتغل');
+    assert.ok(invited.content.includes('<@300000000000000009>'), 'متغيّر {inviter} صار منشن (الافتراضي) ما اشتغل');
+    assert.ok(invited.content.includes('مالك السيرفر'), 'متغيّر {inviterName} ما اشتغل');
     assert.ok(invited.content.includes('NLx1'), 'متغيّر {inviteCode} ما اشتغل');
-    const unknown = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: 'Inv By : {inviter}' } }, {});
-    assert.strictEqual(unknown.content, 'Inv By : غير معروف', 'لما ما في دعوة معروفة لازم يطلع «غير معروف»');
+    const unknown = await welcome.buildWelcomePayload(null, member, { ...settings, welcome: { ...settings.welcome, embed: false, message: 'Inv By : {inviter} · {inviterName}' } }, {});
+    assert.strictEqual(unknown.content, 'Inv By : <@1345866950776979547> · غير معروف', 'الدعوة العامة ⇒ منشن صاحب الدعوة العام · والاسم «غير معروف»');
     console.log('٥) المتغيّرات ({username} {server} {memberCount} {displayName} {inviter}) تشتغل في النص وعلى الصورة ✅');
 
     /* ---------- ٦) معاينة اللوحة ----------

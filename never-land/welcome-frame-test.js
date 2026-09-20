@@ -154,26 +154,36 @@ async function main() {
     assert.ok(text.includes('𝑀𝑒𝑚𝑏𝑒𝑟'), 'سطر العضو ناقص');
     assert.ok(text.includes('𝐼𝑛𝑣 𝐵𝑦'), 'سطر الداعي ناقص');
     assert.ok(text.includes(`<@${member.id}>`), 'منشن العضو ما انبدل');
-    assert.ok(text.includes('مالك السيرفر'), 'اسم الداعي ما انبدل');
+    assert.ok(text.includes('<@910000000000000099>'), 'منشن الداعي ما انبدل');
     assert.ok(!/undefined|\[object/.test(text), 'النص فيه قيمة تقنية');
     assert.deepStrictEqual(payload.allowedMentions, { parse: ['users'] }, 'إعداد المنشنات خطأ');
-    ok('الترحيب: صورة الإطار مرفقة + نص عادي بالإيموجي المتحرك (Member + Inv By) ومنشن العضو والداعي');
+    ok('الترحيب: صورة الإطار مرفقة + نص عادي بالإيموجي المتحرك (Member + Inv By) ومنشن العضو ومنشن الداعي');
   }
 
   console.log('\n═══ ٤) متغيّرات الداعي ═══');
   {
-    const vars = welcome.inviterVars({ code: 'abc', inviter: { id: '5', username: 'sara', globalName: 'سارة' } });
-    assert.strictEqual(vars.inviter, 'سارة', 'اسم الداعي خطأ');
+    const vars = welcome.inviterVars({ code: 'abc', inviter: { id: '5', username: 'sara', globalName: 'سارة', bot: false } });
+    assert.strictEqual(vars.inviterName, 'سارة', 'اسم الداعي خطأ');
     assert.strictEqual(vars.inviterMention, '<@5>', 'منشن الداعي خطأ');
+    assert.strictEqual(vars.inviter, '<@5>', '{inviter} صار منشن (الافتراضي)');
     assert.strictEqual(vars.inviteCode, 'abc', 'كود الدعوة خطأ');
+    assert.strictEqual(vars.inviterIsPublic, false, 'الدعوة الخاصة ما لازم تُعتبر عامة');
+
     const none = welcome.inviterVars(null);
-    assert.strictEqual(none.inviter, 'غير معروف', 'لما ما في دعوة لازم يطلع «غير معروف»');
+    assert.strictEqual(none.inviter, '<@1345866950776979547>', 'لما ما في دعوة ⇒ منشن صاحب الدعوة العام بدل «غير معروف»');
+    assert.strictEqual(none.inviterName, 'غير معروف', 'الاسم يبقى «غير معروف»');
+    assert.strictEqual(none.inviterIsPublic, true, 'بلا دعوة = عامة');
+
+    const plain = welcome.inviterVars({ code: 'abc', inviter: { id: '5', username: 'sara', bot: false } }, { inviterMention: false });
+    assert.strictEqual(plain.inviter, 'sara', 'مع إطفاء المنشن ⇒ اسم الداعي');
+    const custom = welcome.inviterVars({ code: 'abc', inviter: { id: '5', username: 'sara', bot: false } }, { publicInviteCodes: ['abc'] });
+    assert.strictEqual(custom.inviter, '<@1345866950776979547>', 'كود مُعلن كعام ⇒ يُمنشن صاحب الدعوة العام');
 
     /* الحدث يمرّر معلومات الدعوة للنظام */
     const eventsSrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'members.js'), 'utf8');
     assert.ok(eventsSrc.includes('inviteInfo'), 'حدث الدخول ما يقرأ الدعوة');
     assert.ok(eventsSrc.includes('welcome.handleMemberAdd(client, member, { inviteInfo })'), 'معلومات الدعوة ما تُمرَّر للترحيب');
-    ok('{inviter} · {inviterMention} · {inviteCode} تشتغل — والحدث يمرّر الدعوة الحقيقية');
+    ok('{inviter} منشن (خاص) · {inviterMention} · {inviterName} · {inviteCode} · والعامة ⇒ منشن صاحب الدعوة العام');
   }
 
   console.log('\n═══ ٥) ترقية شكل الترحيب مرة واحدة ═══');
@@ -269,6 +279,87 @@ async function main() {
 
     assert.ok(/ensureEmojis/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يصحّح الإيموجيات');
     ok('الإيموجي الناقص يُرفع تلقائيًا للسيرفر ويُبدَّل رابطه في النص (بدل ما ينطبع «:os49:»)');
+  }
+
+  console.log('\n═══ ٨) الإرسال: الصورة أولًا ثم النص · منشن الداعي · إيموجي من آيدي خارجي ═══');
+  {
+    const welcome = require('./src/systems/welcome');
+    const config = require('./src/config');
+    const settings = { welcome: { ...config.defaults.welcome } };
+
+    /* ٨-أ: رسالتان — الصورة أولًا (بلا نص) ثم النص (بلا صورة) */
+    assert.strictEqual(config.defaults.welcome.imageFirst, true, 'الافتراضي لازم «الصورة أولًا ثم النص»');
+    const sent = await welcome.buildWelcomeMessages(null, mkMember(), settings, {
+      inviteInfo: { code: 'priv', inviter: { id: '424242', username: 'sara', bot: false }, uses: 2 },
+    });
+    assert.strictEqual(sent.length, 2, 'لازم رسالتان: الصورة ثم النص');
+    assert.strictEqual((sent[0].files || []).length, 1, 'الرسالة الأولى لازم تكون الصورة');
+    assert.ok(!sent[0].content, 'الرسالة الأولى (الصورة) لازم تكون بلا نص');
+    assert.ok(!(sent[1].files || []).length, 'الرسالة الثانية لازم تكون نص بلا صورة');
+    assert.strictEqual(sent[1].embeds.length, 0, 'بلا إمبد');
+    assert.deepStrictEqual(sent[1].allowedMentions, { parse: ['users'] }, 'المنشن لازم يكون للأعضاء فقط');
+
+    const single = await welcome.buildWelcomeMessages(null, mkMember(), { welcome: { ...settings.welcome, imageFirst: false } }, {});
+    assert.strictEqual(single.length, 1, 'إطفاء «الصورة أولًا» ⇒ رسالة واحدة');
+    assert.strictEqual((single[0].files || []).length, 1);
+    assert.ok(single[0].content, 'الرسالة الواحدة فيها النص والصورة');
+
+    /* ٨-ب: منشن الداعي (Inv By) — خاص ⇒ منشن صاحب الدعوة · عام ⇒ منشن publicInviterId */
+    assert.strictEqual(config.defaults.welcome.inviterMention, true, 'الافتراضي لازم منشن الداعي');
+    assert.strictEqual(config.defaults.welcome.publicInviterId, '1345866950776979547', 'آيدي منشن الدعوة العامة خطأ');
+    const lineOf = (payload) => String(payload.content).split('\n').pop();
+    assert.match(lineOf(sent[1]), /𝐼𝑛𝑣 𝐵𝑦 : <@424242>/, 'الدعوة الخاصة لازم تمنشن صاحب الدعوة');
+
+    const vanityMember = mkMember();
+    const g = vanityMember.guild;
+    g.vanityURLCode = 'neverland';
+    const pub = await welcome.buildWelcomeMessages(null, vanityMember, settings, {
+      inviteInfo: { code: 'neverland', inviter: { id: '999', username: 'other', bot: false }, uses: 5 },
+    });
+    assert.match(lineOf(pub[1]), /𝐼𝑛𝑣 𝐵𝑦 : <@1345866950776979547>/, 'الفانيتي = دعوة عامة ⇒ منشن صاحب الدعوة العام');
+    assert.strictEqual(welcome.isPublicInvite({ code: 'neverland', inviter: { id: '999', bot: false } }, g, settings.welcome), true, 'الفانيتي لازم تُعتبر عامة');
+    assert.strictEqual(welcome.isPublicInvite({ code: 'priv', inviter: { id: '999', bot: false } }, { vanityURLCode: null }, settings.welcome), false, 'الدعوة الخاصة ليست عامة');
+
+    const botInvite = await welcome.buildWelcomeMessages(null, mkMember(), settings, {
+      inviteInfo: { code: 'botlink', inviter: { id: '777', username: 'bot', bot: true }, uses: 1 },
+    });
+    assert.match(lineOf(botInvite[1]), /𝐼𝑛𝑣 𝐵𝑦 : <@1345866950776979547>/, 'دعوة بوت ⇒ عامة ⇒ منشن صاحب الدعوة العام');
+
+    const unknown = await welcome.buildWelcomeMessages(null, mkMember(), settings, {});
+    assert.match(lineOf(unknown[1]), /𝐼𝑛𝑣 𝐵𝑦 : <@1345866950776979547>/, 'بلا دعوة معروفة ⇒ منشن صاحب الدعوة العام بدل «غير معروف»');
+
+    const noMention = await welcome.buildWelcomeMessages(null, mkMember(), { welcome: { ...settings.welcome, inviterMention: false } }, {
+      inviteInfo: { code: 'priv', inviter: { id: '424242', username: 'sara', bot: false }, uses: 2 },
+    });
+    assert.match(lineOf(noMention[1]), /𝐼𝑛𝑣 𝐵𝑦 : sara/, 'إطفاء المنشن ⇒ اسم الداعي فقط');
+
+    /* ٨-ج: إيموجي من آيدي خارجي — يُرفع للسيرفر، ولو فشل يُبدَّل بإيموجي يونيكود */
+    const NL = '1461135643735490735';
+    const failed = await welcome.buildWelcomeMessages(null, mkMember(), settings, { failedEmojis: new Set([NL]) });
+    assert.ok(!failed[1].content.includes(`:${NL}>`), 'إيموجي ما قدرنا نرفعه لازم يُبدَّل (ما ينطبع :os49: نصًا)');
+    assert.ok(failed[1].content.includes(config.defaults.welcome.emojiFallback), 'لازم يظهر الإيموجي البديل');
+    assert.ok(
+      /create\(\{[^}]*attachment/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8'))
+        && fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8').includes('client.application.emojis.create'),
+      'لازم يدعم إيموجي البوت نفسه (application emojis) لو ما قدر يرفعه للسيرفر',
+    );
+
+    /* ٨-د: الجسر بين الدخول والاختبار والموقع */
+    const src = fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8');
+    assert.ok(src.includes('sendWelcomeMessages') && /handleMemberAdd[\s\S]*sendWelcomeMessages/.test(src), 'دخول العضو لازم يرسل الرسالتين');
+    assert.ok(/sendTestWelcome[\s\S]*sendWelcomeMessages/.test(src), 'الاختبار التجريبي لازم يرسل الرسالتين');
+    const appSrc = fs.readFileSync(require('node:path').join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    for (const key of ['welcome.imageFirst', 'welcome.inviterMention', 'welcome.publicInviterId', "'welcome.publicInviteCodes'", 'welcome.emojiFallback']) {
+      assert.ok(appSrc.includes(key), `الموقع ينقصه ${key}`);
+    }
+
+    assert.strictEqual(config.defaults.welcome.emojiFallback, '✨', 'الإيموجي البديل الافتراضي ✨');
+    /* نص جاهز = نفس الصيغة المطلوبة */
+    const text = String(unknown[1].content);
+    assert.match(text, /𝑊𝑒𝑙𝑐𝑜𝑚𝑒 𝑡𝑜 𝑆𝑒𝑟𝑣𝑒𝑟 𝑁𝑒𝑣𝑒𝑟 𝐿𝑎𝑛𝑑/, 'سطر الترحيب ناقص');
+    assert.match(text, /𝑀𝑒𝑚𝑏𝑒𝑟 : <@\d+>/, 'سطر العضو لازم منشن');
+    assert.match(text, /𝐼𝑛𝑣 𝐵𝑦 : <@\d+>/, 'سطر الداعي لازم منشن');
+    ok('الصورة تُرسل أولًا ثم النص · {inviter} منشن · الدعوة العامة (فانيتي/بوت/مجهولة) ⇒ منشن 1345866950776979547 · الإيموجي الخارجي يُرفع أو يُبدَّل بـ ✨');
   }
 
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);

@@ -1032,9 +1032,10 @@ router.post('/guilds/:guildId/actions/:action', async (req, res) => {
 
       const result = await welcome.sendTestWelcome(client, guild, subject, { channelId: target });
       if (!result.ok) return res.status(500).json({ ok: false, message: `تعذّر إرسال الترحيب (${result.reason}).` });
+      const parts = result.separateMessages ? 'صورة أولًا ثم النص (رسالتان)' : 'رسالة واحدة';
       return res.json({
         ok: true,
-        message: `👋 انبعت ترحيب تجريبي في <#${result.channelId}> باسم ${result.member}`,
+        message: `👋 انبعت ترحيب تجريبي في <#${result.channelId}> باسم ${result.member} — ${parts} · Inv By: ${result.inviter}`,
         result,
       });
     }
