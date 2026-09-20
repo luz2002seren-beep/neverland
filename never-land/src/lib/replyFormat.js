@@ -49,12 +49,44 @@ function fill(template, vars = {}) {
 function embedToText(embed) {
   const data = embed?.data && typeof embed.data === 'object' ? embed.data : embed;
   if (!data || typeof data !== 'object') return '';
+
+  const clean = (value) => String(value || '').replace(/[*_`~|]/g, '').replace(/\s+/g, ' ').trim();
+  const title = clean(data.title);
+  const description = String(data.description || '').trim();
+
   const lines = [];
-  if (data.title) lines.push(`${data.title}`);
-  if (data.description) lines.push(data.description);
+
+  /* العنوان يُكتب بس لو ما كان مكرّرًا داخل الوصف (مثال: «🔨 حظر» + «تم حظر @عضو») */
+  const titleCore = title.replace(/[^\p{L}\p{N}\s]/gu, '').trim();
+  const titleWords = titleCore.split(' ').filter((w) => w.length > 2);
+  const duplicated = Boolean(title) && Boolean(description) && (
+    (titleCore && clean(description).includes(titleCore))
+    || (titleWords.length && titleWords.every((w) => clean(description).includes(w)))
+  );
+  if (title && !duplicated) lines.push(title);
+  if (description) lines.push(description);
+
+  /* الحقول: بلا فراغات وبلا تكرار (نفس القيمة بنفس الاسم = سطر واحد) */
+  const seen = new Set(lines.map((l) => clean(l)));
   for (const field of data.fields || []) {
-    if (!field?.name && !field?.value) continue;
-    lines.push(`**${field.name}:** ${field.value}`);
+    const name = clean(field?.name);
+    const value = String(field?.value ?? '').trim();
+    if (!name || !value || value === '—') continue;
+    const line = `**${name}:** ${value}`;
+    if (seen.has(clean(line))) continue; // السطر نفسه موجود
+    const previous = clean(lines.join(' \n '));
+    const bare = clean(value).replace(/^[#@]/, '');
+    /* لو القيمة والاسم مذكورين فوق (مثال: «رقم الحالة: #1» ثم «الحالة: #1») → نكتفي بالأول */
+    if (bare && previous.includes(bare) && previous.includes(name)) continue;
+    /* أو نفس القيمة مكرّرة باسم قريب («عدد تحذيراته: 1» ثم «عدد التحذيرات: 1») */
+    if (bare) {
+      const re = new RegExp(`(^|[^\\p{L}\\p{N}])${bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'u');
+      const words = name.split(/\s+/).filter((w) => w.length > 2);
+      const nameKnown = words.length ? words.some((w) => previous.includes(w)) : previous.includes(name);
+      if (re.test(previous) && nameKnown) continue;
+    }
+    seen.add(clean(line));
+    lines.push(line);
   }
   if (data.footer?.text) lines.push(`— ${data.footer.text}`);
   return lines.filter(Boolean).join('\n').trim();
