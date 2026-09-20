@@ -107,6 +107,8 @@ module.exports = {
       let upgraded = 0;
       for (const guild of client.guilds.cache.values()) {
         if (welcomeSystem.ensureStyle(guild.id)) upgraded += 1;
+        /* صورة إطار جديدة ⇒ نحدّث مكان دائرة الأفتار المحفوظ */
+        if (welcomeSystem.ensureFrameLayout(guild.id)) upgraded += 1;
         /* إيموجيات نص الترحيب: أي إيموجي مو موجود بالسيرفر نرفعه لحاله (حتى يظهر صح) */
         const welcomeCfg = db.getGuildSettings(guild.id)?.welcome;
         if (welcomeSystem.missingEmojis(guild, welcomeCfg?.message).length) {

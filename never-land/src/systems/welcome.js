@@ -25,6 +25,9 @@ try {
 /* حالة حيّة (تظهر في /api/status وللتشخيص) */
 const STATE = { guilds: {} };
 
+/** مكان دائرة النسخة القديمة من الإطار (لمعرفة إن المدير عدّل الدائرة بيده) */
+const OLD_FRAME_CIRCLE = { cx: 0.33431, cy: 0.56543, r: 0.2525 };
+
 /* النص الافتراضي القديم (لتحديد إن العميل ما عدّله بنفسه) */
 const OLD_DEFAULT_MESSAGE = 'أهلاً بك {user} في **{server}**، عدد الأعضاء الآن **{memberCount}**.';
 
@@ -81,6 +84,37 @@ function isPublicInvite(inviteInfo, guild = null, cfg = null) {
   if (!inviter) return true;
   if (inviter.bot) return true;
   return false;
+}
+
+/**
+ * 🖼️ ترقية مكان دائرة الأفتار: لما نبدّل صورة الإطار بالنسخة الجديدة،
+ * الإعدادات المحفوظة القديمة تبقى تشير لمكان الدائرة القديم ⇒ نحدّثها للجديد،
+ * إلا لو المدير ضبط الدائرة بيده على قيم مختلفة (فما نلمسها).
+ * (منفصلة عن ensureStyle لأن تلك تشتغل مرة واحدة فقط)
+ * @returns {boolean} صار تحديث؟
+ */
+function ensureFrameLayout(guildId) {
+  if (!guildId) return false;
+  try {
+    const raw = db.getGuildSettings(guildId)?.welcome || {};
+    const defaults = require('../config').defaults.welcome;
+    const circle = raw.frameCircle;
+    const legacy = !circle || circle.cx === undefined
+      || (String(circle.cx) === String(OLD_FRAME_CIRCLE.cx)
+        && String(circle.cy) === String(OLD_FRAME_CIRCLE.cy)
+        && String(circle.r) === String(OLD_FRAME_CIRCLE.r));
+
+    const patch = {};
+    if (legacy) patch.frameCircle = defaults.frameCircle;
+    if (!raw.frameImage) patch.frameImage = defaults.frameImage;
+    if (!Object.keys(patch).length) return false;
+
+    db.updateGuildSettings(guildId, { welcome: patch });
+    console.log(`[الترحيب] تحديث مكان دائرة الأفتار لصورة الإطار الجديدة — السيرفر ${guildId}`);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -644,5 +678,6 @@ module.exports = {
   missingEmojis,
   ensureEmojis,
   ensureStyle,
+  ensureFrameLayout,
   status,
 };

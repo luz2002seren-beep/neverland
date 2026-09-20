@@ -2431,6 +2431,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(typeof welcome54.isPublicInvite === 'function' && typeof welcome54.buildWelcomeMessages === 'function' && typeof welcome54.sendWelcomeMessages === 'function', 'دوال الإرسال الجديدة ناقصة');
     assert.ok(read54('src/systems/welcome.js').includes('client.application.emojis.create'), 'دعم إيموجي البوت (خارجي) ناقص');
     assert.ok(out54.includes('الصورة تُرسل أولًا ثم النص'), 'مجموعة فحص الإرسال في اختبار الإطار ناقصة');
+    /* صورة الإطار الجديدة + ترقية مكان الدائرة */
+    assert.ok(out54.includes('صورة الإطار الجديدة'), 'مجموعة فحص الإطار الجديد ناقصة');
+    assert.ok(Math.abs(cfg54.frameCircle.cx - 0.33398) < 0.0005 && Math.abs(cfg54.frameCircle.cy - 0.56494) < 0.0005, 'مركز دائرة الإطار الجديد خطأ');
+    assert.ok(typeof welcome54.ensureFrameLayout === 'function', 'ترقية مكان الدائرة ناقصة');
+    assert.ok(read54('src/events/ready.js').includes('ensureFrameLayout'), 'الإقلاع لازم يرقّي مكان الدائرة');
     console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');
   }
 

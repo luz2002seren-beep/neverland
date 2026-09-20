@@ -362,6 +362,44 @@ async function main() {
     ok('الصورة تُرسل أولًا ثم النص · {inviter} منشن · الدعوة العامة (فانيتي/بوت/مجهولة) ⇒ منشن 1345866950776979547 · الإيموجي الخارجي يُرفع أو يُبدَّل بـ ✨');
   }
 
+  console.log('\n═══ ٩) صورة الإطار الجديدة + ترقية مكان الدائرة تلقائيًا ═══');
+  {
+    const welcome = require('./src/systems/welcome');
+    const conf = require('./src/config');
+    assert.ok(typeof welcome.ensureFrameLayout === 'function', 'دالة ترقية مكان الدائرة ناقصة');
+
+    /* صورة الإطار = النسخة الجديدة (نفس رمز الصورة التي أرسلها المدير) */
+    const img = fs.readFileSync(FRAME);
+    const meta = config.defaults.welcome.frameCircle;
+    const px = img.readUInt32BE(16);
+    const py = img.readUInt32BE(20);
+    assert.strictEqual(px, 1536, 'عرض صورة الإطار الجديدة خطأ');
+    assert.strictEqual(py, 1024, 'ارتفاع صورة الإطار الجديدة خطأ');
+    assert.ok(Math.abs(meta.cx - 0.33398) < 0.0005 && Math.abs(meta.cy - 0.56494) < 0.0005, 'مركز دائرة الصورة الجديدة خطأ');
+    assert.ok(Math.abs(meta.r - 0.25244) < 0.0005, 'نصف قطر دائرة الصورة الجديدة خطأ');
+    /* مركز الدائرة المقيس من الصورة نفسها (فحص بكسلات: الحلقة لامعة) */
+    const cxPx = meta.cx * px;
+    const cyPx = meta.cy * py;
+    assert.ok(Math.abs(cxPx - 513) < 4 && Math.abs(cyPx - 578) < 4, `مركز الدائرة بالبكسل خطأ (${cxPx.toFixed(1)}, ${cyPx.toFixed(1)})`);
+
+    /* الإعدادات القديمة (دائرة النسخة الأولى) تُرقّى مرة واحدة · والمخصّصة ما تُلمس */
+    const legacyGuild = '920000000000000042';
+    db.updateGuildSettings(legacyGuild, {
+      welcome: { enabled: true, channelId: '1549365058633736243', imageMode: 'frame', styleUpgraded: true, frameCircle: { cx: 0.33431, cy: 0.56543, r: 0.2525 } },
+    });
+    assert.strictEqual(welcome.ensureFrameLayout(legacyGuild), true, 'الإعدادات القديمة لازم تُرقّى');
+    assert.deepStrictEqual(db.getGuildSettings(legacyGuild).welcome.frameCircle, conf.defaults.welcome.frameCircle, 'الدائرة المرقّاة لازم تساوي الافتراضي الجديد');
+    assert.strictEqual(welcome.ensureFrameLayout(legacyGuild), false, 'الترقية لازم تصير مرة واحدة');
+
+    const customGuild = '920000000000000043';
+    db.updateGuildSettings(customGuild, { welcome: { frameCircle: { cx: 0.5, cy: 0.5, r: 0.2 } } });
+    assert.strictEqual(welcome.ensureFrameLayout(customGuild), false, 'الدائرة المخصّصة بيد المدير ما تُلمس');
+    assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
+
+    assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
+    ok('الإطار الجديد 1536×1024 ودائرته (513,578) مضبوطة — والإعدادات المحفوظة القديمة تُرقّى مرة واحدة');
+  }
+
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);
 }
 
