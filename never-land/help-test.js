@@ -143,7 +143,7 @@ function linkButtons(rows) {
   const staffNames = catalog.namesOf('staff');
   console.log('٩) الكتالوج: أوامر الأعضاء', memberNames.length, '· أوامر الإدارة', staffNames.length);
   assert.strictEqual(memberNames.length, 10, 'عدد أوامر الأعضاء تغيّر');
-  assert.strictEqual(staffNames.length, 19, 'عدد أوامر الإدارة تغيّر');
+  assert.strictEqual(staffNames.length, 20, 'عدد أوامر الإدارة تغيّر');
   assert.strictEqual(memberNames.length + staffNames.length, Object.keys(catalog.COMMANDS).length, 'أمر بلا تصنيف');
 
   console.log('\n🎉 ردود البوت بلا أي رابط موقع · والرابط يطلع بكلمة «نيفر» للمسجّلين اللي عندهم الرول · وأوامر الإدارة مخفية عن الأعضاء');

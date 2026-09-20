@@ -222,6 +222,27 @@ const COMMANDS = {
     audience: 'staff',
     text: true,
   },
+  role: {
+    category: 'moderation',
+    label: 'إعطاء وسحب رتبة',
+    what: 'يعطي عضو رتبة أو يسحبها منه — بالمنشن أو بالآيدي (ويقبل أكثر من رتبة).',
+    usage: [
+      'role <@العضو> <@الرتبة>',
+      'role آيدي_العضو آيدي_الرتبة',
+      'role <@العضو> <@الرتبة> إزالة',
+    ],
+    examples: [
+      'role @عضو @رتبة',
+      'role 123456789012345678 987654321098765432',
+      'role 123456789012345678 987654321098765432 إزالة',
+      'رول @عضو رتبة',
+    ],
+    aliases: ['رول'],
+    perm: 'إدارة الرتب',
+    audience: 'staff',
+    text: true,
+  },
+
   member: {
     category: 'moderation',
     label: 'إدارة عضو',

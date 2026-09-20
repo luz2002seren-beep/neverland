@@ -1727,7 +1727,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
     assert.ok(out41.includes('🎉'), 'اختبار الأوامر النصية ما نجح');
 
-  console.log('  [تم] أوامر بلا بريفيكست (ban · kick · top…) · اختصارات تُعدَّل من الموقع · مكتبة شرح لكل أمر بـ ٢٩ أمرًا');
+  console.log('  [تم] أوامر بلا بريفيكست (ban · kick · top…) · اختصارات تُعدَّل من الموقع · مكتبة شرح لكل أمر بـ ٣٠ أمرًا');
   }
 
  console.log('[اختبار] 42: الترحيب بصورة بالأفتار + رسالة عادية بلا إطار (زي بوتات الترحيب المعروفة)');
@@ -1817,7 +1817,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ١) الكتالوج: جمهور لكل أمر
     assert.ok(Array.isArray(catalog43.namesOf('member')), 'الكتالوج ينقصه تصنيف الجمهور');
     assert.strictEqual(catalog43.namesOf('member').length, 10, 'عدد أوامر الأعضاء غير صحيح');
-    assert.strictEqual(catalog43.namesOf('staff').length, 19, 'عدد أوامر الإدارة غير صحيح');
+    assert.strictEqual(catalog43.namesOf('staff').length, 20, 'عدد أوامر الإدارة غير صحيح');
     assert.ok(catalog43.AUDIENCES.member.badge && catalog43.AUDIENCES.staff.badge, 'وسوم الجمهور ناقصة');
 
     // ٢) ديسكورد: أوامر الإدارة تُخفى عن الأعضاء عند تحميل الأوامر
@@ -2437,6 +2437,36 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(typeof welcome54.ensureFrameLayout === 'function', 'ترقية مكان الدائرة ناقصة');
     assert.ok(read54('src/events/ready.js').includes('ensureFrameLayout'), 'الإقلاع لازم يرقّي مكان الدائرة');
     console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');
+  }
+
+ console.log('[اختبار] 55: أمر الرتب (إعطاء/سحب) — منشن وآيدي');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path55 = require('node:path');
+    const fs55 = require('node:fs');
+    const root55 = path55.join(__dirname, '..');
+    const read55 = (rel) => fs55.readFileSync(path55.join(root55, rel), 'utf8');
+
+    const out55 = execFileSync('node', ['role-command-test.js'], { cwd: root55, encoding: 'utf8' });
+    assert.ok(out55.includes('أمر الرتب جاهز وشغّال'), 'اختبار أمر الرتب فشل');
+
+    const catalog55 = require(path55.join(root55, 'src', 'data', 'commandCatalog'));
+    assert.ok(catalog55.COMMANDS.role, 'أمر role ناقص من الكتالوج');
+    assert.strictEqual(catalog55.audienceOf('role'), 'staff', 'أمر الرتب لازم أمر إدارة');
+    assert.ok(catalog55.COMMANDS.role.examples.some((e) => /\d{15,}/.test(e)), 'لازم مثال بالآيدي');
+
+    const cmd55 = require(path55.join(root55, 'src', 'commands', 'moderation', 'role.js'));
+    const names55 = cmd55.data.toJSON().options.map((o) => o.name);
+    assert.deepStrictEqual(names55, ['العضو', 'الرتبة', 'آيدي', 'آيدي-الرتبة', 'إزالة', 'السبب'], 'خيارات أمر الرتب تغيّرت');
+    assert.ok(cmd55.permissions.length && cmd55.botPermissions.length, 'صلاحيات أمر الرتب ناقصة');
+
+    const text55 = require(path55.join(root55, 'src', 'systems', 'textCommands'));
+    for (const alias55 of ['رول', 'رتبة', 'رتب']) {
+      assert.ok(text55.AR_TRIGGERS.role.includes(alias55), `اختصار «${alias55}» ناقص من AW_TRIGGERS`);
+    }
+    const replyFormat55 = require(path55.join(root55, 'src', 'lib', 'replyFormat'));
+    assert.strictEqual(replyFormat55.defaultMode('role'), 'text', 'الرد الافتراضي لأمر الرتب لازم نص');
+    console.log('  [تم] إعطاء/سحب الرتب بالمنشن والآيدي (سلاش + شات) + الكتالوج + الرد النصي');
   }
 
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');

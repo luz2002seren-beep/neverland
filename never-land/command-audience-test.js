@@ -43,9 +43,9 @@ async function run() {
   const allNames = Object.keys(catalog.COMMANDS);
   console.log('١) الكتالوج:', memberNames.length, 'أمر أعضاء ·', staffNames.length, 'أمر إدارة · المجموع', allNames.length);
   console.log('   أوامر الأعضاء:', memberNames.join(' · '));
-  assert.strictEqual(allNames.length, 29, 'عدد الأوامر تغيّر');
+  assert.strictEqual(allNames.length, 30, 'عدد الأوامر تغيّر');
   assert.strictEqual(memberNames.length, 10, 'عدد أوامر الأعضاء لازم يكون ١٠');
-  assert.strictEqual(staffNames.length, 19, 'عدد أوامر الإدارة لازم يكون ١٩');
+  assert.strictEqual(staffNames.length, 20, 'عدد أوامر الإدارة لازم يكون ٢٠');
   assert.strictEqual(memberNames.length + staffNames.length, allNames.length, 'في أمر بلا جمهور');
   for (const name of allNames) {
     const aud = catalog.audienceOf(name);
@@ -65,8 +65,8 @@ async function run() {
   const staffCmds = [...client.commands.values()].filter((c) => c.audience === 'staff');
   const memberCmds = [...client.commands.values()].filter((c) => c.audience === 'member');
   console.log('٢) ديسكورد: حُمّل', loaded, 'أمر —', staffCmds.length, 'منها بصلاحيات (مخفية عن الأعضاء)');
-  assert.strictEqual(loaded, 29, 'الأوامر ما تحمّلت كاملة');
-  assert.strictEqual(staffCmds.length, 19, 'عدد أوامر الإدارة المحمّلة غير صحيح');
+  assert.strictEqual(loaded, 30, 'الأوامر ما تحمّلت كاملة');
+  assert.strictEqual(staffCmds.length, 20, 'عدد أوامر الإدارة المحمّلة غير صحيح');
   assert.strictEqual(memberCmds.length, 10, 'عدد أوامر الأعضاء المحمّلة غير صحيح');
   for (const cmd of staffCmds) {
     const json = cmd.data.toJSON();
@@ -87,7 +87,7 @@ async function run() {
   const staffView = help.visibleCommands(client, staffMember).map((c) => c.data.name);
   console.log('٣) /help: العضو يشوف', memberView.length, 'أمر · الإدارة تشوف', staffView.length);
   assert.strictEqual(memberView.length, 10, 'العضو لازم يشوف أوامر الأعضاء فقط');
-  assert.strictEqual(staffView.length, 29, 'الإدارة لازم تشوف كل الأوامر');
+  assert.strictEqual(staffView.length, 30, 'الإدارة لازم تشوف كل الأوامر');
   for (const name of staffNames) assert.ok(!memberView.includes(name), `أمر الإدارة ${name} ظاهر للعضو!`);
 
   const replies = [];
@@ -177,10 +177,10 @@ async function run() {
   const snapAdmin = text.adminSnapshot(GUILD, ['ping', 'ban'], { staffViewer: true });
   const snapMember = text.adminSnapshot(GUILD, ['ping', 'ban'], { staffViewer: false });
   console.log('٥) اللوحة: للإدارة', snapAdmin.items.length, 'أمر · لغير الإداري', snapMember.items.length, 'أمر (محجوب', snapMember.counts.hiddenFromViewer, ')');
-  assert.strictEqual(snapAdmin.items.length, 29, 'لوحة الإدارة لازم تعرض كل الأوامر');
+  assert.strictEqual(snapAdmin.items.length, 30, 'لوحة الإدارة لازم تعرض كل الأوامر');
   assert.strictEqual(snapMember.items.length, 10, 'لوحة العضو لازم تعرض أوامر الأعضاء فقط');
   assert.strictEqual(snapAdmin.counts.member, 10, 'عدّاد أوامر الأعضاء غير صحيح');
-  assert.strictEqual(snapAdmin.counts.staff, 19, 'عدّاد أوامر الإدارة غير صحيح');
+  assert.strictEqual(snapAdmin.counts.staff, 20, 'عدّاد أوامر الإدارة غير صحيح');
   assert.ok(snapMember.items.every((i) => i.audience === 'member'), 'أمر إدارة تسرّب لغير الإداري');
   assert.ok(snapAdmin.items.every((i) => i.audienceBadge), 'وسم الجمهور ناقص في اللوحة');
 
@@ -227,7 +227,7 @@ async function run() {
     const forMember = text.adminSnapshot(GUILD, [], { staffViewer: false });
     console.log('   مشاهد بلا صلاحية تعديل →', forMember.items.length, 'أمر أعضاء · محجوب عنه', forMember.counts.hiddenFromViewer);
     assert.strictEqual(forMember.items.length, 10, 'مشاهد بلا صلاحية شاف أوامر إدارة');
-    assert.strictEqual(forMember.counts.hiddenFromViewer, 19, 'عدد المحجوب لمشاهد بلا صلاحية غير صحيح');
+    assert.strictEqual(forMember.counts.hiddenFromViewer, 20, 'عدد المحجوب لمشاهد بلا صلاحية غير صحيح');
   } finally {
     config.web.demoMode = demoWas;
     server.close();
