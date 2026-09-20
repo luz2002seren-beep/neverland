@@ -260,11 +260,51 @@ router.get('/guilds/:guildId/replies/preview', async (req, res) => {
 });
 
 /* ------------------------- 🧹 روم الأوامر (نشر + تنظيف) ------------------------- */
+const guildId0 = (req) => req.params.guildId;
 /**
  * POST /api/guilds/:guildId/command-room/publish  → ينشر/يعدّل رسالة الترحيب بالصورة
  * POST /api/guilds/:guildId/command-room/clean    → يمسح كل رسائل الروم (ما عدا رسالة الترحيب)
  * POST /api/guilds/:guildId/command-room/run      → الاثنين معًا
  */
+/* تشخيص مباشر لروم الأوامر: آخر الرسائل + هل رسالة الترحيب موجودة ومثبّتة */
+router.get('/guilds/:guildId/command-room', async (req, res) => {
+  if (!(await canAccess(req, guildId0(req)))) return res.status(403).json({ error: 'forbidden' });
+  const guildId = guildId0(req);
+  const client = safeClient();
+  const guild = client?.guilds?.cache?.get(guildId);
+  const commandRoom = require('../../systems/commandRoom');
+  const cfg = commandRoom.configFor(guildId);
+  const out = { config: cfg, status: commandRoom.status().guilds[guildId] || null, live: null };
+
+  const channel = guild && cfg.channelId
+    ? guild.channels.cache.get(cfg.channelId) || (await guild.channels.fetch(cfg.channelId).catch(() => null))
+    : null;
+
+  if (channel?.isTextBased?.()) {
+    const fetched = await channel.messages.fetch({ limit: 20 }).catch(() => null);
+    if (fetched) {
+      const banner = cfg.bannerId ? fetched.get(cfg.bannerId) || (await channel.messages.fetch(cfg.bannerId).catch(() => null)) : null;
+      out.live = {
+        channelName: channel.name,
+        count: fetched.size,
+        bannerExists: Boolean(banner),
+        bannerPinned: banner ? Boolean(banner.pinned) : null,
+        bannerHasImage: banner ? Boolean((banner.attachments?.size ?? 0) > 0) : null,
+        messages: [...fetched.values()].slice(0, 20).map((m) => ({
+          id: m.id,
+          bot: Boolean(m.author?.bot),
+          pinned: Boolean(m.pinned),
+          attachments: m.attachments?.size ?? 0,
+          ageSeconds: Math.round((Date.now() - m.createdTimestamp) / 1000),
+          preview: String(m.content || '').slice(0, 70),
+        })),
+      };
+    }
+  }
+
+  return res.json(out);
+});
+
 router.post('/guilds/:guildId/command-room/:action', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
 

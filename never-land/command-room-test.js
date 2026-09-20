@@ -216,8 +216,12 @@ async function main() {
     const apiSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'routes', 'api.js'), 'utf8');
     assert.ok(/command-room\/:action/.test(apiSrc), 'مسارات روم الأوامر ناقصة من الـ API');
     assert.ok(/commandRoom: \(\(\) => \{/.test(apiSrc), 'حالة روم الأوامر ناقصة من /api/status');
-    assert.ok(/canEdit\(req\)/.test(apiSrc.slice(apiSrc.indexOf('command-room'), apiSrc.indexOf('command-room') + 400)), 'المسار بلا حماية صلاحيات');
-    ok('الـ API: مسارات النشر/التنظيف محميّة + حالة حيّة في /api/status');
+    /* المسار اللي يكتب (النشر/التنظيف) لازم يمر بـ canEdit، ومسار القراءة بـ canAccess */
+    const post53 = apiSrc.indexOf("command-room/:action");
+    assert.ok(/canEdit\(req\)/.test(apiSrc.slice(post53, post53 + 400)), 'مسار التنفيذ بلا حماية صلاحيات (canEdit)');
+    const get53 = apiSrc.indexOf("'/guilds/:guildId/command-room'");
+    assert.ok(/canAccess\(/.test(apiSrc.slice(get53, get53 + 300)), 'مسار القراءة بلا حماية (canAccess)');
+    ok('الـ API: مسار التنفيذ محمي بـ canEdit · القراءة بـ canAccess · وحالة حيّة في /api/status');
 
     const readySrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'ready.js'), 'utf8');
     assert.ok(/commandRoom'\)\.start\(client\)/.test(readySrc), 'مؤقّت روم الأوامر ما انربط بالبوت');
