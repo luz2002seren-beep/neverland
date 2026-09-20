@@ -96,9 +96,11 @@ async function main() {
     const body = (data.description || '') + (data.fields || []).map((f) => `${f.name} ${f.value}`).join('\n');
     assert.ok(/🥇|🥈|🥉/.test(body) || /ما في|لا يوجد/.test(body), 'ترتيب الأعضاء (ميداليات) ناقص');
     assert.ok(/XP/.test(body), 'قيمة الخبرة ناقصة من التوب');
-    assert.ok(data.footer && /صفحة/.test(data.footer.text || ''), 'الفوتر لازم يبيّن رقم الصفحة');
-    assert.ok(!/NaN/.test(JSON.stringify(data)), 'التوب فيه NaN — رقم الصفحة انكسر');
-    ok('إمبيد /top: عنوان «توب — توب داي» + ميداليات + خبرة + فوتر صفحات');
+    /* بلا فوتر نهائيًا — ولا أي تلميح أوامر زي «استخدم t day 1» */
+    assert.strictEqual(data.footer, undefined, 'التوب لازم يكون بلا فوتر: ' + JSON.stringify(data.footer));
+    assert.ok(!/استخدم|use `t/i.test(JSON.stringify(data)), 'لسا في تلميح «استخدم t day» داخل التوب');
+    assert.ok(!/NaN/.test(JSON.stringify(data)), 'التوب فيه NaN');
+    ok('إمبيد /top: عنوان «توب — توب داي» + ميداليات + خبرة — بلا فوتر وبلا تلميح أوامر');
 
     /* الترجمة الإنجليزية + الخط المزخرف تشمل نصوص التوب الجديدة */
     const replies = require('./src/lib/replies');

@@ -671,8 +671,9 @@ function topBoardEmbed(guildId, { period = 'day', source = 'all', page = 1, perP
       { name: ar ? 'المشاركون' : 'Participants', value: `**${board.total}**`, inline: true },
       { name: ar ? 'مجموع الخبرة' : 'Total XP', value: `**${humanize(board.totals?.xp || 0)}**`, inline: true },
       { name: ar ? 'التجديد' : 'Resets', value: reset, inline: true },
+      ...(pages > 1 ? [{ name: ar ? 'الصفحة' : 'Page', value: `${pageNum}/${pages}`, inline: true }] : []),
     ],
-    footer: `${ar ? 'صفحة' : 'Page'} ${pageNum}/${pages} · ${ar ? 'استخدم' : 'use'} ${ar ? '`t ' : '`'}${board.source === 'all' ? '' : `${sourceMeta.key} `}${periodMeta.key} ${Math.min(pageNum + 1, pages)}${'`'}`,
+    /* بلا تذييل — رقم الصفحة يظهر في الحقول فقط لو في أكثر من صفحة */
   });
 }
 

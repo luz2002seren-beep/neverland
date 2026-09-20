@@ -66,7 +66,6 @@ const rules = [
     `${medal ? medal + ' ' : ''}<@${id}> — **${xp}** XP · level **${lvl}**${t !== undefined && t !== '' ? ` · T:${t} V:${v}` : ''}`],
   [/^\*\*#(\d+)\*\* <@(\d+)> — \*\*(.+)\*\* XP · مستوى \*\*(\d+)\*\*(?: · م:(.+) ص:(.+))?$/, (m, pos, id, xp, lvl, t, v) =>
     `**#${pos}** <@${id}> — **${xp}** XP · level **${lvl}**${t !== undefined && t !== '' ? ` · T:${t} V:${v}` : ''}`],
-  [/^صفحة (\d+)\/(\d+) · استخدم `(.+)`$/, 'Page $1/$2 · use `$3`'],
   [/^يتجدّد بعد (.+)$/, (m, parts) =>
     'Resets in ' + String(parts)
       .replace(/أيام|يوم/g, 'd')
