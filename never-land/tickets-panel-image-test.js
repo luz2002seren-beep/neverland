@@ -41,8 +41,8 @@ const BOT = '800000000000000099';
 const PANEL_CHANNEL = '800000000000000111';
 const OTHER_CHANNEL = '800000000000000222';
 
-const HERO = 'src/web/public/assets/tickets-panel.webp';
-const FOOTER = 'src/web/public/assets/tickets-panel-footer.webp';
+const HERO = 'src/web/public/assets/tickets-panel.png';
+const FOOTER = 'src/web/public/assets/tickets-panel-footer.webp'; // نسخة قديمة (للتنظيف فقط)
 
 /** رسالة وهمية */
 const mkMessage = (id, { author = BOT, content = '', components = [], images = [], attachments = [] } = {}) => ({
@@ -95,27 +95,33 @@ const resetTickets = (patch = {}) => {
 };
 
 async function main() {
-  console.log('\n═══ ١) الصور موجودة فعلًا في المشروع ═══');
+  console.log('\n═══ ١) صورة اللوحة: PNG بخلفية شفافة فعلًا ═══');
   {
-    for (const rel of [HERO, FOOTER]) {
-      const full = path.join(__dirname, rel);
-      assert.ok(fs.existsSync(full), `الصورة ناقصة: ${rel}`);
-      const size = fs.statSync(full).size;
-      assert.ok(size > 20000 && size < 1024 * 1024, `مقاس الصورة غير مناسب (${size} بايت): ${rel}`);
-      const head = fs.readFileSync(full).subarray(0, 12).toString('ascii');
-      assert.ok(head.includes('WEBP'), `الملف ليس صورة webp صالحة: ${rel}`);
+    const full = path.join(__dirname, HERO);
+    assert.ok(fs.existsSync(full), `الصورة ناقصة: ${HERO}`);
+    const buffer = fs.readFileSync(full);
+    /* PNG: التوقيع + نوع اللون من IHDR (6 = RGBA = فيها قناة شفافية) */
+    assert.strictEqual(buffer.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'الملف ليس PNG');
+    assert.strictEqual(buffer[25], 6, 'الصورة بلا قناة شفافية (لازم RGBA) — يعني الخلفية السوداء ترجع');
+    assert.ok(buffer.length > 50000, 'الصورة صغيرة بشكل غير متوقّع');
+
+    /* ما بقيت أي نسخة قديمة (سوداء/خط زخرفي) داخل المشروع */
+    for (const old of ['tickets-panel.webp', 'tickets-panel-footer.webp']) {
+      assert.ok(!fs.existsSync(path.join(__dirname, 'src', 'web', 'public', 'assets', old)), `نسخة قديمة لسا موجودة: ${old}`);
     }
     assert.strictEqual(tickets.DEFAULT_PANEL_IMAGE, HERO, 'مسار صورة اللوحة الافتراضية خطأ');
-    const names = tickets.panelImageNames({ panelImage: HERO, panelFooterImage: FOOTER });
-    assert.deepStrictEqual(names.sort(), ['tickets-panel-footer.webp', 'tickets-panel.webp'], 'أسماء صور اللوحة خطأ');
-    ok('صورة اللوحة + الصورة الزخرفية موجودة (webp بمقاس معقول) + أسماء الملفات معروفة');
+    assert.strictEqual(require(path.join(__dirname, 'src', 'config')).defaults.tickets.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي');
+    const names = tickets.panelImageNames({ panelImage: HERO, panelFooterImage: '' });
+    assert.ok(names.includes('tickets-panel.png'), 'اسم الصورة الجديدة ناقص');
+    assert.ok(names.includes('tickets-panel.webp') && names.includes('tickets-panel-footer.webp'), 'أسماء النسخ القديمة ناقصة (لازم تتنظّف من الرومات)');
+    ok('صورة اللوحة PNG بخلفية شفافة (RGBA) · بلا خط زخرفي · وأسماء النسخ القديمة معروفة للتنظيف');
   }
 
   console.log('\n═══ ٢) اللوحة الافتراضية: صورة + قائمة (بلا نص) ═══');
   {
-    const settings = { tickets: { ...db.getGuildSettings(GUILD).tickets, panelImage: HERO, panelFooterImage: FOOTER, panelImageOnly: true, panelMode: 'select' } };
+    const settings = { tickets: { ...db.getGuildSettings(GUILD).tickets, panelImage: HERO, panelFooterImage: '', panelImageOnly: true, panelMode: 'select' } };
     const payloads = tickets.buildPanelPayloads(settings, { id: GUILD, iconURL: () => null });
-    assert.strictEqual(payloads.length, 2, 'اللوحة لازم تنزل برسالتين: الصورة + الصورة الزخرفية');
+    assert.strictEqual(payloads.length, 1, 'اللوحة رسالة واحدة: صورة + قائمة تحتها (بلا خط)');
 
     const hero = payloads[0];
     /* 🖼️ صورة عادية: مرفق مباشر — بلا أي إمبد (ولا عنوان ولا وصف ولا تذييل) */
@@ -129,11 +135,11 @@ async function main() {
     assert.ok(select.options.every((option) => option.data.description), 'كل نوع لازم يكون له وصف تحت الاسم');
     assert.deepStrictEqual(select.options.map((o) => o.data.value), ['support', 'verify', 'gift', 'staff'], 'ترتيب الأنواع خطأ');
 
-    const footer = payloads[1];
-    assert.strictEqual(footer.embeds, undefined, 'الصورة الزخرفية لازم تكون صورة عادية بلا إمبد');
-    assert.deepStrictEqual(footer.files.map((f) => f.name), ['tickets-panel-footer.webp'], 'الصورة الزخرفية خطأ');
-    assert.strictEqual(footer.components, undefined, 'الصورة الزخرفية بلا مكوّنات');
-    ok('اللوحة صورة كاملة (بلا عنوان/وصف/تذييل) + قائمة «اختر القائمة المناسبة لك» بـ4 أنواع بوصف + صورة زخرفية أسفلها');
+    /* لو حبّ المدير يرجّع خط/صورة تحت القائمة — لسا مدعومة */
+    const withFooter = tickets.buildPanelPayloads({ tickets: { ...settings.tickets, panelFooterImage: 'src/web/public/assets/commands-room.png' } }, { id: GUILD, iconURL: () => null });
+    assert.strictEqual(withFooter.length, 2, 'الخط/الصورة الاختيارية تحت القائمة ما اشتغلت');
+    assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['commands-room.png'], 'ملف الخط الاختياري خطأ');
+    ok('اللوحة صورة شفافة واحدة (بلا عنوان/وصف/تذييل) + قائمة «اختر القائمة المناسبة لك» بـ4 أنواع بوصف — وبلا خط تحتها');
   }
 
   console.log('\n═══ ٣) إطفاء الصورة يرجّع اللوحة النصية (بلا كسر) ═══');
@@ -158,11 +164,11 @@ async function main() {
 
   console.log('\n═══ ٤) بصمة اللوحة (تحديث تلقائي) ═══');
   {
-    const base = { ...db.getGuildSettings(GUILD).tickets, panelImage: HERO, panelFooterImage: FOOTER, panelMode: 'select' };
+    const base = { ...db.getGuildSettings(GUILD).tickets, panelImage: HERO, panelFooterImage: '', panelMode: 'select' };
     const sig = tickets.panelSignature(base);
     assert.strictEqual(sig, tickets.panelSignature({ ...base }), 'البصمة لازم تكون ثابتة لو ما تغيّر شي');
     assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/commands-room.png' }), 'تغيير الصورة لازم يغيّر البصمة');
-    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: '' }), 'شيل الصورة الزخرفية لازم يغيّر البصمة');
+    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: FOOTER }), 'إضافة خط تحت القائمة لازم يغيّر البصمة');
     assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelMode: 'buttons' }), 'تغيير الوضع لازم يغيّر البصمة');
     assert.notStrictEqual(
       sig,
@@ -181,16 +187,16 @@ async function main() {
     const guild = mkGuild([panelChannel, otherChannel]);
 
     mkMessage.deleted = [];
-    resetTickets({ enabled: true, categoryId: '800000000000000777', panelImage: HERO, panelFooterImage: FOOTER, panelImageOnly: true, panelAutoPost: true, panelChannelId: null, panelSignature: null });
+    resetTickets({ enabled: true, categoryId: '800000000000000777', panelImage: HERO, panelFooterImage: '', panelImageOnly: true, panelAutoPost: true, panelChannelId: null, panelSignature: null });
 
     const first = await tickets.ensurePanel({ user: { id: BOT } }, guild, {});
     assert.strictEqual(first.ok, true, 'النشر الأول فشل: ' + first.reason);
     assert.strictEqual(first.reason, 'posted', 'أول تشغيل لازم ينشر: ' + first.reason);
     assert.strictEqual(first.channelId, PANEL_CHANNEL, 'البوت ما لقى قناة اللوحة');
-    assert.strictEqual(first.sent, 2, 'لازم رسالتين (الصورة + الزخرفية)');
+    assert.strictEqual(first.sent, 1, 'لازم رسالة واحدة (الصورة + القائمة)');
     assert.deepStrictEqual(mkMessage.deleted, ['old-panel'], 'اللوحة القديمة ما انحذفت');
-    assert.strictEqual(panelChannel.state.sent.length, 2, 'ما انبعتت اللوحة في القناة الصح');
-    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.webp'], 'اللوحة المنشورة ليست صورة');
+    assert.strictEqual(panelChannel.state.sent.length, 1, 'ما انبعتت اللوحة في القناة الصح');
+    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.png'], 'اللوحة المنشورة ليست صورة');
     assert.strictEqual(panelChannel.state.sent[0].payload.embeds, undefined, 'اللوحة المنشورة فيها إمبد — لازم صورة عادية');
 
     const saved = db.getGuildSettings(GUILD).tickets;
@@ -200,13 +206,13 @@ async function main() {
     /* تشغيل ثاني: ما يعيد النشر */
     const second = await tickets.ensurePanel({ user: { id: BOT } }, guild, {});
     assert.strictEqual(second.reason, 'upToDate', 'ما المفروض يعيد النشر بلا تغيير: ' + second.reason);
-    assert.strictEqual(panelChannel.state.sent.length, 2, 'انبعتت رسائل زيادة بلا داعي');
+    assert.strictEqual(panelChannel.state.sent.length, 1, 'انبعتت رسائل زيادة بلا داعي');
 
     /* تغيير الأنواع ⇒ إعادة نشر تلقائية */
     resetTickets({ types: [{ id: 'new', label: 'نوع جديد', description: 'وصف', emoji: '🎫', buttonStyle: 'Primary' }] });
     const third = await tickets.ensurePanel({ user: { id: BOT } }, guild, {});
     assert.strictEqual(third.reason, 'posted', 'تغيير الأنواع لازم يعيد النشر: ' + third.reason);
-    assert.strictEqual(panelChannel.state.sent.length, 4, 'اللوحة الجديدة ما انبعتت');
+    assert.strictEqual(panelChannel.state.sent.length, 2, 'اللوحة الجديدة ما انبعتت');
 
     /* إطفاء التحديث التلقائي */
     resetTickets({ panelAutoPost: false, panelSignature: null });
@@ -274,8 +280,8 @@ async function main() {
     ];
     const channel = mkChannel(PANEL_CHANNEL, '・𝑇𝑖𝑐𝑘𝑒𝑡𝑠', messages);
     mkMessage.deleted = [];
-    const removed = await tickets.cleanupOldPanels(channel, { user: { id: BOT } }, [], { config: { panelImage: HERO, panelFooterImage: FOOTER } });
-    assert.strictEqual(removed, 5, 'لازم ينحذف: اللوحة + الزخرفية (إمبد + مرفق) + نسخة ثانية + رسالة التعليمات');
+    const removed = await tickets.cleanupOldPanels(channel, { user: { id: BOT } }, [], { config: { panelImage: HERO, panelFooterImage: '' } });
+    assert.strictEqual(removed, 5, 'لازم ينحذف: اللوحة + الخط القديم (إمبد + مرفق) + نسخة ثانية + رسالة التعليمات');
     assert.ok(!mkMessage.deleted.includes('m-user'), 'رسالة العضو انحذفت — لازم تبقى');
     ok('التنظيف يحذف اللوحة القديمة (أي نسخة) + الصورة الزخرفية + رسالة التعليمات — ويترك رسائل الأعضاء');
   }

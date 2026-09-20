@@ -5,7 +5,7 @@
  * -------------------------------------------------------------
  * نظام التذاكر:
  *   • 4 أنواع افتراضية: الدعم الفني • التوثيق • الهدايا • تقديم إدارة
- *   • 🖼️ اللوحة **صورة عادية بلا نص وبلا إمبد** (مرفق مباشر) وتحتها قائمة الأنواع المنسدلة
+ *   • 🖼️ اللوحة **صورة PNG شفافة** بلا نص وبلا إمبد (مرفق مباشر) وتحتها قائمة الأنواع المنسدلة
  *     + صورة زخرفية اختيارية أسفل القائمة — زي اللوحات الاحترافية.
  *   • لوحة بوضعين: أزرار (Buttons) أو قائمة منسدلة (Select)
  *   • رسالة فتح التذكرة **صورة عادية بلا إمبد** + أزرار تحكّم (استلام/إغلاق/أرشيف/إضافة عضو)
@@ -41,14 +41,17 @@ const BUTTON_STYLES = {
 
 const ROOT = path.join(__dirname, '..', '..');
 
-/** صورة اللوحة الافتراضية (الصورة اللي تنزل بدل النص) */
-const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel.webp';
+/** صورة اللوحة الافتراضية (PNG بخلفية شفافة — تنزل كما هي) */
+const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel.png';
+
+/** أسماء صور قديمة (النسخ اللي كانت بأخلفية سوداء/خط زخرفي) — تُنظَّف تلقائيًا من الروم */
+const LEGACY_IMAGE_NAMES = ['tickets-panel.webp', 'tickets-panel-footer.webp'];
 
 /** الحالة الحيّة (تظهر في /api/status وللتشخيص) */
 const STATE = { guilds: {} };
 
-/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (3 = صورة عادية بلا إمبد) */
-const PANEL_VERSION = 3;
+/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (4 = PNG شفاف بلا إمبد وبلا خط زخرفي) */
+const PANEL_VERSION = 4;
 
 /**
  * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
@@ -192,7 +195,7 @@ function buildPanel(settings, guild) {
   return buildPanelPayloads(settings, guild)[0];
 }
 
-/** أسماء ملفات الصور المستخدمة في اللوحة (لكشف النسخ القديمة عند التنظيف) */
+/** أسماء ملفات الصور المستخدمة في اللوحة + القديمة (لكشف النسخ القديمة عند التنظيف) */
 function panelImageNames(cfg = {}) {
   const names = new Set();
   const add = (value) => {
@@ -206,6 +209,8 @@ function panelImageNames(cfg = {}) {
   };
   add(cfg.panelImage === undefined ? DEFAULT_PANEL_IMAGE : cfg.panelImage);
   add(cfg.panelFooterImage);
+  /* نضيف أسماء النسخ القديمة (بخلفية سوداء/خط) حتى تتنظّف أول ما تنزل النسخة الشفافة */
+  LEGACY_IMAGE_NAMES.forEach((name) => names.add(name));
   return [...names].filter(Boolean);
 }
 

@@ -2396,8 +2396,8 @@ const SECTIONS = {
         panelPreview.textContent = '';
         const hero = getPath('tickets.panelImage');
         const foot = getPath('tickets.panelFooterImage');
-        if (hero) imageBox(panelPreview, 'صورة اللوحة (تنزل بدل النص):', assetSrc(hero, 'tickets-panel.webp'));
-        if (foot) imageBox(panelPreview, 'الصورة الزخرفية أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
+        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'tickets-panel.png'));
+        if (foot) imageBox(panelPreview, 'الخط/الصورة أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
         if (!hero && !foot) panelPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صور محفوظة — اللوحة تنزل نصية.' }));
       };
       paintPanelPreview();
@@ -2405,7 +2405,7 @@ const SECTIONS = {
       const paintOpenPreview = () => {
         openPreview.textContent = '';
         const openImg = getPath('tickets.openImage');
-        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel.webp'));
+        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel.png'));
         else openPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صورة — الرسالة تنزل نصية.' }));
       };
       paintOpenPreview();
@@ -2414,7 +2414,7 @@ const SECTIONS = {
       return [
         buttonsCard,
         dCard('رسالة فتح التذكرة', 'هذه الرسالة تُرسل داخل غرفة التذكرة لحظة فتحها — صورة بلا نص.', 'messageEdit', [
-          dField('صورة الرسالة', 'الصورة اللي تنزل داخل التذكرة (فارغة = ترجع الرسالة النصية)', [dInput('tickets.openImage', { full: true, onChange: () => paintOpenPreview() })], { wide: true }),
+          dField('صورة الرسالة', 'الصورة اللي تنزل داخل التذكرة (PNG بخلفية شفافة · فارغة = ترجع الرسالة النصية)', [dInput('tickets.openImage', { full: true, onChange: () => paintOpenPreview() })], { wide: true }),
           dField('صورة فقط', 'صورة بلا عنوان ولا وصف ولا حقول (زي الصورة اللي طلبتها)', [dSwitch('tickets.openImageOnly')]),
           dField('معاينة الصورة', 'هذي الصورة اللي تطلع للأعضاء داخل التذكرة', [openPreview], { wide: true }),
           dField('عنوان الرسالة', 'يُستخدم فقط إذا الصورة مطفّية · متغيّرات: {emoji} · {id} · {type} · {user} · {server}', [dInput('tickets.openTitle', { full: true })], { wide: true }),
@@ -2430,10 +2430,10 @@ const SECTIONS = {
           dField('قناة أرشيف التذاكر', 'توصلها نسخة المحادثة عند الإغلاق', [dSelect('tickets.logChannelId', channelOptions())]),
           dField('أقصى تذاكر لكل عضو', '', [dNumber('tickets.maxOpenPerUser')]),
         ]),
-        dCard('شكل اللوحة', 'اللوحة اللي تنزل في قناة الدعم — صورة السيرفر + قائمة الأنواع تحتها (بلا نص)', 'image', [
-          dField('صورة اللوحة', 'الصورة هي اللوحة (بدل العنوان والوصف) — مسار داخل المشروع أو رابط · اتركها فارغة للوحة النصية', [dInput('tickets.panelImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+        dCard('شكل اللوحة', 'اللوحة اللي تنزل في قناة الدعم — صورة السيرفر (بخلفية شفافة) + قائمة الأنواع تحتها (بلا نص)', 'image', [
+          dField('صورة اللوحة', 'الصورة هي اللوحة (بدل العنوان والوصف) — PNG بخلفية شفافة، مسار داخل المشروع أو رابط · اتركها فارغة للوحة النصية', [dInput('tickets.panelImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
           dField('صورة فقط', 'بلا عنوان ولا وصف ولا حقول — الصورة لحالها', [dSwitch('tickets.panelImageOnly')]),
-          dField('صورة أسفل القائمة', 'صورة زخرفية تنزل تحت القائمة (فارغة = بلا صورة)', [dInput('tickets.panelFooterImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+          dField('خط/صورة أسفل القائمة', 'اختياري — اتركه فارغًا لبلا أي خط تحت القائمة (الوضع الحالي)', [dInput('tickets.panelFooterImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
           dField('معاينة الصور', 'هذي الصور اللي تنزل في ديسكورد مع اللوحة', [panelPreview], { wide: true }),
           dField('نص القائمة المنسدلة', 'النص اللي يظهر قبل ما يختار العضو نوع التذكرة', [dInput('tickets.panelPlaceholder', { full: true })], { wide: true }),
           dField(

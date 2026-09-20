@@ -405,14 +405,16 @@ const config = {
        *   panelImage       : صورة اللوحة (هي اللوحة نفسها) — مسار داخل المشروع أو رابط خارجي
        *                      (حطّها فاضية '' إذا تبي ترجع للوحة النصية القديمة)
        *   panelImageOnly   : true = صورة فقط بلا عنوان ولا وصف ولا حقول
-       *   panelFooterImage : صورة زخرفية تنزل أسفل القائمة (فاضية = بلا صورة)
+       *   panelFooterImage : خط/صورة زخرفية أسفل القائمة (فاضية = بلا شي)
        *   panelPlaceholder : نص القائمة المنسدلة قبل ما يختار العضو
        *   panelChannelId   : قناة نشر اللوحة (تُحفظ تلقائيًا أول ما تنشر)
        *   panelAutoPost    : نشر/تحديث اللوحة تلقائيًا لما تتغيّر الصورة أو الأنواع
        */
-      panelImage: 'src/web/public/assets/tickets-panel.webp',
+      /* صورة PNG بخلفية شفافة — تنزل كما هي بلا سواد (نفس الملف اللي أرسله المالك) */
+      panelImage: 'src/web/public/assets/tickets-panel.png',
       panelImageOnly: true,
-      panelFooterImage: 'src/web/public/assets/tickets-panel-footer.webp',
+      /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
+      panelFooterImage: '',
       panelPlaceholder: 'اختر القائمة المناسبة لك',
       panelChannelId: null,
       panelAutoPost: true,
@@ -475,7 +477,7 @@ const config = {
        *   openImage     : الصورة اللي تنزل داخل غرفة التذكرة (فاضية '' = ترجع الرسالة النصية)
        *   openImageOnly : true = صورة فقط · false = الصورة تُتجاهل ويطلع النص
        */
-      openImage: 'src/web/public/assets/tickets-panel.webp',
+      openImage: 'src/web/public/assets/tickets-panel.png',
       openImageOnly: true,
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).
