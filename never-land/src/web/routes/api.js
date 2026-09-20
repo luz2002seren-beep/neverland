@@ -259,6 +259,45 @@ router.get('/guilds/:guildId/replies/preview', async (req, res) => {
   });
 });
 
+/* ------------------------- 🧹 روم الأوامر (نشر + تنظيف) ------------------------- */
+/**
+ * POST /api/guilds/:guildId/command-room/publish  → ينشر/يعدّل رسالة الترحيب بالصورة
+ * POST /api/guilds/:guildId/command-room/clean    → يمسح كل رسائل الروم (ما عدا رسالة الترحيب)
+ * POST /api/guilds/:guildId/command-room/run      → الاثنين معًا
+ */
+router.post('/guilds/:guildId/command-room/:action', async (req, res) => {
+  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
+
+  const { guildId, action } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+  if (!['publish', 'clean', 'run'].includes(action)) return res.status(400).json({ error: 'bad_action' });
+
+  const client = safeClient();
+  const guild = client?.guilds?.cache?.get(guildId);
+  if (!guild) return res.status(503).json({ error: 'bot_offline', message: 'البوت غير متّصل حاليًا — جرّب بعد لحظات.' });
+
+  /* لو اللوحة أرسلت رومًا معيّنًا نحفظه أولًا */
+  const channelId = typeof req.body?.channelId === 'string' && req.body.channelId ? req.body.channelId : null;
+  if (channelId) {
+    const saved = db.getGuildSettings(guildId)?.commandRoom || {};
+    db.updateGuildSettings(guildId, { commandRoom: { ...saved, channelId } });
+  }
+
+  const commandRoom = require('../../systems/commandRoom');
+  try {
+    const published = action === 'clean' ? null : await commandRoom.publish(client, guild, { force: action !== 'publish' });
+    const cleaned = action === 'publish' ? null : await commandRoom.clean(client, guild);
+    return res.json({
+      ok: Boolean((published ? published.ok : true) && (cleaned ? cleaned.ok : true)),
+      published,
+      cleaned,
+      config: commandRoom.configFor(guildId),
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'failed', message: err.message });
+  }
+});
+
 router.post('/guilds/:guildId/settings', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
 
@@ -971,6 +1010,14 @@ router.get('/status', (req, res) => {
      * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
      * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
      */
+    /* 🧹 روم الأوامر: آخر نشر/تنظيف + كم رسالة انمسحت (تشخيص حيّ) */
+    commandRoom: (() => {
+      try {
+        return require('../../systems/commandRoom').status();
+      } catch {
+        return null;
+      }
+    })(),
     build: (() => {
       try {
         const fs = require('node:fs');

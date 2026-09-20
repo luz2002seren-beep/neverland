@@ -565,6 +565,7 @@ const SECTION_ICONS = {
   autoReply: 'bubbles',
   commandAliases: 'terminal',
   commandReplies: 'messageEdit',
+  commandRoom: 'refresh',
   commandGuide: 'book',
   audit: 'scroll',
   security: 'shield',
@@ -1650,6 +1651,89 @@ const SECTIONS = {
       };
 
       load();
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ روم الأوامر ------------------------------ */
+  commandRoom: {
+    group: 'الأوامر',
+    label: 'روم الأوامر',
+    title: 'روم الأوامر',
+    desc: 'روم مخصّص للأوامر: البوت ينشر فيه رسالة ترحيب بصور السيرفر، وينظّف كل الرسائل كل مدة تحددها (٦٠ ثانية افتراضيًا) — وما يمسح رسالته.',
+    render() {
+      const wrap = el('div');
+
+      const sendRow = el('div', { class: 'd-inline' });
+      const channelSelect = el('select', { class: 'd-select' });
+      channelSelect.appendChild(el('option', { value: '', text: '— اختر روم الأوامر —' }));
+      channelOptions().forEach((o) => channelSelect.appendChild(el('option', { value: o.value, text: o.label })));
+      channelSelect.value = state.commandRoomChannelId || getPath('commandRoom.channelId') || '';
+      channelSelect.addEventListener('change', () => {
+        state.commandRoomChannelId = channelSelect.value;
+        setPath('commandRoom.channelId', channelSelect.value);
+      });
+      sendRow.appendChild(channelSelect);
+
+      const sendNow = el('button', { class: 'd-btn sm', html: `${ic('upload', 15)} إرسال الرسالة الآن` });
+      sendNow.addEventListener('click', async () => {
+        sendNow.disabled = true;
+        try {
+          const body = { channelId: channelSelect.value || getPath('commandRoom.channelId') };
+          await api(`/guilds/${state.guildId}/command-room/publish`, { method: 'POST', body });
+          toast('انبعتت رسالة روم الأوامر — شوف الروم.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أرسل الرسالة.', 'error');
+        } finally {
+          sendNow.disabled = false;
+        }
+      });
+      sendRow.appendChild(sendNow);
+
+      const cleanNow = el('button', { class: 'd-btn sm ghost', html: `${ic('trash', 15)} نظّف الروم الآن` });
+      cleanNow.addEventListener('click', async () => {
+        cleanNow.disabled = true;
+        try {
+          const body = { channelId: channelSelect.value || getPath('commandRoom.channelId') };
+          await api(`/guilds/${state.guildId}/command-room/clean`, { method: 'POST', body });
+          toast('تم تنظيف الروم.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أنظّف الروم.', 'error');
+        } finally {
+          cleanNow.disabled = false;
+        }
+      });
+      sendRow.appendChild(cleanNow);
+
+      /* معاينة الصورة */
+      const preview = el('div', { class: 'd-sample cr-preview' });
+      const paint = () => {
+        const previewBox = el('div', { class: 'd-sample-row new' });
+        const img = el('img', {
+          src: '/assets/commands-room.png',
+          alt: 'صورة روم الأوامر',
+          style: 'max-width:100%;border-radius:12px;border:1px solid var(--line)',
+        });
+        previewBox.appendChild(el('span', { class: 'new', text: (getPath('commandRoom.text') || '(ما في نص)').slice(0, 200) }));
+        preview.appendChild(el('div', { class: 'd-empty', text: 'الصورة المرفقة مع الرسالة:' }));
+        preview.appendChild(img);
+        preview.appendChild(previewBox);
+      };
+      paint();
+
+      wrap.appendChild(
+        dCard('إعداد روم الأوامر', 'اختر الروم، اكتب الرسالة، وحدّد كل كم ثانية يُنظَّف الروم.', 'refresh', [
+          dField('تشغيل روم الأوامر', 'التنظيف التلقائي + رسالة الترحيب', [dSwitch('commandRoom.enabled')]),
+          dField('الروم', 'الروم المخصّص للأوامر', [channelSelect], { wide: true }),
+          dField('كل كم ثانية يُنظَّف؟', 'الحد الأدنى ١٥ ثانية — الافتراضي ٦٠', [dNumber('commandRoom.intervalSeconds', { min: 15, max: 3600 })]),
+          dField('تثبيت الرسالة', 'تثبيت رسالة الترحيب أعلى الروم', [dSwitch('commandRoom.pin')]),
+          dField('نص الرسالة', 'يُنشر كما هو (بلا ترجمة) مع صورة السيرفر', [dArea('commandRoom.text')], { wide: true }),
+          dField('صورة الرسالة', 'مسار داخل المشروع أو رابط خارجي', [dInput('commandRoom.image', { full: true })], { wide: true }),
+          dField('الصورة الحالية', 'هذي الصورة اللي تنزل مع الرسالة', [preview], { wide: true }),
+          dField('إجراءات فورية', 'لا تحتاج حفظ — تنفّذ حالًا على الروم', [sendRow], { wide: true }),
+        ]),
+      );
+
       return wrap;
     },
   },

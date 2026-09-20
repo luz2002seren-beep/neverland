@@ -283,6 +283,13 @@ function decorateComponents(rows, cfg) {
  * @param {object} settings إعدادات السيرفر
  */
 function decorate(payload, settings) {
+  /* __raw = «أرسلها كما هي» — للرسائل الإعلانية اللي لازم تبقى بنصّها الأصلي (مثل رسالة روم الأوامر) */
+  if (payload && typeof payload === 'object' && payload.__raw === true) {
+    const clean = { ...payload };
+    delete clean.__raw;
+    return clean;
+  }
+
   const cfg = replyConfig(settings);
   if (!cfg.english && !cfg.fancyFont) return payload;
 

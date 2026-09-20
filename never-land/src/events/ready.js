@@ -93,6 +93,14 @@ module.exports = {
       leveling.tickVoiceXp(client);
     }, 60000).unref?.();
 
+    /* 🧹 روم الأوامر: نشر رسالة الترحيب بالصورة + تنظيف الرسائل كل مدة (٦٠ ثانية افتراضيًا) */
+    try {
+      require('../systems/commandRoom').start(client);
+      console.log('[روم الأوامر] المؤقّت شغّال (تنظيف تلقائي للرسائل).');
+    } catch (err) {
+      console.error('[تنبيه] تعذّر تشغيل روم الأوامر:', err.message);
+    }
+
     // التذكيرات: كل 15 ثانية
     setInterval(async () => {
       const due = db.dueReminders();

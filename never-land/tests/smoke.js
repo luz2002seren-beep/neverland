@@ -2272,6 +2272,37 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
   }
 
+ console.log('[اختبار] 52: روم الأوامر — رسالة ترحيب بالصورة + تنظيف تلقائي كل ٦٠ ثانية');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path52 = require('node:path');
+    const fs52 = require('node:fs');
+    const root52 = path52.join(__dirname, '..');
+    const read52 = (rel) => fs52.readFileSync(path52.join(root52, rel), 'utf8');
+
+    const out52 = execFileSync('node', ['command-room-test.js'], { cwd: root52, encoding: 'utf8' });
+    assert.ok(out52.includes('روم الأوامر جاهز'), 'اختبار روم الأوامر فشل');
+
+    /* الروم + النص + المدة + الصورة */
+    const cfg52 = read52('src/config.js');
+    assert.ok(cfg52.includes('1549365063708573817'), 'رقم روم الأوامر ناقص من الإعدادات');
+    assert.ok(cfg52.includes('مرحبا بكم بسيرفر Never Land'), 'نص رسالة الترحيب ناقص');
+    assert.ok(cfg52.includes('intervalSeconds: 60'), 'مدة التنظيف (٦٠ ثانية) ناقصة');
+    assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.png')), 'صورة الروم غير موجودة');
+
+    /* النظام + المؤقّت */
+    const room52 = read52('src/systems/commandRoom.js');
+    assert.ok(room52.includes('async function publish') && room52.includes('async function clean'), 'نشر/تنظيف روم الأوامر ناقص');
+    assert.ok(room52.includes('setInterval'), 'مؤقّت التنظيف ناقص');
+    assert.ok(read52('src/events/ready.js').includes("commandRoom').start(client)"), 'المؤقّت ما انربط بالبوت');
+    assert.ok(read52('src/lib/replies.js').includes('__raw'), 'خاصية «كما هي» ناقصة');
+
+    /* اللوحة + الـ API */
+    assert.ok(read52('src/web/public/app.js').includes("label: 'روم الأوامر'"), 'قسم روم الأوامر ناقص من اللوحة');
+    assert.ok(read52('src/web/routes/api.js').includes('command-room/:action'), 'مسارات روم الأوامر ناقصة');
+    assert.ok(read52('src/web/routes/api.js').includes('commandRoom: (() => {'), 'حالة روم الأوامر ناقصة من /api/status');
+  }
+
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');
 
   process.exit(0);
