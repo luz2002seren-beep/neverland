@@ -699,13 +699,17 @@ config.assertSessionSecretSafe = () => {
   if (!config.web.enabled || config.web.demoMode) return;
   if (process.env.NODE_ENV !== 'production') return;
   if (!config.sessionSecretIsWeak()) return;
+  const known = KNOWN_SESSION_SECRETS.has(config.web.sessionSecret);
   const err = new Error(
     '\n\n' +
+      /* علامة ASCII ثابتة: تُستعمل في تأكيد CI وفي التنبيهات. الاعتماد على
+         نص عربي في grep هشّ (اختلاف تطبيع الهمزة يكسر المطابقة بصمت). */
+      '[FATAL] INSECURE_SESSION_SECRET\n' +
       '╔══════════════════════════════════════════════════════════════╗\n' +
       '║  إيقاف الإقلاع: SESSION_SECRET غير آمن لبيئة الإنتاج        ║\n' +
       '╚══════════════════════════════════════════════════════════════╝\n\n' +
       '  السر الحالي ' +
-      (KNOWN_SESSION_SECRETS.has(config.web.sessionSecret) ? 'قيمة افتراضية معلنة في المستودع' : 'أقصر من 32 محرفًا') +
+      (known ? 'قيمة افتراضية معلنة في المستودع' : 'أقصر من 32 محرفًا') +
       '.\n' +
       '  من يعرفه يستطيع تزوير كوكي neverland.sid وانتحال أي حساب.\n\n' +
       '  الحل:\n' +
