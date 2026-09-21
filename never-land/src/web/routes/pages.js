@@ -25,7 +25,7 @@ const access = require('../access');
  * بصمة الأصول (CSS/JS): تُحسب من محتوى الملفات، فيتغيّر الرابط تلقائيًا
  * مع أي تعديل ⇒ ما يبقى المتصفح يعرض نسخة قديمة (مشكلة الأيقونة الدائرة).
  */
-const ASSET_FILES = ['style.css', 'dash.css', 'app.js', 'icons.js'];
+const ASSET_FILES = ['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js'];
 const assetStamp = (() => {
   const crypto = require('node:crypto');
   const fs = require('node:fs');
@@ -673,7 +673,8 @@ router.get('/dashboard/:guildId', requireAuth, async (req, res) => {
     <div class="loading">جارٍ تحميل الإعدادات...</div>
   </div>
   <script src="${asset('icons.js')}"></script>
-  <script src="${asset('app.js')}"></script>`;
+  <script src="${asset('app.js')}"></script>
+  <script src="${asset('app-sections.js')}"></script>`;
 
   res.send(
     layout({

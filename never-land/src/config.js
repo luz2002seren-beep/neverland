@@ -441,7 +441,7 @@ const config = {
       /** مدة التنظيف بالثواني (الحد الأدنى ١٥ ثانية) */
       intervalSeconds: 60,
       /** صورة الرسالة (مسار داخل المشروع أو رابط خارجي) */
-      image: 'src/web/public/assets/commands-room.png',
+      image: 'src/web/public/assets/commands-room.webp',
       /** تثبيت رسالة الترحيب في الروم (افتراضيًا: بلا تثبيت) */
       pin: false,
       /** يحذف الرسالة ويعيد نشرها كل دورة (تظهر كرسالة جديدة بلا «تم التعديل») */
@@ -469,7 +469,7 @@ const config = {
        *   panelAutoPost    : نشر/تحديث اللوحة تلقائيًا لما تتغيّر الصورة أو الأنواع
        */
       /* صورة PNG بخلفية شفافة — تنزل كما هي بلا سواد (نفس الملف اللي أرسله المالك) */
-      panelImage: 'src/web/public/assets/tickets-panel.png',
+      panelImage: 'src/web/public/assets/tickets-panel-v5.webp',
       panelImageOnly: true,
       /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
       panelFooterImage: '',
@@ -535,7 +535,7 @@ const config = {
        *   openImage     : الصورة اللي تنزل داخل غرفة التذكرة (فاضية '' = ترجع الرسالة النصية)
        *   openImageOnly : true = صورة فقط · false = الصورة تُتجاهل ويطلع النص
        */
-      openImage: 'src/web/public/assets/tickets-panel.png',
+      openImage: 'src/web/public/assets/tickets-panel-v5.webp',
       openImageOnly: true,
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).
@@ -650,13 +650,88 @@ const config = {
   },
 };
 
+/* ============================================================================
+ *  سر الجلسات (SESSION_SECRET)
+ * ==========================================================================
+ * express-session يوقّع معرّف الجلسة (cookie `neverland.sid`) بهذا السر عبر
+ * HMAC. من يعرف السر يستطيع توقيع أي معرّف يريده، فيصنع كوكي صالحًا لحساب
+ * أي شخص — بما فيه المالك — دون أي كلمة سر. تحقّق عملي:
+ *
+ *   signature.unsign(sign('forged-victim-session', 'never-land-change-me'),
+ *                    'never-land-change-me')  →  'forged-victim-session'
+ *
+ * والسرّان أدناه معلومان: الأول قيمة config.js الاحتياطية والثاني قيمة
+ * .env.example، والاثنان في مستودع عام. لذلك نرفضهما صراحةً بدل الاعتماد
+ * على فحص «يحتوي على change-me» الذي كان يفوّت القيمة العربية.
+ * ========================================================================== */
+const KNOWN_SESSION_SECRETS = new Set([
+  'never-land-change-me',
+  'غيّر_هذا_النص_الطويل_لحماية_الجلسات',
+]);
+
+/** الحد الأدنى لطول السر (بايتات عشوائية ≥ 32 محرفًا سداسيًا = 128 بت إنتروبيا) */
+const MIN_SESSION_SECRET_LENGTH = 32;
+
+/** رسالة موحّدة تُطبع في كل موضع يُرفض فيه السر */
+config.SESSION_SECRET_HELP =
+  'SESSION_SECRET ضعيف أو افتراضي — ولّد سرًا عشوائيًا بـ: ' +
+  'node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))" ' +
+  'ثم ضعه في متغيّرات بيئة منصة النشر (Railway/Render) أو في ملف .env';
+
+/** هل سر الجلسات الحالي غير صالح للاستعمال؟ */
+config.sessionSecretIsWeak = () =>
+  KNOWN_SESSION_SECRETS.has(config.web.sessionSecret) ||
+  String(config.web.sessionSecret).length < MIN_SESSION_SECRET_LENGTH;
+
+/**
+ * بوابة أمان صارمة قبل إقلاع خادم الويب.
+ *
+ * في الإنتاج (NODE_ENV=production) نرفض الإقلاع بسر معلوم أو قصير: تعثّر
+ * النشر مع رسالة واضحة أهون بكثير من انتحال حسابات صامت. وضع المعاينة
+ * (DEMO_MODE) مستثنى لأنّه محلي ولا يمسّ بيانات حقيقية.
+ *
+ * ملاحظة: تغيير السر يُبطل كل الجلسات القديمة تلقائيًا، لأن express-session
+ * يفشل في فك توقيعها — لا حاجة لأي كود إضافي لقطع الجلسات.
+ *
+ * @throws {Error} عندما يكون السر غير صالح في بيئة إنتاج
+ */
+config.assertSessionSecretSafe = () => {
+  if (!config.web.enabled || config.web.demoMode) return;
+  if (process.env.NODE_ENV !== 'production') return;
+  if (!config.sessionSecretIsWeak()) return;
+  const known = KNOWN_SESSION_SECRETS.has(config.web.sessionSecret);
+  const err = new Error(
+    '\n\n' +
+      /* علامة ASCII ثابتة: تُستعمل في تأكيد CI وفي التنبيهات. الاعتماد على
+         نص عربي في grep هشّ (اختلاف تطبيع الهمزة يكسر المطابقة بصمت). */
+      '[FATAL] INSECURE_SESSION_SECRET\n' +
+      '╔══════════════════════════════════════════════════════════════╗\n' +
+      '║  إيقاف الإقلاع: SESSION_SECRET غير آمن لبيئة الإنتاج        ║\n' +
+      '╚══════════════════════════════════════════════════════════════╝\n\n' +
+      '  السر الحالي ' +
+      (known ? 'قيمة افتراضية معلنة في المستودع' : 'أقصر من 32 محرفًا') +
+      '.\n' +
+      '  من يعرفه يستطيع تزوير كوكي neverland.sid وانتحال أي حساب.\n\n' +
+      '  الحل:\n' +
+      '    1) ولّد سرًا:  node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"\n' +
+      '    2) أضفه كمتغيّر بيئة:  SESSION_SECRET=<السر>\n' +
+      '       • Railway:  railway variables --set "SESSION_SECRET=…"\n' +
+      '       • Render:   Environment → Add\n' +
+      '       • محليًا:   ضعه في ملف .env\n\n' +
+      '  تغيير السر يُبطل الجلسات القائمة تلقائيًا (سيلزم الأعضاء إعادة الدخول).\n\n',
+  );
+  /* وسم يميّزه عن أخطاء الإقلاع العادية حتى لا يبتلعه معالج try/catch */
+  err.code = 'INSECURE_SESSION_SECRET';
+  throw err;
+};
+
 /** فحص الإعدادات الأساسية وإرجاع قائمة بالمشاكل */
 config.validate = () => {
   const problems = [];
   if (!config.bot.token) problems.push('DISCORD_TOKEN غير موجود في ملف .env');
   if (!config.bot.clientId) problems.push('CLIENT_ID غير موجود في ملف .env');
-  if (config.web.enabled && !config.web.demoMode && config.web.sessionSecret.includes('change-me')) {
-    problems.push('SESSION_SECRET افتراضي — غيّره قبل النشر على الإنترنت');
+  if (config.web.enabled && !config.web.demoMode && config.sessionSecretIsWeak()) {
+    problems.push(config.SESSION_SECRET_HELP);
   }
   return problems;
 };

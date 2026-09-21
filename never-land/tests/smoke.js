@@ -23,6 +23,40 @@ for (const suffix of ['', '-wal', '-shm']) {
 const db = require('../src/database');
 const { loadCommands, walk } = require('../src/handlers/commands');
 
+/* ==========================================================================
+ *  عزل بيئة الاختبارات الابنة
+ * ========================================================================
+ * هذه المجموعة تعدّل process.env (DEMO_MODE، DATABASE_PATH) وبعض
+ * الاختبارات المطلوبة داخل العملية تعدّلها هي أيضًا — dashboard-dom-test
+ * مثلًا يضبط PUBLIC_ACCESS و LOGIN_REQUIRED. و execFileSync يورّث البيئة
+ * كاملة، فتصل تلك القيم إلى الاختبارات الابنة وتغيّر سلوكها دون سبب ظاهر
+ * في الملف نفسه. هذا بالضبط ما كان يوقف المجموعة عند الاختبار 43.
+ *
+ * الحل: كل عملية ابنة تبدأ ببيئة منزوعة منها مفاتيح المشروع، ثم تضبط
+ * ما تحتاجه بنفسها داخل ملفها. النتيجة حتمية بغضّ النظر عن ترتيب
+ * الاختبارات أو ما فعله من سبقها.
+ * ======================================================================== */
+const PROJECT_ENV_KEYS = [
+  // مفاتيح الوصول والجلسات — الأخطر في التسريب
+  'PUBLIC_ACCESS', 'LOGIN_REQUIRED', 'REQUIRED_ROLE_ID', 'OWNER_USER_ID',
+  'SITE_ADMINS', 'SESSION_SECRET', 'ROLE_CACHE_SECONDS',
+  // مفاتيح التشغيل وقاعدة البيانات
+  'DEMO_MODE', 'DATABASE_PATH', 'DATABASE_DRIVER', 'DASHBOARD_URL',
+  'DASHBOARD_PORT', 'PORT', 'RESET_COMMANDS', 'DEVELOPER_IDS',
+  // أسرار حقيقية إن وُجدت في بيئة المطوّر
+  'DISCORD_TOKEN', 'CLIENT_ID', 'CLIENT_SECRET',
+];
+
+/**
+ * بيئة نظيفة لعملية ابنة.
+ * @param {object} [extra] مفاتيح تُضاف صراحةً لهذه الابنة فقط
+ */
+function childEnv(extra = {}) {
+  const env = { ...process.env };
+  for (const key of PROJECT_ENV_KEYS) delete env[key];
+  return { ...env, ...extra };
+}
+
 const fakeClient = { commands: new Map(), guilds: { cache: new Map() }, on() {}, once() {} };
 
 console.log('[اختبار] اختبار 1: تحميل الأوامر');
@@ -416,7 +450,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const fs2 = require('node:fs');
     const path2 = require('node:path');
     const publicDir = path2.join(__dirname, '..', 'src', 'web', 'public');
-    const appSource = fs2.readFileSync(path2.join(publicDir, 'app.js'), 'utf8');
+    const appSource = (fs2.readFileSync(path2.join(publicDir, 'app.js'), 'utf8') + fs2.readFileSync(path2.join(publicDir, 'app-sections.js'), 'utf8'));
 
     // الأقسام المطلوبة موجودة
     const expectedSections = [
@@ -471,7 +505,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const pagesSrc = fs3.readFileSync(path3.join(webDir, 'routes', 'pages.js'), 'utf8');
     const styleSrc = fs3.readFileSync(path3.join(webDir, 'public', 'style.css'), 'utf8');
     const dashSrc = fs3.readFileSync(path3.join(webDir, 'public', 'dash.css'), 'utf8');
-    const appSrc = fs3.readFileSync(path3.join(webDir, 'public', 'app.js'), 'utf8');
+    const appSrc = (fs3.readFileSync(path3.join(webDir, 'public', 'app.js'), 'utf8') + fs3.readFileSync(path3.join(webDir, 'public', 'app-sections.js'), 'utf8'));
 
     // الصفحة الرئيسية (نسخة رسمية)
     for (const cls of ['site-hero', 'site-features', 'site-steps', 'cmd-preview']) {
@@ -532,7 +566,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
      *   ١) قيم حقول التذاكر emoji: '...'
      *   ٢) كتلة منتقي الإيموجي المعلَّمة EMOJI-DATA (يختار منها المدير إيموجي الأزرار)
      */
-    const appSrc = fs4.readFileSync(path4.join(webPublic, 'app.js'), 'utf8');
+    const appSrc = (fs4.readFileSync(path4.join(webPublic, 'app.js'), 'utf8') + fs4.readFileSync(path4.join(webPublic, 'app-sections.js'), 'utf8'));
     const emojiBlock = appSrc.match(/\/\* EMOJI-DATA: START[\s\S]*?\/\* EMOJI-DATA: END \*\//);
     assert.ok(emojiBlock, 'كتلة بيانات منتقي الإيموجي (EMOJI-DATA) مفقودة');
     const paletteItems = (emojiBlock[0].match(/\p{Extended_Pictographic}/gu) || []).length;
@@ -596,7 +630,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const server5 = fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'server.js'), 'utf8');
     assert.ok(server5.includes('خطأ 404') && server5.includes('layout('), 'صفحة 404 لا تستخدم قالب الموقع');
 
-    const app5 = fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app5 = (fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(app5.includes("html: 'Never<span class=\"accent\">Land</span>'"), 'شعار اللوحة غير محدّث');
     assert.ok(!/وضع المعاينة/.test(app5), 'نص المعاينة ظاهر في اللوحة');
 
@@ -626,7 +660,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(api6.includes('canEdit(req)'), 'حماية نقاط الكتابة ناقصة');
     assert.ok(api6.includes('viewer:'), 'إرسال صلاحية المشاهد ناقص');
 
-    const app6 = fs6.readFileSync(path6.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app6 = (fs6.readFileSync(path6.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs6.readFileSync(path6.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(app6.includes('canEdit'), 'اللوحة لا تدعم وضع القراءة فقط');
     assert.ok(app6.includes('d-readonly-note'), 'شارة العرض العام ناقصة من اللوحة');
     assert.ok(app6.includes('حسب الجهاز'), 'خيار «حسب الجهاز» في السمة ناقص');
@@ -652,7 +686,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root7 = path7.join(__dirname, '..');
 
     // ١) ردود البوت بلا أي رابط موقع — والرابط يطلع بكلمة «نيفر» للمسجّلين فقط
-    const outHelp = execFileSync('node', [path7.join(root7, 'help-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outHelp = execFileSync('node', [path7.join(root7, 'tests', 'help-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outHelp.includes('نيفر'), 'ما في إشارة لطريقة طلب رابط الموقع');
     assert.ok(outHelp.includes('بلا رابط'), 'شرط الرابط (تسجيل/رول) غير مُختبر');
     assert.ok(outHelp.includes('الرابط ظهر'), 'رابط الموقع ما ظهر للمسجّل صاحب الرول');
@@ -661,13 +695,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const cfg7 = require('../src/config');
     assert.strictEqual(cfg7.web.requiredRoleId, '1549364852433354792', 'معرّف الرول المطلوب غير مطابق');
     assert.strictEqual(cfg7.web.loginRequired, true, 'تأكيد الدخول غير مفعّل');
-    const outAccess = execFileSync('node', [path7.join(root7, 'access-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outAccess = execFileSync('node', [path7.join(root7, 'tests', 'access-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     for (const reason of ['bot_offline', 'no_role', 'not_member']) {
       assert.ok(outAccess.includes(reason), `حالة ${reason} غير مُختبرة`);
     }
 
     // ٣) بوابة الدخول على مستوى HTTP
-    const outGate = execFileSync('node', [path7.join(root7, 'gate-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outGate = execFileSync('node', [path7.join(root7, 'tests', 'gate-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outGate.includes('302 /auth/login'), 'الزائر لا يُحوَّل لتسجيل الدخول');
     assert.ok(outGate.includes('role_required'), 'حماية الـAPI بالرول ناقصة');
     assert.ok(outGate.includes('الوصول مقيّد'), 'صفحة الوصول مقيّد ناقصة');
@@ -764,7 +798,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(pagesSrc9.includes('مزامنة الآن'), 'زر «مزامنة الآن» ناقص من قائمة السيرفرات');
     assert.ok(pagesSrc9.includes('آخر مزامنة'), 'معلومة «آخر مزامنة» ناقصة');
 
-    const appSrc9 = fs9.readFileSync(path9.join(root9, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc9 = (fs9.readFileSync(path9.join(root9, 'src', 'web', 'public', 'app.js'), 'utf8') + fs9.readFileSync(path9.join(root9, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(appSrc9.includes('buildSyncBar'), 'شريط المزامنة ناقص من اللوحة');
     assert.ok(appSrc9.includes("EventSource('/api/events')"), 'البث الحيّ غير موصول في اللوحة');
 
@@ -812,7 +846,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root11 = path11.join(__dirname, '..');
 
     // ١) الاختبار المستقل لمصدر السيرفرات
-    const outGuilds = execFileSync('node', [path11.join(root11, 'guilds-test.js')], { cwd: root11, encoding: 'utf8' });
+    const outGuilds = execFileSync('node', [path11.join(root11, 'tests', 'guilds-test.js')], { cwd: root11, encoding: 'utf8', env: childEnv() });
     for (const needle of ['عضو عنده الرول فقط', 'مالك السيرفر', 'إدارة السيرفر', 'بلا تكرار', 'فحص الوصول']) {
       assert.ok(outGuilds.includes(needle), `حالة «${needle}» غير مُختبرة في قائمة السيرفرات`);
     }
@@ -901,7 +935,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٢) كل ملفات الواجهة تستخدم الدالة الموحّدة (لا تركيب يدوي قديم للرابط)
     const read13 = (f) => fs13.readFileSync(path13.join(root13, ...f), 'utf8');
-    for (const f of [['src', 'web', 'routes', 'pages.js'], ['src', 'web', 'public', 'app.js'], ['src', 'web', 'guilds.js'], ['src', 'sync.js']]) {
+    for (const f of [['src', 'web', 'routes', 'pages.js'], ['src', 'web', 'public', 'app.js'], ['src', 'web', 'public', 'app-sections.js'], ['src', 'web', 'guilds.js'], ['src', 'sync.js']]) {
       const src = read13(f);
       for (const oldForm of ['${g.icon}.png?size=128', '${state.guild.icon}.png', '${discordGuild.icon}', '${guild.icon}.png?size=128', '${g.id}/${g.icon}']) {
         assert.ok(!src.includes(oldForm), `تركيب يدوي قديم لرابط الأيقونة في ${f.join('/')}: ${oldForm}`);
@@ -911,7 +945,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read13(['src', 'web', 'routes', 'pages.js']).includes('guildIconUrl('), 'صفحة السيرفرات لا تستخدم دالة الأيقونة الموحّدة');
     assert.ok(read13(['src', 'web', 'guilds.js']).includes("require('../lib/discordIcon')"), 'وحدة السيرفرات لا تستخدم دالة الأيقونة');
     assert.ok(read13(['src', 'sync.js']).includes("require('./lib/discordIcon')"), 'المزامنة لا تستخدم دالة الأيقونة');
-    const appSrc13 = read13(['src', 'web', 'public', 'app.js']);
+    const appSrc13 = read13(['src', 'web', 'public', 'app.js']) + read13(['src', 'web', 'public', 'app-sections.js']);
     assert.ok(appSrc13.includes('function guildIconUrl'), 'دالة الأيقونة ناقصة من واجهة اللوحة');
     assert.ok(appSrc13.includes('guildIconUrl(state.guild.id'), 'ترويسة اللوحة لا تستخدم دالة الأيقونة');
     assert.ok(appSrc13.includes('iconFallback'), 'البديل عند فشل الصورة ناقص');
@@ -1016,7 +1050,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root16 = path16.join(__dirname, '..');
 
     // ١) الاختبار المستقل الكامل
-    const out16 = execFileSync('node', [path16.join(root16, 'autoline-test.js')], { cwd: root16, encoding: 'utf8' });
+    const out16 = execFileSync('node', [path16.join(root16, 'tests', 'autoline-test.js')], { cwd: root16, encoding: 'utf8', env: childEnv() });
     for (const needle of ['ملفات GIF', 'أُرسل مرفق صورة GIF', 'بلا حلقة', 'بديل تلقائي', 'احتياطي', 'معاينة اللوحة']) {
       assert.ok(out16.includes(needle), `حالة «${needle}» غير مُختبرة في الخط الفاصل`);
     }
@@ -1044,7 +1078,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ٤) الخادم يقدّم ملفات GIF + اللوحة فيها واجهة الاختيار
     const srv16 = fs16.readFileSync(path16.join(root16, 'src', 'web', 'server.js'), 'utf8');
     assert.ok(srv16.includes("'/autoline'"), 'مسار تقديم الخطوط ناقص من الخادم');
-    const app16 = fs16.readFileSync(path16.join(root16, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app16 = (fs16.readFileSync(path16.join(root16, 'src', 'web', 'public', 'app.js'), 'utf8') + fs16.readFileSync(path16.join(root16, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const needle of ['autoline-styles', 'autoline-preview', 'DEFAULT_LINE_STYLES', 'autoline.lineType', 'autoline.gifStyle', 'autoline.customUrl']) {
       assert.ok(app16.includes(needle), `عنصر واجهة الخط الفاصل «${needle}» ناقص من اللوحة`);
     }
@@ -1074,7 +1108,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root17 = path17.join(__dirname, '..');
 
     // ١) الاختبار المستقل الكامل (١٠ مجموعات)
-    const out17 = execFileSync('node', [path17.join(root17, 'leveling-test.js')], { cwd: root17, encoding: 'utf8' });
+    const out17 = execFileSync('node', [path17.join(root17, 'tests', 'leveling-test.js')], { cwd: root17, encoding: 'utf8', env: childEnv() });
     for (const needle of ['الفترات', 'ثلاث مصادر خبرة منفصلة', 'حمايات التفاعل', 'السقف اليومي', 'الترقية', 'اللوحات', 'بيانات الترتيب', 'التصفير']) {
       assert.ok(out17.includes(needle), `حالة «${needle}» غير مُختبرة في نظام الخبرة`);
     }
@@ -1138,7 +1172,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
 
     // ٧) لوحة التحكم: قسم المتصدّرين + إعدادات المصادر
-    const app17 = fs17.readFileSync(path17.join(root17, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app17 = (fs17.readFileSync(path17.join(root17, 'src', 'web', 'public', 'app.js'), 'utf8') + fs17.readFileSync(path17.join(root17, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const needle of ["label: 'تفاعل'", 'loadTopBoard', 'd-top-chips', 'الخبرة الكتابية', 'الخبرة الصوتية', 'خبرة التفاعل', 'leveling.resetOffsetHours']) {
       assert.ok(app17.includes(needle), `لوحة التحكم ينقصها «${needle}»`);
     }
@@ -1194,7 +1228,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(pkg18.scripts.icons, 'سكربت npm run icons ناقص');
 
     // ٦) القائمة الجانبية: اسم «تفاعل» + أيقونة كأس + بلا كسر نص
-    const app18 = fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app18 = (fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app.js'), 'utf8') + fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(app18.includes("top: 'trophy'"), 'أيقونة قسم تفاعل غير مربوطة');
     assert.ok(app18.includes("label: 'تفاعل'"), 'اسم القسم لم يتغيّر إلى تفاعل');
     assert.ok(app18.includes("class: 'd-nav-label'"), 'اسم العنصر غير مُهيّأ لكسر النص');
@@ -1209,7 +1243,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   console.log('  [تم] 95 أيقونة (13 جديدة + 30 محسّنة) · قسم «تفاعل» بأيقونة كأس · القائمة الجانبية بلا كسر نص');
 
     // ٧) المصدر الواحد للأيقونات: app.js بلا نسخة مكرّرة
-    const appSrc18 = fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc18 = (fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app.js'), 'utf8') + fs18.readFileSync(path18.join(root18, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(appSrc18.includes('window.ICONS'), 'app.js لا يقرأ الأيقونات من icons.js');
     assert.ok(!/const ICONS = \{\s*\n\s*dashboard:/.test(appSrc18), 'app.js ما زال فيه نسخة مكرّرة من الأيقونات');
     assert.ok(!/const LOG_ICONS = \{\s*\n\s*message:/.test(appSrc18), 'app.js ما زال فيه نسخة مكرّرة من أيقونات السجلات');
@@ -1228,8 +1262,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const iIcons = pages18.indexOf("asset('icons.js')");
     const iApp = pages18.indexOf("asset('app.js')");
     assert.ok(iIcons > 0 && iApp > iIcons, 'icons.js لازم تُحمَّل قبل app.js');
+    // app-sections.js يُعرّف SECTIONS التي تستعملها دوال app.js، ولازم يجي بعده
+    const iSections = pages18.indexOf("asset('app-sections.js')");
+    assert.ok(iSections > 0 && iSections > iApp, 'app-sections.js لازم تُحمَّل بعد app.js');
     assert.ok(pages18.includes('assetStamp') && pages18.includes('ASSET_FILES'), 'بصمة نسخة الأصول ناقصة');
-    for (const f of ['style.css', 'dash.css', 'app.js', 'icons.js']) {
+    for (const f of ['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js']) {
       assert.ok(pages18.includes(`'${f}'`), `الأصل ${f} غير مشمول في البصمة`);
     }
     const srv18 = fs18.readFileSync(path18.join(root18, 'src', 'web', 'server.js'), 'utf8');
@@ -1247,7 +1284,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     /* ١) حماية سريعة: ما في أي اسم عام يتكرّر بين ملفات السكربت المحمّلة معًا
           (هذا بالضبط سبب الخطأ: Identifier 'ICONS' has already been declared) */
-    const files19 = ['icons.js', 'app.js'];
+    const files19 = ['icons.js', 'app.js', 'app-sections.js'];
     const declared = {};
     for (const file of files19) {
       const src = fs19.readFileSync(path19.join(root19, 'src', 'web', 'public', file), 'utf8');
@@ -1267,12 +1304,14 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(iconsSrc19.includes('window.ICONS = api.ICONS'), 'icons.js ما يعرّض الأيقونات للمتصفح');
     assert.ok(iconsSrc19.includes('module.exports = api'), 'icons.js ما يُصدّر للأداة الخلفية');
     // بلا تكرار داخل app.js نفسه
-    const dupes = declared['app.js'].filter((n, i) => declared['app.js'].indexOf(n) !== i);
-    assert.deepStrictEqual(dupes, [], `أسماء مكرّرة داخل app.js: ${[...new Set(dupes)].join(', ')}`);
+    for (const file of ['app.js', 'app-sections.js']) {
+      const dupes = declared[file].filter((n, i) => declared[file].indexOf(n) !== i);
+      assert.deepStrictEqual(dupes, [], `أسماء مكرّرة داخل ${file}: ${[...new Set(dupes)].join(', ')}`);
+    }
 
     /* ٢) كل قيم SECTION_ICONS موجودة في الحزمة (ما يطلع دائرة بديلة) */
     const iconMod19 = require('../src/web/public/icons');
-    const appSrc19 = fs19.readFileSync(path19.join(root19, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc19 = (fs19.readFileSync(path19.join(root19, 'src', 'web', 'public', 'app.js'), 'utf8') + fs19.readFileSync(path19.join(root19, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     const sectionBlock19 = appSrc19.match(/const SECTION_ICONS = \{([\s\S]*?)\n\};/);
     assert.ok(sectionBlock19, 'كتلة SECTION_ICONS غير موجودة');
     const sectionIcons19 = [...sectionBlock19[1].matchAll(/(\w+):\s*'(\w+)'/g)].map((m) => m[2]);
@@ -1286,7 +1325,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
  console.log('[اختبار] 35: فتح اللوحة في متصفح وهمي (الصفحة تُقلع فعلًا)');
   {
-    const domTest = require('../dashboard-dom-test');
+    const domTest = require('./dashboard-dom-test');
     const res19 = await domTest.run();
     if (res19.skipped) {
       console.log('  [تخطّي] jsdom غير مثبّتة — الاختبار يعمل عند توفرها');
@@ -1307,7 +1346,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ١) الاختبار العملي الكامل (٦ مجموعات: سجل، حظر، مشاهدة فقط، مالك فقط، حمايات، عودة)
     const { execFileSync } = require('node:child_process');
-    const out20 = execFileSync('node', [path20.join(root20, 'site-members-test.js')], { cwd: root20, encoding: 'utf8' });
+    const out20 = execFileSync('node', [path20.join(root20, 'tests', 'site-members-test.js')], { cwd: root20, encoding: 'utf8', env: childEnv() });
     for (const needle of ['سجل الأعضاء', 'المالك فقط', 'المشاهدة فقط', 'الحظر', 'الحمايات', 'قطع الجلسة']) {
       assert.ok(out20.includes(needle), `حالة «${needle}» غير مُختبرة في لوحة الأعضاء`);
     }
@@ -1353,7 +1392,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(authSrc20.includes('isBanned'), 'منع المحظور عند الدخول ناقص');
 
     // ٥) لوحة التحكم: قسم يظهر للمالك فقط وأزرار التحكم
-    const appSrc20 = fs20.readFileSync(path20.join(root20, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc20 = (fs20.readFileSync(path20.join(root20, 'src', 'web', 'public', 'app.js'), 'utf8') + fs20.readFileSync(path20.join(root20, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const needle of ['siteMembers:', "group: 'إدارة الموقع'", 'ownerOnly: true', 'loadSiteMembers', 'SITE_STATUS_LABEL', '/admin/members']) {
       assert.ok(appSrc20.includes(needle), `عنصر لوحة الأعضاء «${needle}» ناقص`);
     }
@@ -1364,7 +1403,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
 
     // ٦) فحص الواجهة الفعلي (متصفح وهمي): القسم يظهر للمالك فقط مع أزرار التحكم
-    const out20b = execFileSync('node', [path20.join(root20, 'ui-site-members-test.js')], { cwd: root20, encoding: 'utf8' });
+    const out20b = execFileSync('node', [path20.join(root20, 'tests', 'ui-site-members-test.js')], { cwd: root20, encoding: 'utf8', env: childEnv() });
     for (const needle of ['قسم «أعضاء الموقع» ظاهر؟ نعم', 'قسم «أعضاء الموقع» ظاهر؟ لا', 'حساب المالك محمي بلا أزرار؟ نعم', 'لا شيء']) {
       assert.ok(out20b.includes(needle), `فحص الواجهة ينقصه: ${needle}`);
     }
@@ -1380,7 +1419,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const path37 = require('node:path');
     const { execFileSync } = require('node:child_process');
     const root37 = path37.join(__dirname, '..');
-    const app37 = fs37.readFileSync(path37.join(root37, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app37 = (fs37.readFileSync(path37.join(root37, 'src', 'web', 'public', 'app.js'), 'utf8') + fs37.readFileSync(path37.join(root37, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     const pages37 = fs37.readFileSync(path37.join(root37, 'src', 'web', 'routes', 'pages.js'), 'utf8');
     const css37 = fs37.readFileSync(path37.join(root37, 'src', 'web', 'public', 'dash.css'), 'utf8');
 
@@ -1399,7 +1438,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     let out37 = '';
     let timedOut37 = false;
     try {
-      out37 = execFileSync('node', [path37.join(root37, 'dashboard-layout-test.js')], { cwd: root37, encoding: 'utf8', timeout: 120000 });
+      out37 = execFileSync('node', [path37.join(root37, 'tests', 'dashboard-layout-test.js')], { cwd: root37, encoding: 'utf8', timeout: 120000, env: childEnv() });
     } catch (err) {
       timedOut37 = err.code === 'ETIMEDOUT';
       out37 = String(err.stdout || '') + String(err.stderr || '');
@@ -1448,7 +1487,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     for (const needle of ['خبرة_كتابية_لكل_أحرف', 'الفاصل_الصوتي', 'مكافحة_السبام', 'مدة_منع_السبام']) {
       assert.ok(cmd38.includes(needle), `أمر /leveling ينقصه ${needle}`);
     }
-    const app38 = fs38.readFileSync(path38.join(root38, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const app38 = (fs38.readFileSync(path38.join(root38, 'src', 'web', 'public', 'app.js'), 'utf8') + fs38.readFileSync(path38.join(root38, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const needle of ['leveling.textXpPerChars', 'leveling.voiceIntervalSeconds', 'leveling.antiSpam.enabled', 'leveling.antiSpam.muteMinutes']) {
       assert.ok(app38.includes(needle), `لوحة المستويات ينقصها الحقل ${needle}`);
     }
@@ -1505,7 +1544,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي (١٣ مجموعة في اختبار المستويات)
     const { execFileSync } = require('node:child_process');
-    const out38 = execFileSync('node', [path38.join(root38, 'leveling-test.js')], { cwd: root38, encoding: 'utf8' });
+    const out38 = execFileSync('node', [path38.join(root38, 'tests', 'leveling-test.js')], { cwd: root38, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١١) الخبرة الكتابية', '١٢) الخبرة الصوتية', '١٣) الحماية الذكية من السبام']) {
       assert.ok(out38.includes(needle), `الاختبار العملي ينقصه: ${needle}`);
     }
@@ -1559,7 +1598,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
 
     // ٥) اللوحة: قسم كامل بأيقونته وحقوله
-    const app39 = read39('src/web/public/app.js');
+    const app39 = read39('src/web/public/app.js') + read39('src/web/public/app-sections.js');
     /* el() وسيطها الثالث نص HTML — تمرير مصفوفة عناصر يُظهر «[object HTMLDivElement]» */
     const badElCalls = [...app39.matchAll(/el\(['"][a-zA-Z]+['"], \{[^}]*\}, \[/g)].length;
     assert.strictEqual(badElCalls, 0, `يوجد ${badElCalls} استدعاء el() بمصفوفة بدل نص (يعرض [object HTMLDivElement])`);
@@ -1574,7 +1613,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي (٦ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out39 = execFileSync('node', [path39.join(root39, 'autoreply-test.js')], { cwd: root39, encoding: 'utf8' });
+    const out39 = execFileSync('node', [path39.join(root39, 'tests', 'autoreply-test.js')], { cwd: root39, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) التطبيع العربي', '٢) المطابقة', '٣) المتغيّرات', '٤) كل الرومات', '٥) الكولداون', '٦) حمايات']) {
       assert.ok(out39.includes(needle), `اختبار الردود ينقصه: ${needle}`);
     }
@@ -1629,7 +1668,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(bareScripts40, 0, `يوجد ${bareScripts40} سكربت داخلي بلا nonce (لن يعمل مع CSP)`);
 
     // ٥) الواجهة: رأس الطلب (طبقة CSRF ثانية) + قسمان جديدان
-    const app40 = read40('src/web/public/app.js');
+    const app40 = read40('src/web/public/app.js') + read40('src/web/public/app-sections.js');
     assert.ok(app40.includes("'X-Requested-With': 'neverland-dashboard'"), 'الواجهة ما ترسل رأس الطلب (CSRF)');
     for (const needle of ["audit: 'scroll'", "security: 'shield'", "label: 'سجل النشاط'", "label: 'حماية الموقع'", 'loadSecurity', '/audit?', '/admin/security', '/admin/backup']) {
       assert.ok(app40.includes(needle), `الواجهة ينقصها ${needle}`);
@@ -1655,7 +1694,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٧) الاختبار العملي الكامل (١٠ مجموعات: رؤوس · CSRF · تلويث · قصر الإعدادات · صلاحيات · سجل · نسخة · حمايات · حدّ طلبات · تقليم)
     const { execFileSync } = require('node:child_process');
-    const out40 = execFileSync('node', [path40.join(root40, 'security-test.js')], { cwd: root40, encoding: 'utf8' });
+    const out40 = execFileSync('node', [path40.join(root40, 'tests', 'security-test.js')], { cwd: root40, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) رؤوس الأمان', '٢) منع CSRF', '٣) تلويث النموذج', '٤) قصر الإعدادات', '٥) الصلاحيات', '٦) سجل النشاط', '٧) النسخة الاحتياطية', '٨) حالة الحمايات', '٩) حدّ الطلبات', '١٠) التقليم']) {
       assert.ok(out40.includes(needle), `اختبار الحماية ينقصه: ${needle}`);
     }
@@ -1703,7 +1742,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(!def41.includes('textCommands:'), 'إعدادات الأوامر النصية لازم تُدار من المحرّك نفسه (لا من defaults)');
 
     // ٤) الواجهة: القسمان + الأيقونات + الأنماط + الرابط #قسم
-    const app41 = read41('src/web/public/app.js');
+    const app41 = read41('src/web/public/app.js') + read41('src/web/public/app-sections.js');
     for (const needle of ["commandAliases: 'terminal'", "commandGuide: 'book'", "label: 'اختصارات الأوامر'", "label: 'مكتبة الأوامر'", 'function guideCard', 'commands/aliases', 'commands/toggle', 'location.hash']) {
       assert.ok(app41.includes(needle), `لوحة الأوامر ينقصها ${needle}`);
     }
@@ -1721,7 +1760,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي الكامل (١٠ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out41 = execFileSync('node', [path41.join(root41, 'text-commands-test.js')], { cwd: root41, encoding: 'utf8' });
+    const out41 = execFileSync('node', [path41.join(root41, 'tests', 'text-commands-test.js')], { cwd: root41, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) أمر مباشر بلا بريفيكست', '٢) الأوامر الفرعية', '٣) الكلمات العربية', '٤) الاختصارات', '٥) الإيقاف والتشغيل', '٦) الصلاحيات', '٧) الكولداون مشيل', '٨) مكتبة الشرح', '٩) ', '١٠) التصويت']) {
       assert.ok(out41.includes(needle), `اختبار الأوامر النصية ينقصه: ${needle}`);
     }
@@ -1776,11 +1815,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read42('src/events/members.js').includes('{ inviteInfo }'), 'معلومات الدعوة ما تُمرَّر للترحيب');
     assert.ok(read42('src/events/ready.js').includes('ensureStyle'), 'ترقية شكل الترحيب غير مربوطة بالإقلاع');
     assert.ok(/actions\/welcome|action === 'welcome'/.test(read42('src/web/routes/api.js')), 'مسار الترحيب التجريبي ناقص');
-    assert.ok(read42('src/web/public/app.js').includes('أرسل ترحيب تجريبي'), 'زر الترحيب التجريبي ناقص من اللوحة');
-    assert.ok(read42('src/web/public/app.js').includes('welcome.frameImage'), 'حقل صورة الإطار ناقص من اللوحة');
+    assert.ok(read42('src/web/public/app.js') + read42('src/web/public/app-sections.js').includes('أرسل ترحيب تجريبي'), 'زر الترحيب التجريبي ناقص من اللوحة');
+    assert.ok(read42('src/web/public/app.js') + read42('src/web/public/app-sections.js').includes('welcome.frameImage'), 'حقل صورة الإطار ناقص من اللوحة');
 
     // ٣) اللوحة: معاينة حقيقية + خيار شكل الرسالة + نص الصورة
-    const app42 = read42('src/web/public/app.js');
+    const app42 = read42('src/web/public/app.js') + read42('src/web/public/app-sections.js');
     for (const needle of ['welcome/card', 'wc-preview', 'welcome.cardMessage', 'welcome.embed', 'صورة + رسالة عادية']) {
       assert.ok(app42.includes(needle), `قسم الترحيب ينقصه ${needle}`);
     }
@@ -1797,7 +1836,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٥) الاختبار العملي الكامل (٦ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out42 = execFileSync('node', [path42.join(root42, 'welcome-card-test.js')], { cwd: root42, encoding: 'utf8' });
+    const out42 = execFileSync('node', [path42.join(root42, 'tests', 'welcome-card-test.js')], { cwd: root42, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١-ب) إطار Never Land', '١) صورة الترحيب', '٢) الوضع الافتراضي', '٣) وضع الإطار', '٤) أنواع الصور', '٥) المتغيّرات', '٦) معاينة اللوحة']) {
       assert.ok(out42.includes(needle), `اختبار الترحيب ينقصه: ${needle}`);
     }
@@ -1836,7 +1875,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read43('src/lib/audit.js').includes('command.denied'), 'وسم السجل لأوامر الإدارة المرفوضة ناقص');
 
     // ٤) اللوحة: مجموعتان + حجب في الـAPI
-    const app43 = read43('src/web/public/app.js');
+    const app43 = read43('src/web/public/app.js') + read43('src/web/public/app-sections.js');
     for (const needle of ['أوامر الأعضاء', 'أوامر الإدارة', 'audienceBadge', 'cmd-note']) {
       assert.ok(app43.includes(needle), `لوحة الأوامر ينقصها ${needle}`);
     }
@@ -1848,7 +1887,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٥) الاختبار العملي (٥ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out43 = execFileSync('node', [path43.join(root43, 'command-audience-test.js')], { cwd: root43, encoding: 'utf8' });
+    const out43 = execFileSync('node', [path43.join(root43, 'tests', 'command-audience-test.js')], { cwd: root43, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) الكتالوج', '٢) ديسكورد', '٣) /help', '٤) الشات', '٥) اللوحة']) {
       assert.ok(out43.includes(needle), `اختبار الجمهور ينقصه: ${needle}`);
     }
@@ -1873,7 +1912,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(read44(file).includes('notifyLive(guildId)'), `${file} ما يبثّ تغييرات الإعدادات`);
     }
     assert.ok(read44('src/web/routes/api.js').includes('event: settings'), 'البثّ الحيّ ما يبثّ تغييرات الإعدادات');
-    const app44 = read44('src/web/public/app.js');
+    const app44 = read44('src/web/public/app.js') + read44('src/web/public/app-sections.js');
     for (const needle of ['PAGE_CLIENT_ID', "addEventListener('settings'", 'refreshAfterExternalChange', 'sync-live']) {
       assert.ok(app44.includes(needle), `اللوحة ينقصها ${needle}`);
     }
@@ -1902,11 +1941,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(text44.includes('checkMention') && text44.includes('منشن صريح'), 'قاعدة المنشن الصريح ناقصة');
     const userBranch44 = text44.split("if (kind === 'user')")[1].split('continue;')[0];
     assert.ok(!userBranch44.includes('findMember(guild, t)'), 'لسا يقبل كتابة الاسم بلا منشن');
-    assert.ok(app44.includes('منشن صريح'), 'قاعدة المنشن غير موضّحة في اللوحة');
+    // كروت الشرح شِيلت من اللوحة بطلب المستخدم — القاعدة نفسها مثبتة في البوت (textCommands.js فوق)
 
     // ٤) الاختبار العملي (٣ أقسام)
     const { execFileSync } = require('node:child_process');
-    const out44 = execFileSync('node', [path44.join(root44, 'live-link-test.js')], { cwd: root44, encoding: 'utf8' });
+    const out44 = execFileSync('node', [path44.join(root44, 'tests', 'live-link-test.js')], { cwd: root44, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) الربط الحيّ', '٢) «طير»', 'بطاقة الأمر: Command: ban', '٣) ردّ على رسالة شخص', '٤) رابط الموقع']) {
       assert.ok(out44.includes(needle), `اختبار الربط ينقصه: ${needle}`);
     }
@@ -1936,8 +1975,9 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٣) المسارات واللوحة
     assert.ok(read45('src/web/routes/api.js').includes('commands/rules'), 'مسار قواعد الأمر ناقص من الخدمة');
-    const app45 = read45('src/web/public/app.js');
-    for (const needle of ['commands/rules', 'cmd-rules', 'قواعد الأمر', 'حذف الرد بعد ٥ ثوانٍ', 'اختصار بأي لغة', 'الاختصارات بأي لغة', 'كلمة وحدة تكفي', 'اخفاء', 'اظهار']) {
+    const app45 = read45('src/web/public/app.js') + read45('src/web/public/app-sections.js');
+    // كروت الشرح النصية شِيلت؛ نبقي فقط ما هو ميزة فعلية في محرر القواعد
+    for (const needle of ['commands/rules', 'cmd-rules', 'قواعد']) {
       assert.ok(app45.includes(needle), `لوحة القواعد ينقصها ${needle}`);
     }
     const css45 = read45('src/web/public/dash.css');
@@ -1948,7 +1988,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٤) الاختبار العملي: ١٠ مجموعات + مجموعة القواعد الجديدة
     const { execFileSync } = require('node:child_process');
-    const out45 = execFileSync('node', [path45.join(root45, 'text-commands-test.js')], { cwd: root45, encoding: 'utf8' });
+    const out45 = execFileSync('node', [path45.join(root45, 'tests', 'text-commands-test.js')], { cwd: root45, encoding: 'utf8', env: childEnv() });
     for (const needle of ['٤) الاختصارات بأي لغة', '٤ب) قواعد الأمر', '٤ج) كلمة وحدة تكفي', '١٠) التصويت']) {
       assert.ok(out45.includes(needle), `اختبار الأوامر ينقصه: ${needle}`);
     }
@@ -1974,7 +2014,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(!text46.includes('120000'), 'لسا في حذف تلقائي بعد دقيقتين لردود الأوامر');
     assert.ok(text46.includes('autoDeleteReplyAfter5s ? 5000 : 0'), 'الحذف التلقائي ما صار اختياريًا');
     assert.ok(text46.includes('if (lifetime > 0)'), 'الحذف ما صار مشروطًا بالخيار');
-    assert.ok(read46('src/web/public/app.js').includes('ردود الأوامر ما تختفي'), 'ما شرحنا باللوحة إن الرد ما يختفي');
+    // السلوك (بلا حذف تلقائي) مثبت في البوت أعلاه؛ كرت الشرح شِيل من اللوحة
     for (const rel of ['src/commands/general/help.js', 'src/commands/general/botinfo.js', 'src/commands/general/userinfo.js',
       'src/commands/config/settings.js', 'src/commands/config/logs.js', 'src/commands/config/tickets.js',
       'src/systems/applications.js', 'src/systems/leveling.js', 'src/systems/logging.js', 'src/systems/tickets.js', 'src/systems/setupWizard.js']) {
@@ -1999,7 +2039,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const f2=footers(p2)[0];",
       "if(f2 && /Never Land/.test(f2.text)) throw new Error('اسم المشروع لسا يطلع في الفوتر');",
       "console.log('OK');",
-    ].join('')], { cwd: root46, encoding: 'utf8' });
+    ].join('')], { cwd: root46, encoding: 'utf8', env: childEnv() });
     assert.ok(outPanel.includes('OK'), 'فحص فوتر بنل التذاكر فشل');
 
     /* ما في أي ملف يكتب اسم المشروع في تذييل */
@@ -2024,7 +2064,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const wanted = JSON.stringify(e.base({title:'x',footer:'نص مطلوب'}).data.footer) === JSON.stringify({text:'نص مطلوب'});",
       "if(!wanted) throw new Error('التذييل المطلوب ما ظهر');",
       "console.log('OK');",
-    ].join('')], { cwd: root46, encoding: 'utf8' });
+    ].join('')], { cwd: root46, encoding: 'utf8', env: childEnv() });
     assert.ok(out46.includes('OK'), 'الفحص العملي للتذييل فشل');
 
   console.log('  [تم] كل الردود بلا تذييل «Never Land • لوحة تحكم وبوت متكامل» — والتذييل صار بس لما ينطلب صراحةً');
@@ -2058,7 +2098,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const cl2=t.ticketControls('7',true,cfg2).toJSON().components[0];",
       "if(cl2.label!=='معك'||cl2.emoji!==undefined||cl2.disabled!==true) throw new Error('تخصيص زر ما بعد الاستلام ما اشتغل');",
       "console.log('OK');",
-    ].join('')], { cwd: root47, encoding: 'utf8' });
+    ].join('')], { cwd: root47, encoding: 'utf8', env: childEnv() });
     assert.ok(out47.includes('OK'), 'الفحص العملي لأزرار التذاكر فشل');
 
     /* تنظيف اللوحات القديمة: يحذف لوحة التذاكر القديمة ورسالة التعليمات القديمة فقط */
@@ -2071,16 +2111,17 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
       "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
       "if(p.length!==1||p[0].content||p[0].embeds) throw new Error('اللوحة مش نظيفة');",
-      "if(p[0].files.length!==1||!/\\.png$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة PNG مرفقة');",
+      /* اللوحة لازم تنزل صورة مرفقة (WebP حاليًا، ونقبل PNG لو رجع أحدهم إليها) */
+      "if(p[0].files.length!==1||!/\\.(webp|png)$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة مرفقة (webp/png)');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
-    ].join('')], { cwd: root47, encoding: 'utf8' });
+    ].join('')], { cwd: root47, encoding: 'utf8', env: childEnv() });
     assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
 
     /* الأمر + اللوحة + الشرح */
     const cmd47 = read47('src/commands/config/tickets.js');
     assert.ok(cmd47.includes("sub('button'") && cmd47.includes("sub('buttons'"), 'أوامر تعديل الأزرار ناقصة من /tickets');
     assert.ok(cmd47.includes('DEFAULT_BUTTONS[key]'), 'الاسترجاع ما يكتب القيم الافتراضية');
-    const dash47 = read47('src/web/public/app.js');
+    const dash47 = read47('src/web/public/app.js') + read47('src/web/public/app-sections.js');
     assert.ok(dash47.includes('EMOJI-DATA: START'), 'كتلة بيانات منتقي الإيموجي ناقصة');
     assert.ok(dash47.includes('function dEmojiField(') && dash47.includes('function dButtonPreview('), 'حقل الإيموجي أو المعاينة ناقص من اللوحة');
     assert.ok(dash47.includes('tickets.buttons.${key}') && dash47.includes('${base}.label'), 'حقل نص الزر ناقص من اللوحة');
@@ -2133,7 +2174,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       " if(cand.length!==1||cand[0]!==kick.id) throw new Error('ترتيب قنوات الحدث غلط');",
       " console.log('OK');",
       "})().catch(e=>{console.error(e.message);process.exit(1);});",
-    ].join('')], { cwd: root48, encoding: 'utf8' });
+    ].join('')], { cwd: root48, encoding: 'utf8', env: childEnv() });
     assert.ok(out48.includes('OK'), 'الفحص العملي لتوجيه اللوقات فشل');
 
     const logCmd48 = read48('src/commands/config/logs.js');
@@ -2141,7 +2182,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(logCmd48.includes('async autocomplete('), 'إكمال تلقائي لأسماء الأحداث ناقص');
     const logSys48 = read48('src/systems/logging.js');
     assert.ok(logSys48.includes('function channelCandidates(') && logSys48.includes('getLogChannel(client, guild.id, eventKey)'), 'توجيه اللوق للأرومات ناقص من النظام');
-    const dash48 = read48('src/web/public/app.js');
+    const dash48 = read48('src/web/public/app.js') + read48('src/web/public/app-sections.js');
     assert.ok(dash48.includes('logs.channels.${key}') && dash48.includes('logs.channelsByGroup.${groupId}'), 'اختيار روم لكل حدث ناقص من اللوحة');
     assert.ok(dash48.includes('الأصل: كل حدث لرومه'), 'وصف القناة العامة ناقص من اللوحة');
     assert.ok(read48('src/data/commandCatalog.js').includes('logs eventchannel'), 'شرح الأمر ناقص من مكتبة الشرح');
@@ -2197,7 +2238,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "assert.strictEqual(r.decorate(mp2,null)===mp2,true,'MessagePayload انكسر');",
       "console.log('OK-BODY');})();",
       "console.log('OK');",
-    ].join('')], { cwd: root49, encoding: 'utf8' });
+    ].join('')], { cwd: root49, encoding: 'utf8', env: childEnv() });
     assert.ok(out49.includes('OK'), 'فحص محرّك الردود فشل');
 
     const cfg49 = require(path49.join(root49, 'src/config'));
@@ -2213,7 +2254,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read49('src/events/interactionCreate.js').includes("require('../lib/replies').wrapInteraction(interaction)"), 'تزيين التفاعلات غير مربوط');
     assert.ok(read49('src/index.js').includes('installSendDecorators()'), 'تزيين الإرسال غير مربوط');
     assert.ok(read49('src/web/routes/api.js').includes("/replies/preview"), 'مسار المعاينة ناقص');
-    assert.ok(read49('src/web/public/app.js').includes("'شكل الردود'"), 'بطاقة شكل الردود ناقصة من اللوحة');
+    assert.ok(read49('src/web/public/app.js') + read49('src/web/public/app-sections.js').includes("'شكل الردود'"), 'بطاقة شكل الردود ناقصة من اللوحة');
     assert.ok(read49('src/web/public/dash.css').includes('.d-sample-row'), 'أنماط المعاينة ناقصة');
   }
 
@@ -2225,7 +2266,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root50 = path50.join(__dirname, '..');
     const read50 = (rel) => fs50.readFileSync(path50.join(root50, rel), 'utf8');
 
-    const out50 = execFileSync('node', ['moderation-test.js'], { cwd: root50, encoding: 'utf8' });
+    const out50 = execFileSync('node', ['tests/moderation-test.js'], { cwd: root50, encoding: 'utf8', env: childEnv() });
     assert.ok(out50.includes('كل الفحوص نجحت'), 'اختبار المودريشن فشل');
 
     /* الحظر يشتغل بالآيدي للعضو اللي برّا السيرفر (guild.bans.create) */
@@ -2265,11 +2306,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root51 = path51.join(__dirname, '..');
     const read51 = (rel) => fs51.readFileSync(path51.join(root51, rel), 'utf8');
 
-    const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8' });
+    const out51 = execFileSync('node', ['tests/f42-test.js'], { cwd: root51, encoding: 'utf8', env: childEnv() });
     assert.ok(out51.includes('f42 كامل'), 'اختبار f42 فشل');
 
     /* أوامر الشات (قفل · احذر · امسح · بان) لازم تطلع نص عادي مو إمبد */
-    const outTxt = execFileSync('node', ['f42-text-e2e.js'], { cwd: root51, encoding: 'utf8' });
+    const outTxt = execFileSync('node', ['tests/f42-text-e2e.js'], { cwd: root51, encoding: 'utf8', env: childEnv() });
     assert.ok(outTxt.includes('أوامر الشات كلها نص عادي'), 'أوامر الشات ما صارت نص');
     assert.ok(read51('src/systems/textCommands.js').includes('wrapInteraction(fake)'), 'أوامر الشات ما صارت تمر بمحرّك شكل الردود');
 
@@ -2290,7 +2331,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     /* شكل الردود: نص أو إمبد لكل أمر */
     assert.ok(read51('src/lib/replyFormat.js').includes('TEXT_BY_DEFAULT'), 'قائمة العقوبات النصية ناقصة');
     assert.ok(read51('src/lib/replies.js').includes('replyFormat.apply'), 'المحرّك ما انربط بالردود');
-    const app51 = read51('src/web/public/app.js');
+    const app51 = read51('src/web/public/app.js') + read51('src/web/public/app-sections.js');
     assert.ok(app51.includes("label: 'ردود أوامر'"), 'صفحة «ردود أوامر» ناقصة من اللوحة');
     assert.ok(app51.includes('command-replies'), 'اللوحة ما تتصل بمسار ردود الأوامر');
     assert.ok(read51('src/web/routes/api.js').includes('command-replies'), 'مسارات ردود الأوامر ناقصة من الـ API');
@@ -2321,7 +2362,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root52 = path52.join(__dirname, '..');
     const read52 = (rel) => fs52.readFileSync(path52.join(root52, rel), 'utf8');
 
-    const out52 = execFileSync('node', ['command-room-test.js'], { cwd: root52, encoding: 'utf8' });
+    const out52 = execFileSync('node', ['tests/command-room-test.js'], { cwd: root52, encoding: 'utf8', env: childEnv() });
     assert.ok(out52.includes('روم الأوامر جاهز'), 'اختبار روم الأوامر فشل');
 
     /* الروم + النص + المدة + الصورة */
@@ -2333,8 +2374,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(/repost: true/.test(cfg52), 'خيار «إعادة النشر كل دورة» ناقص');
     assert.ok(/pin: false/.test(cfg52), 'التثبيت لازم يكون مطفّي افتراضيًا');
     assert.ok(read52('src/systems/commandRoom.js').includes('existing.delete()'), 'حذف الرسالة القديمة وإعادة نشرها ناقص');
-    assert.ok(read52('src/web/public/app.js').includes('commandRoom.repost'), 'مفتاح «إعادة النشر» ناقص من اللوحة');
-    assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.png')), 'صورة الروم غير موجودة');
+    assert.ok(read52('src/web/public/app.js') + read52('src/web/public/app-sections.js').includes('commandRoom.repost'), 'مفتاح «إعادة النشر» ناقص من اللوحة');
+    assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.webp')), 'صورة الروم غير موجودة');
 
     /* النظام + المؤقّت */
     const room52 = read52('src/systems/commandRoom.js');
@@ -2344,7 +2385,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read52('src/lib/replies.js').includes('__raw'), 'خاصية «كما هي» ناقصة');
 
     /* اللوحة + الـ API */
-    assert.ok(read52('src/web/public/app.js').includes("label: 'روم الأوامر'"), 'قسم روم الأوامر ناقص من اللوحة');
+    assert.ok(read52('src/web/public/app.js') + read52('src/web/public/app-sections.js').includes("label: 'روم الأوامر'"), 'قسم روم الأوامر ناقص من اللوحة');
     assert.ok(read52('src/web/routes/api.js').includes('command-room/:action'), 'مسارات روم الأوامر ناقصة');
     assert.ok(read52('src/web/routes/api.js').includes('commandRoom: (() => {'), 'حالة روم الأوامر ناقصة من /api/status');
   }
@@ -2357,13 +2398,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root53 = path53.join(__dirname, '..');
     const read53 = (rel) => fs53.readFileSync(path53.join(root53, rel), 'utf8');
 
-    const out53 = execFileSync('node', ['tickets-panel-image-test.js'], { cwd: root53, encoding: 'utf8' });
+    const out53 = execFileSync('node', ['tests/tickets-panel-image-test.js'], { cwd: root53, encoding: 'utf8', env: childEnv() });
     assert.ok(out53.includes('لوحة التذاكر بالصورة'), 'اختبار لوحة التذاكر بالصورة فشل');
 
     /* الإعدادات الافتراضية */
     const cfg53 = require(path53.join(root53, 'src', 'config'));
     const t53 = cfg53.defaults.tickets;
-    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel.png', 'صورة اللوحة الافتراضية خطأ');
+    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel-v5.webp', 'صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
     assert.strictEqual(t53.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي (بلا خط تحت القائمة)');
     assert.strictEqual(t53.panelPlaceholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
@@ -2372,13 +2413,15 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(t53.openImage, t53.panelImage, 'صورة رسالة فتح التذكرة ناقصة');
     assert.strictEqual(t53.openImageOnly, true, 'رسالة فتح التذكرة لازم تكون صورة');
 
-    /* ملف الصورة: PNG بخلفية شفافة فعلًا (RGBA) + ما بقيت نسخة سوداء */
-    const img53 = path53.join(root53, 'src', 'web', 'public', 'assets', 'tickets-panel.png');
-    assert.ok(fs53.existsSync(img53), 'صورة اللوحة PNG ناقصة');
+    /* ملف الصورة: WebP بخلفية شفافة فعلًا + ما بقيت نسخة قديمة */
+    const img53 = path53.join(root53, 'src', 'web', 'public', 'assets', 'tickets-panel-v5.webp');
+    assert.ok(fs53.existsSync(img53), 'صورة اللوحة ناقصة');
     const imgBuf53 = fs53.readFileSync(img53);
-    assert.strictEqual(imgBuf53.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'صورة اللوحة ليست PNG');
-    assert.strictEqual(imgBuf53[25], 6, 'صورة اللوحة بلا قناة شفافية (الخلفية السوداء ترجع)');
-    for (const old53 of ['tickets-panel.webp', 'tickets-panel-footer.webp']) {
+    assert.strictEqual(imgBuf53.subarray(0, 4).toString('ascii'), 'RIFF', 'صورة اللوحة ليست WebP');
+    assert.strictEqual(imgBuf53.subarray(8, 12).toString('ascii'), 'WEBP', 'صورة اللوحة ليست WebP');
+    assert.strictEqual(imgBuf53.subarray(12, 16).toString('ascii'), 'VP8X', 'صورة اللوحة بلا ترويسة VP8X');
+    assert.strictEqual((imgBuf53[20] >> 4) & 1, 1, 'صورة اللوحة بلا قناة شفافية (الخلفية السوداء ترجع)');
+    for (const old53 of ['tickets-panel.webp', 'tickets-panel-footer.webp', 'tickets-panel.png']) {
       assert.ok(!fs53.existsSync(path53.join(root53, 'src', 'web', 'public', 'assets', old53)), `نسخة قديمة لسا موجودة: ${old53}`);
     }
 
@@ -2390,11 +2433,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(read53('src/events/ready.js').includes('ensureAll(client)'), 'الفحص التلقائي للوحة غير مربوط بالإقلاع');
     assert.ok(read53('src/web/routes/api.js').includes('scheduleEnsure'), 'تحديث اللوحة بعد الحفظ ناقص');
     assert.ok(read53('src/web/routes/api.js').includes("'/guilds/:guildId/tickets/panel'"), 'مسار تشخيص لوحة التذاكر ناقص');
-    const dash53 = read53('src/web/public/app.js');
+    const dash53 = read53('src/web/public/app.js') + read53('src/web/public/app-sections.js');
     for (const key53 of ['tickets.panelImage', 'tickets.panelFooterImage', 'tickets.panelPlaceholder', 'tickets.panelChannelId', 'tickets.panelAutoPost', 'tickets.openImage', 'tickets.openImageOnly']) {
       assert.ok(dash53.includes(key53), `حقل ${key53} ناقص من اللوحة`);
     }
-    console.log('  [تم] اللوحة صورة PNG شفافة بلا نص وبلا خط + قائمة الأنواع · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
+    console.log('  [تم] اللوحة صورة WebP شفافة بلا نص وبلا خط + قائمة الأنواع · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
   }
 
  console.log('[اختبار] 54: ترحيب «إطار Never Land» — الأفتار داخل الدائرة + Inv By');
@@ -2405,7 +2448,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root54 = path54.join(__dirname, '..');
     const read54 = (rel) => fs54.readFileSync(path54.join(root54, rel), 'utf8');
 
-    const out54 = execFileSync('node', ['welcome-frame-test.js'], { cwd: root54, encoding: 'utf8' });
+    const out54 = execFileSync('node', ['tests/welcome-frame-test.js'], { cwd: root54, encoding: 'utf8', env: childEnv() });
     assert.ok(out54.includes('ترحيب إطار Never Land جاهز'), 'اختبار إطار الترحيب فشل');
 
     const cfg54 = require(path54.join(root54, 'src', 'config')).defaults.welcome;
@@ -2421,7 +2464,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const welcome54 = require(path54.join(root54, 'src', 'systems', 'welcome'));
     assert.ok(typeof welcome54.missingEmojis === 'function' && typeof welcome54.ensureEmojis === 'function', 'تصحيح الإيموجيات الناقصة ناقص');
     assert.ok(read54('src/events/ready.js').includes('ensureEmojis'), 'الإقلاع لازم يصحّح إيموجيات الترحيب');
-    assert.ok(read54('src/web/public/app.js').includes('فحص الإيموجيات'), 'لوحة الترحيب لازم تعرض فحص الإيموجيات');
+    assert.ok(read54('src/web/public/app.js') + read54('src/web/public/app-sections.js').includes('فحص الإيموجيات'), 'لوحة الترحيب لازم تعرض فحص الإيموجيات');
     assert.ok(out54.includes('تصحيح الإيموجيات الناقصة'), 'مجموعة فحص الإيموجيات في اختبار الإطار ناقصة');
     /* الإرسال: الصورة أولًا ثم النص · منشن الداعي · الإيموجي الخارجي */
     assert.strictEqual(cfg54.imageFirst, true, 'لازم الصورة تُرسل أولًا ثم النص');
@@ -2452,7 +2495,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root55 = path55.join(__dirname, '..');
     const read55 = (rel) => fs55.readFileSync(path55.join(root55, rel), 'utf8');
 
-    const out55 = execFileSync('node', ['role-command-test.js'], { cwd: root55, encoding: 'utf8' });
+    const out55 = execFileSync('node', ['tests/role-command-test.js'], { cwd: root55, encoding: 'utf8', env: childEnv() });
     assert.ok(out55.includes('أمر الرتب جاهز وشغّال'), 'اختبار أمر الرتب فشل');
 
     const catalog55 = require(path55.join(root55, 'src', 'data', 'commandCatalog'));
@@ -2482,7 +2525,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root56 = path56.join(__dirname, '..');
     const read56 = (rel) => fs56.readFileSync(path56.join(root56, rel), 'utf8');
 
-    const out56 = execFileSync('node', ['presence-test.js'], { cwd: root56, encoding: 'utf8' });
+    const out56 = execFileSync('node', ['tests/presence-test.js'], { cwd: root56, encoding: 'utf8', env: childEnv() });
     assert.ok(out56.includes('حالة البوت جاهزة'), 'اختبار حالة البوت فشل');
 
     const config56 = require(path56.join(root56, 'src', 'config'));
@@ -2494,7 +2537,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(presence56.describe().purple, true, 'الحالة لازم تكون بنفسجية');
     assert.ok(read56('src/events/ready.js').includes('presence.apply(client)'), 'الإقلاع ما يضبط حالة البوت');
     assert.ok(read56('src/web/routes/api.js').includes("router.post('/guilds/:guildId/presence'"), 'مسار تعديل الحالة ناقص');
-    assert.ok(read56('src/web/public/app.js').includes('بث مباشر (بنفسجي)'), 'خيار البث البنفسجي ناقص من اللوحة');
+    assert.ok(read56('src/web/public/app.js') + read56('src/web/public/app-sections.js').includes('بث مباشر (بنفسجي)'), 'خيار البث البنفسجي ناقص من اللوحة');
     assert.ok(!/name: 'NEVER LAND'/.test(read56('src/events/ready.js')), 'الاسم القديم لسا موجود');
     console.log('  [تم] الحالة 𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅 بنوع بث مباشر (بنفسجي) + تعديل فوري من الموقع');
   }

@@ -130,7 +130,7 @@ function createApp() {
   // ترويسات التخزين المؤقّت:
   //   • أصول الواجهة (CSS/JS) تُحمَّل مع بصمة نسخة في الرابط ⇒ تخزين طويل آمن
   //   • صفحات HTML بلا تخزين أبدًا حتى يرى الزائر الروابط الجديدة فورًا
-  const VERSIONED_ASSETS = new Set(['style.css', 'dash.css', 'app.js', 'icons.js']);
+  const VERSIONED_ASSETS = new Set(['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js']);
   app.use((req, res, next) => {
     const base = path.basename(req.path || '');
     if (VERSIONED_ASSETS.has(base)) {
@@ -245,6 +245,12 @@ function createApp() {
 
 function startServer() {
   if (server) return server;
+
+  /* بوابة أمان قبل أي شيء: في الإنتاج نرفض الإقلاع بسر جلسات معلوم/قصير.
+     موضوعة هنا (لا في index.js) لأنّ هذا هو المكان الوحيد الذي تُنشأ فيه
+     الجلسات فعلًا، فلا يمكن لأي مسار إقلاع آخر أن يتجاوزها. */
+  config.assertSessionSecretSafe();
+
   const app = createApp();
   const { port } = config.web;
 

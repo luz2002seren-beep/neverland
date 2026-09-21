@@ -199,7 +199,18 @@ router.get('/guilds/:guildId', async (req, res) => {
     sync: sync.getStatus(),
     settings: guild.settings,
     stats: { ...stats, discordMembers: discordGuild?.memberCount ?? snapshot?.memberCount ?? null, botReady: Boolean(client?.isReady?.()) },
-    daily: db.getDailyStats(guildId, 14),
+    // سلسلة ١٤ يومًا كاملة (تعبئة الأصفار للأيام بلا نشاط) حتى يرسم المخطط
+    // ١٤ عمودًا حقيقيًا بدل عمودين أو أربعة لأيام النشاط فقط.
+    daily: (() => {
+      const rows = new Map((db.getDailyStats(guildId, 14) || []).map((r) => [String(r.day), r]));
+      const out = [];
+      for (let i = 13; i >= 0; i--) {
+        const key = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+        const r = rows.get(key) || {};
+        out.push({ day: key, messages: r.messages || 0, joins: r.joins || 0, leaves: r.leaves || 0 });
+      }
+      return out;
+    })(),
     meta: {
       channels,
       roles,

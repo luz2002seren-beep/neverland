@@ -457,9 +457,9 @@ never-land/
 │   ├── client.js              ← عميل ديسكورد والـ Intents
 │   ├── config.js              ← الإعدادات والقيم الافتراضية
 │   ├── deploy-commands.js     ← تسجيل أوامر السلاش
-│   ├── commands/              ← الأوامر (25 أمر)
+│   ├── commands/              ← الأوامر (30 أمر)
 │   │   ├── general/  moderation/  config/  tickets/  utility/
-│   ├── events/                ← الأحداث (24 حدثًا)
+│   ├── events/                ← الأحداث (33 حدثًا)
 │   ├── systems/               ← الأنظمة الكبرى
 │   │   ├── automod.js  logging.js  welcome.js  leveling.js
 │   │   ├── tickets.js  setupWizard.js  autoline.js  autoreact.js
@@ -596,7 +596,7 @@ npm start
 ---|---|---|
 | الحماية التلقائية + Anti-Raid | ✅ | ✅ |
 | أوامر الإشراف + سجل حالات | ✅ | ✅ |
-| السجلات (18 حدثًا) | ✅ | ✅ |
+| السجلات (38 حدثًا) | ✅ | ✅ |
 | الترحيب والوداع والرتب التلقائية | ✅ (بعضها Premium) | ✅ مجانًا |
 | نظام التذاكر (4 أنواع + أزرار) | 💎 Premium | ✅ مجانًا |
 | الخط الفاصل التلقائي (AutoLine) | ✅ | ✅ |

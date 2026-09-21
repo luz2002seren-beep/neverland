@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+# تشغيل واحد لكل فرع: أي دفع جديد يلغي ما زال جارياً
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  #  الاختبارات على أكثر من إصدار Node
+  # ─────────────────────────────────────────────────────────────
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: never-land
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 = ما يستعمله Dockerfile · 22 = LTS الحالي
+        node: ['20.x', '22.x']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # الحارس الأمني يفحص قائمة الملفات المتتبَّعة في git
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: never-land/package-lock.json
+
+      - name: تثبيت الاعتماديات من القفل
+        run: npm ci --no-audit --no-fund
+
+      - name: سلامة الصياغة (كل ملفات JS)
+        run: |
+          fail=0
+          while IFS= read -r -d '' f; do
+            node --check "$f" || { echo "✗ $f"; fail=1; }
+          done < <(find . -name '*.js' -not -path './node_modules/*' -print0)
+          [ "$fail" -eq 0 ] || { echo "ملفات بصياغة مكسورة"; exit 1; }
+          echo "✓ كل ملفات JS سليمة"
+
+      - name: الحواجز الأمنية
+        # اختبار انحدار لثغرة SESSION_SECRET ولعزل بيئة الاختبارات
+        run: npm run test:guards
+
+      - name: سلامة التوثيق
+        # الروابط النسبية + مطابقة الأرقام المذكورة في التوثيق مع الكود
+        run: npm run test:docs
+
+      - name: مجموعة الاختبارات (56 اختبارًا)
+        run: npm test
+
+  # ─────────────────────────────────────────────────────────────
+  #  صورة Docker — هي ما يُنشر فعلًا على Railway/Render
+  # ─────────────────────────────────────────────────────────────
+  docker:
+    name: بناء صورة Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: بناء الصورة
+        run: docker build -t never-land:ci .
+
+      - name: التأكد أن الصورة تقلع وتخدم /healthz
+        # NODE_ENV=production مقصود: نتأكد أن بوابة SESSION_SECRET تعمل
+        # داخل الصورة نفسها، وأن السر يُمرَّر كمتغيّر بيئة لا مضمَّنًا.
+        run: |
+          SECRET="$(openssl rand -hex 48)"
+          docker run -d --rm --name nl-ci \
+            -e NODE_ENV=production \
+            -e SESSION_SECRET="$SECRET" \
+            -e DEMO_MODE=true \
+            -e RUN_BOT=false \
+            -p 3000:3000 never-land:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/healthz > /dev/null 2>&1; then
+              echo "✓ /healthz يرد بعد ${i} ثانية"
+              curl -fsS http://127.0.0.1:3000/healthz
+              docker stop nl-ci > /dev/null
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "✗ الخادم ما ردّش خلال 30 ثانية"
+          docker logs nl-ci
+          docker stop nl-ci > /dev/null || true
+          exit 1
+
+      - name: التأكد أن الصورة ترفض السر الافتراضي
+        # بلا SESSION_SECRET في الإنتاج ⇒ لازم تنهار، لا أن تقلع مكشوفة.
+        # نعتمد رمز الخروج + علامة ASCII ثابتة (لا نصًا عربيًا في grep).
+        run: |
+          set +e
+          out="$(docker run --rm \
+            -e NODE_ENV=production -e DEMO_MODE=false -e RUN_BOT=false \
+            never-land:ci 2>&1)"
+          code=$?
+          set -e
+          echo "$out"
+          if [ "$code" -eq 0 ]; then
+            echo "✗ الصورة قلعت بسر افتراضي — بوابة الأمان لا تعمل داخلها"
+            exit 1
+          fi
+          if ! printf '%s' "$out" | grep -q 'INSECURE_SESSION_SECRET'; then
+            echo "✗ انهارت لسبب آخر غير السر (رمز $code)"
+            exit 1
+          fi
+          echo "✓ الصورة ترفض الإقلاع بسر افتراضي (رمز $code + العلامة الصحيحة)"

@@ -108,7 +108,12 @@ function startWeb() {
     const { startServer } = require('./web/server');
     return startServer();
   } catch (err) {
-  console.error('[تنبيه] فشل تشغيل لوحة التحكم:', err.message);
+    /* رفض أمني صريح: لا نكمل بواجهة غير محمية — الخروج أفضل من انتحال حسابات */
+    if (err.code === 'INSECURE_SESSION_SECRET') {
+      console.error(err.message);
+      process.exit(1);
+    }
+    console.error('[تنبيه] فشل تشغيل لوحة التحكم:', err.message);
     return null;
   }
 }
@@ -123,6 +128,14 @@ function startWeb() {
 
   const botClient = runBot ? await startBot() : null;
   if (!runBot) console.log('[ملاحظة] تم تجاوز تشغيل البوت (--no-bot)');
+
+  /* فحص الإعدادات لازم يخدم دائمًا — حتى لو اشتغل الموقع وحده.
+     سابقًا كان validate() يُنادى داخل startBot() فقط، وبعد شرط
+     «ما في توكن ⇒ ارجع»، فأي نشر للموقع وحده (RUN_BOT=false أو بلا توكن)
+     كان يمرّ بدون أي تحذير على SESSION_SECRET الافتراضي. */
+  if (!botClient) {
+    for (const p of config.validate()) console.warn(`[تنبيه] ${p}`);
+  }
 
   // المزامنة الحقيقية: من البوت إن كان متّصلًا، وإلا عبر واجهة ديسكورد بالتوكن
   const sync = require('./sync');
