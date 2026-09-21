@@ -23,6 +23,40 @@ for (const suffix of ['', '-wal', '-shm']) {
 const db = require('../src/database');
 const { loadCommands, walk } = require('../src/handlers/commands');
 
+/* ==========================================================================
+ *  عزل بيئة الاختبارات الابنة
+ * ========================================================================
+ * هذه المجموعة تعدّل process.env (DEMO_MODE، DATABASE_PATH) وبعض
+ * الاختبارات المطلوبة داخل العملية تعدّلها هي أيضًا — dashboard-dom-test
+ * مثلًا يضبط PUBLIC_ACCESS و LOGIN_REQUIRED. و execFileSync يورّث البيئة
+ * كاملة، فتصل تلك القيم إلى الاختبارات الابنة وتغيّر سلوكها دون سبب ظاهر
+ * في الملف نفسه. هذا بالضبط ما كان يوقف المجموعة عند الاختبار 43.
+ *
+ * الحل: كل عملية ابنة تبدأ ببيئة منزوعة منها مفاتيح المشروع، ثم تضبط
+ * ما تحتاجه بنفسها داخل ملفها. النتيجة حتمية بغضّ النظر عن ترتيب
+ * الاختبارات أو ما فعله من سبقها.
+ * ======================================================================== */
+const PROJECT_ENV_KEYS = [
+  // مفاتيح الوصول والجلسات — الأخطر في التسريب
+  'PUBLIC_ACCESS', 'LOGIN_REQUIRED', 'REQUIRED_ROLE_ID', 'OWNER_USER_ID',
+  'SITE_ADMINS', 'SESSION_SECRET', 'ROLE_CACHE_SECONDS',
+  // مفاتيح التشغيل وقاعدة البيانات
+  'DEMO_MODE', 'DATABASE_PATH', 'DATABASE_DRIVER', 'DASHBOARD_URL',
+  'DASHBOARD_PORT', 'PORT', 'RESET_COMMANDS', 'DEVELOPER_IDS',
+  // أسرار حقيقية إن وُجدت في بيئة المطوّر
+  'DISCORD_TOKEN', 'CLIENT_ID', 'CLIENT_SECRET',
+];
+
+/**
+ * بيئة نظيفة لعملية ابنة.
+ * @param {object} [extra] مفاتيح تُضاف صراحةً لهذه الابنة فقط
+ */
+function childEnv(extra = {}) {
+  const env = { ...process.env };
+  for (const key of PROJECT_ENV_KEYS) delete env[key];
+  return { ...env, ...extra };
+}
+
 const fakeClient = { commands: new Map(), guilds: { cache: new Map() }, on() {}, once() {} };
 
 console.log('[اختبار] اختبار 1: تحميل الأوامر');
@@ -652,7 +686,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root7 = path7.join(__dirname, '..');
 
     // ١) ردود البوت بلا أي رابط موقع — والرابط يطلع بكلمة «نيفر» للمسجّلين فقط
-    const outHelp = execFileSync('node', [path7.join(root7, 'help-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outHelp = execFileSync('node', [path7.join(root7, 'help-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outHelp.includes('نيفر'), 'ما في إشارة لطريقة طلب رابط الموقع');
     assert.ok(outHelp.includes('بلا رابط'), 'شرط الرابط (تسجيل/رول) غير مُختبر');
     assert.ok(outHelp.includes('الرابط ظهر'), 'رابط الموقع ما ظهر للمسجّل صاحب الرول');
@@ -661,13 +695,13 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const cfg7 = require('../src/config');
     assert.strictEqual(cfg7.web.requiredRoleId, '1549364852433354792', 'معرّف الرول المطلوب غير مطابق');
     assert.strictEqual(cfg7.web.loginRequired, true, 'تأكيد الدخول غير مفعّل');
-    const outAccess = execFileSync('node', [path7.join(root7, 'access-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outAccess = execFileSync('node', [path7.join(root7, 'access-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     for (const reason of ['bot_offline', 'no_role', 'not_member']) {
       assert.ok(outAccess.includes(reason), `حالة ${reason} غير مُختبرة`);
     }
 
     // ٣) بوابة الدخول على مستوى HTTP
-    const outGate = execFileSync('node', [path7.join(root7, 'gate-test.js')], { cwd: root7, encoding: 'utf8' });
+    const outGate = execFileSync('node', [path7.join(root7, 'gate-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outGate.includes('302 /auth/login'), 'الزائر لا يُحوَّل لتسجيل الدخول');
     assert.ok(outGate.includes('role_required'), 'حماية الـAPI بالرول ناقصة');
     assert.ok(outGate.includes('الوصول مقيّد'), 'صفحة الوصول مقيّد ناقصة');
@@ -812,7 +846,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root11 = path11.join(__dirname, '..');
 
     // ١) الاختبار المستقل لمصدر السيرفرات
-    const outGuilds = execFileSync('node', [path11.join(root11, 'guilds-test.js')], { cwd: root11, encoding: 'utf8' });
+    const outGuilds = execFileSync('node', [path11.join(root11, 'guilds-test.js')], { cwd: root11, encoding: 'utf8', env: childEnv() });
     for (const needle of ['عضو عنده الرول فقط', 'مالك السيرفر', 'إدارة السيرفر', 'بلا تكرار', 'فحص الوصول']) {
       assert.ok(outGuilds.includes(needle), `حالة «${needle}» غير مُختبرة في قائمة السيرفرات`);
     }
@@ -1016,7 +1050,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root16 = path16.join(__dirname, '..');
 
     // ١) الاختبار المستقل الكامل
-    const out16 = execFileSync('node', [path16.join(root16, 'autoline-test.js')], { cwd: root16, encoding: 'utf8' });
+    const out16 = execFileSync('node', [path16.join(root16, 'autoline-test.js')], { cwd: root16, encoding: 'utf8', env: childEnv() });
     for (const needle of ['ملفات GIF', 'أُرسل مرفق صورة GIF', 'بلا حلقة', 'بديل تلقائي', 'احتياطي', 'معاينة اللوحة']) {
       assert.ok(out16.includes(needle), `حالة «${needle}» غير مُختبرة في الخط الفاصل`);
     }
@@ -1074,7 +1108,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root17 = path17.join(__dirname, '..');
 
     // ١) الاختبار المستقل الكامل (١٠ مجموعات)
-    const out17 = execFileSync('node', [path17.join(root17, 'leveling-test.js')], { cwd: root17, encoding: 'utf8' });
+    const out17 = execFileSync('node', [path17.join(root17, 'leveling-test.js')], { cwd: root17, encoding: 'utf8', env: childEnv() });
     for (const needle of ['الفترات', 'ثلاث مصادر خبرة منفصلة', 'حمايات التفاعل', 'السقف اليومي', 'الترقية', 'اللوحات', 'بيانات الترتيب', 'التصفير']) {
       assert.ok(out17.includes(needle), `حالة «${needle}» غير مُختبرة في نظام الخبرة`);
     }
@@ -1307,7 +1341,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ١) الاختبار العملي الكامل (٦ مجموعات: سجل، حظر، مشاهدة فقط، مالك فقط، حمايات، عودة)
     const { execFileSync } = require('node:child_process');
-    const out20 = execFileSync('node', [path20.join(root20, 'site-members-test.js')], { cwd: root20, encoding: 'utf8' });
+    const out20 = execFileSync('node', [path20.join(root20, 'site-members-test.js')], { cwd: root20, encoding: 'utf8', env: childEnv() });
     for (const needle of ['سجل الأعضاء', 'المالك فقط', 'المشاهدة فقط', 'الحظر', 'الحمايات', 'قطع الجلسة']) {
       assert.ok(out20.includes(needle), `حالة «${needle}» غير مُختبرة في لوحة الأعضاء`);
     }
@@ -1364,7 +1398,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
 
     // ٦) فحص الواجهة الفعلي (متصفح وهمي): القسم يظهر للمالك فقط مع أزرار التحكم
-    const out20b = execFileSync('node', [path20.join(root20, 'ui-site-members-test.js')], { cwd: root20, encoding: 'utf8' });
+    const out20b = execFileSync('node', [path20.join(root20, 'ui-site-members-test.js')], { cwd: root20, encoding: 'utf8', env: childEnv() });
     for (const needle of ['قسم «أعضاء الموقع» ظاهر؟ نعم', 'قسم «أعضاء الموقع» ظاهر؟ لا', 'حساب المالك محمي بلا أزرار؟ نعم', 'لا شيء']) {
       assert.ok(out20b.includes(needle), `فحص الواجهة ينقصه: ${needle}`);
     }
@@ -1399,7 +1433,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     let out37 = '';
     let timedOut37 = false;
     try {
-      out37 = execFileSync('node', [path37.join(root37, 'dashboard-layout-test.js')], { cwd: root37, encoding: 'utf8', timeout: 120000 });
+      out37 = execFileSync('node', [path37.join(root37, 'dashboard-layout-test.js')], { cwd: root37, encoding: 'utf8', timeout: 120000, env: childEnv() });
     } catch (err) {
       timedOut37 = err.code === 'ETIMEDOUT';
       out37 = String(err.stdout || '') + String(err.stderr || '');
@@ -1505,7 +1539,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي (١٣ مجموعة في اختبار المستويات)
     const { execFileSync } = require('node:child_process');
-    const out38 = execFileSync('node', [path38.join(root38, 'leveling-test.js')], { cwd: root38, encoding: 'utf8' });
+    const out38 = execFileSync('node', [path38.join(root38, 'leveling-test.js')], { cwd: root38, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١١) الخبرة الكتابية', '١٢) الخبرة الصوتية', '١٣) الحماية الذكية من السبام']) {
       assert.ok(out38.includes(needle), `الاختبار العملي ينقصه: ${needle}`);
     }
@@ -1574,7 +1608,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي (٦ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out39 = execFileSync('node', [path39.join(root39, 'autoreply-test.js')], { cwd: root39, encoding: 'utf8' });
+    const out39 = execFileSync('node', [path39.join(root39, 'autoreply-test.js')], { cwd: root39, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) التطبيع العربي', '٢) المطابقة', '٣) المتغيّرات', '٤) كل الرومات', '٥) الكولداون', '٦) حمايات']) {
       assert.ok(out39.includes(needle), `اختبار الردود ينقصه: ${needle}`);
     }
@@ -1655,7 +1689,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٧) الاختبار العملي الكامل (١٠ مجموعات: رؤوس · CSRF · تلويث · قصر الإعدادات · صلاحيات · سجل · نسخة · حمايات · حدّ طلبات · تقليم)
     const { execFileSync } = require('node:child_process');
-    const out40 = execFileSync('node', [path40.join(root40, 'security-test.js')], { cwd: root40, encoding: 'utf8' });
+    const out40 = execFileSync('node', [path40.join(root40, 'security-test.js')], { cwd: root40, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) رؤوس الأمان', '٢) منع CSRF', '٣) تلويث النموذج', '٤) قصر الإعدادات', '٥) الصلاحيات', '٦) سجل النشاط', '٧) النسخة الاحتياطية', '٨) حالة الحمايات', '٩) حدّ الطلبات', '١٠) التقليم']) {
       assert.ok(out40.includes(needle), `اختبار الحماية ينقصه: ${needle}`);
     }
@@ -1721,7 +1755,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٦) الاختبار العملي الكامل (١٠ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out41 = execFileSync('node', [path41.join(root41, 'text-commands-test.js')], { cwd: root41, encoding: 'utf8' });
+    const out41 = execFileSync('node', [path41.join(root41, 'text-commands-test.js')], { cwd: root41, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) أمر مباشر بلا بريفيكست', '٢) الأوامر الفرعية', '٣) الكلمات العربية', '٤) الاختصارات', '٥) الإيقاف والتشغيل', '٦) الصلاحيات', '٧) الكولداون مشيل', '٨) مكتبة الشرح', '٩) ', '١٠) التصويت']) {
       assert.ok(out41.includes(needle), `اختبار الأوامر النصية ينقصه: ${needle}`);
     }
@@ -1797,7 +1831,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٥) الاختبار العملي الكامل (٦ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out42 = execFileSync('node', [path42.join(root42, 'welcome-card-test.js')], { cwd: root42, encoding: 'utf8' });
+    const out42 = execFileSync('node', [path42.join(root42, 'welcome-card-test.js')], { cwd: root42, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١-ب) إطار Never Land', '١) صورة الترحيب', '٢) الوضع الافتراضي', '٣) وضع الإطار', '٤) أنواع الصور', '٥) المتغيّرات', '٦) معاينة اللوحة']) {
       assert.ok(out42.includes(needle), `اختبار الترحيب ينقصه: ${needle}`);
     }
@@ -1848,7 +1882,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٥) الاختبار العملي (٥ مجموعات)
     const { execFileSync } = require('node:child_process');
-    const out43 = execFileSync('node', [path43.join(root43, 'command-audience-test.js')], { cwd: root43, encoding: 'utf8' });
+    const out43 = execFileSync('node', [path43.join(root43, 'command-audience-test.js')], { cwd: root43, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) الكتالوج', '٢) ديسكورد', '٣) /help', '٤) الشات', '٥) اللوحة']) {
       assert.ok(out43.includes(needle), `اختبار الجمهور ينقصه: ${needle}`);
     }
@@ -1906,7 +1940,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٤) الاختبار العملي (٣ أقسام)
     const { execFileSync } = require('node:child_process');
-    const out44 = execFileSync('node', [path44.join(root44, 'live-link-test.js')], { cwd: root44, encoding: 'utf8' });
+    const out44 = execFileSync('node', [path44.join(root44, 'live-link-test.js')], { cwd: root44, encoding: 'utf8', env: childEnv() });
     for (const needle of ['١) الربط الحيّ', '٢) «طير»', 'بطاقة الأمر: Command: ban', '٣) ردّ على رسالة شخص', '٤) رابط الموقع']) {
       assert.ok(out44.includes(needle), `اختبار الربط ينقصه: ${needle}`);
     }
@@ -1948,7 +1982,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ٤) الاختبار العملي: ١٠ مجموعات + مجموعة القواعد الجديدة
     const { execFileSync } = require('node:child_process');
-    const out45 = execFileSync('node', [path45.join(root45, 'text-commands-test.js')], { cwd: root45, encoding: 'utf8' });
+    const out45 = execFileSync('node', [path45.join(root45, 'text-commands-test.js')], { cwd: root45, encoding: 'utf8', env: childEnv() });
     for (const needle of ['٤) الاختصارات بأي لغة', '٤ب) قواعد الأمر', '٤ج) كلمة وحدة تكفي', '١٠) التصويت']) {
       assert.ok(out45.includes(needle), `اختبار الأوامر ينقصه: ${needle}`);
     }
@@ -1999,7 +2033,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const f2=footers(p2)[0];",
       "if(f2 && /Never Land/.test(f2.text)) throw new Error('اسم المشروع لسا يطلع في الفوتر');",
       "console.log('OK');",
-    ].join('')], { cwd: root46, encoding: 'utf8' });
+    ].join('')], { cwd: root46, encoding: 'utf8', env: childEnv() });
     assert.ok(outPanel.includes('OK'), 'فحص فوتر بنل التذاكر فشل');
 
     /* ما في أي ملف يكتب اسم المشروع في تذييل */
@@ -2024,7 +2058,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const wanted = JSON.stringify(e.base({title:'x',footer:'نص مطلوب'}).data.footer) === JSON.stringify({text:'نص مطلوب'});",
       "if(!wanted) throw new Error('التذييل المطلوب ما ظهر');",
       "console.log('OK');",
-    ].join('')], { cwd: root46, encoding: 'utf8' });
+    ].join('')], { cwd: root46, encoding: 'utf8', env: childEnv() });
     assert.ok(out46.includes('OK'), 'الفحص العملي للتذييل فشل');
 
   console.log('  [تم] كل الردود بلا تذييل «Never Land • لوحة تحكم وبوت متكامل» — والتذييل صار بس لما ينطلب صراحةً');
@@ -2058,7 +2092,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "const cl2=t.ticketControls('7',true,cfg2).toJSON().components[0];",
       "if(cl2.label!=='معك'||cl2.emoji!==undefined||cl2.disabled!==true) throw new Error('تخصيص زر ما بعد الاستلام ما اشتغل');",
       "console.log('OK');",
-    ].join('')], { cwd: root47, encoding: 'utf8' });
+    ].join('')], { cwd: root47, encoding: 'utf8', env: childEnv() });
     assert.ok(out47.includes('OK'), 'الفحص العملي لأزرار التذاكر فشل');
 
     /* تنظيف اللوحات القديمة: يحذف لوحة التذاكر القديمة ورسالة التعليمات القديمة فقط */
@@ -2073,7 +2107,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "if(p.length!==1||p[0].content||p[0].embeds) throw new Error('اللوحة مش نظيفة');",
       "if(p[0].files.length!==1||!/\\.png$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة PNG مرفقة');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
-    ].join('')], { cwd: root47, encoding: 'utf8' });
+    ].join('')], { cwd: root47, encoding: 'utf8', env: childEnv() });
     assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
 
     /* الأمر + اللوحة + الشرح */
@@ -2133,7 +2167,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       " if(cand.length!==1||cand[0]!==kick.id) throw new Error('ترتيب قنوات الحدث غلط');",
       " console.log('OK');",
       "})().catch(e=>{console.error(e.message);process.exit(1);});",
-    ].join('')], { cwd: root48, encoding: 'utf8' });
+    ].join('')], { cwd: root48, encoding: 'utf8', env: childEnv() });
     assert.ok(out48.includes('OK'), 'الفحص العملي لتوجيه اللوقات فشل');
 
     const logCmd48 = read48('src/commands/config/logs.js');
@@ -2197,7 +2231,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "assert.strictEqual(r.decorate(mp2,null)===mp2,true,'MessagePayload انكسر');",
       "console.log('OK-BODY');})();",
       "console.log('OK');",
-    ].join('')], { cwd: root49, encoding: 'utf8' });
+    ].join('')], { cwd: root49, encoding: 'utf8', env: childEnv() });
     assert.ok(out49.includes('OK'), 'فحص محرّك الردود فشل');
 
     const cfg49 = require(path49.join(root49, 'src/config'));
@@ -2225,7 +2259,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root50 = path50.join(__dirname, '..');
     const read50 = (rel) => fs50.readFileSync(path50.join(root50, rel), 'utf8');
 
-    const out50 = execFileSync('node', ['moderation-test.js'], { cwd: root50, encoding: 'utf8' });
+    const out50 = execFileSync('node', ['moderation-test.js'], { cwd: root50, encoding: 'utf8', env: childEnv() });
     assert.ok(out50.includes('كل الفحوص نجحت'), 'اختبار المودريشن فشل');
 
     /* الحظر يشتغل بالآيدي للعضو اللي برّا السيرفر (guild.bans.create) */
@@ -2265,11 +2299,11 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root51 = path51.join(__dirname, '..');
     const read51 = (rel) => fs51.readFileSync(path51.join(root51, rel), 'utf8');
 
-    const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8' });
+    const out51 = execFileSync('node', ['f42-test.js'], { cwd: root51, encoding: 'utf8', env: childEnv() });
     assert.ok(out51.includes('f42 كامل'), 'اختبار f42 فشل');
 
     /* أوامر الشات (قفل · احذر · امسح · بان) لازم تطلع نص عادي مو إمبد */
-    const outTxt = execFileSync('node', ['f42-text-e2e.js'], { cwd: root51, encoding: 'utf8' });
+    const outTxt = execFileSync('node', ['f42-text-e2e.js'], { cwd: root51, encoding: 'utf8', env: childEnv() });
     assert.ok(outTxt.includes('أوامر الشات كلها نص عادي'), 'أوامر الشات ما صارت نص');
     assert.ok(read51('src/systems/textCommands.js').includes('wrapInteraction(fake)'), 'أوامر الشات ما صارت تمر بمحرّك شكل الردود');
 
@@ -2321,7 +2355,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root52 = path52.join(__dirname, '..');
     const read52 = (rel) => fs52.readFileSync(path52.join(root52, rel), 'utf8');
 
-    const out52 = execFileSync('node', ['command-room-test.js'], { cwd: root52, encoding: 'utf8' });
+    const out52 = execFileSync('node', ['command-room-test.js'], { cwd: root52, encoding: 'utf8', env: childEnv() });
     assert.ok(out52.includes('روم الأوامر جاهز'), 'اختبار روم الأوامر فشل');
 
     /* الروم + النص + المدة + الصورة */
@@ -2357,7 +2391,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root53 = path53.join(__dirname, '..');
     const read53 = (rel) => fs53.readFileSync(path53.join(root53, rel), 'utf8');
 
-    const out53 = execFileSync('node', ['tickets-panel-image-test.js'], { cwd: root53, encoding: 'utf8' });
+    const out53 = execFileSync('node', ['tickets-panel-image-test.js'], { cwd: root53, encoding: 'utf8', env: childEnv() });
     assert.ok(out53.includes('لوحة التذاكر بالصورة'), 'اختبار لوحة التذاكر بالصورة فشل');
 
     /* الإعدادات الافتراضية */
@@ -2405,7 +2439,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root54 = path54.join(__dirname, '..');
     const read54 = (rel) => fs54.readFileSync(path54.join(root54, rel), 'utf8');
 
-    const out54 = execFileSync('node', ['welcome-frame-test.js'], { cwd: root54, encoding: 'utf8' });
+    const out54 = execFileSync('node', ['welcome-frame-test.js'], { cwd: root54, encoding: 'utf8', env: childEnv() });
     assert.ok(out54.includes('ترحيب إطار Never Land جاهز'), 'اختبار إطار الترحيب فشل');
 
     const cfg54 = require(path54.join(root54, 'src', 'config')).defaults.welcome;
@@ -2452,7 +2486,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root55 = path55.join(__dirname, '..');
     const read55 = (rel) => fs55.readFileSync(path55.join(root55, rel), 'utf8');
 
-    const out55 = execFileSync('node', ['role-command-test.js'], { cwd: root55, encoding: 'utf8' });
+    const out55 = execFileSync('node', ['role-command-test.js'], { cwd: root55, encoding: 'utf8', env: childEnv() });
     assert.ok(out55.includes('أمر الرتب جاهز وشغّال'), 'اختبار أمر الرتب فشل');
 
     const catalog55 = require(path55.join(root55, 'src', 'data', 'commandCatalog'));
@@ -2482,7 +2516,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const root56 = path56.join(__dirname, '..');
     const read56 = (rel) => fs56.readFileSync(path56.join(root56, rel), 'utf8');
 
-    const out56 = execFileSync('node', ['presence-test.js'], { cwd: root56, encoding: 'utf8' });
+    const out56 = execFileSync('node', ['presence-test.js'], { cwd: root56, encoding: 'utf8', env: childEnv() });
     assert.ok(out56.includes('حالة البوت جاهزة'), 'اختبار حالة البوت فشل');
 
     const config56 = require(path56.join(root56, 'src', 'config'));

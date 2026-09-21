@@ -25,6 +25,11 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 async function run() {
   process.env.DATABASE_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nl-live-')), 'live.db');
+  /* هذا الاختبار يفتح /api/events (SSE) بلا جلسة دخول، فهو يحتاج وضع
+     القراءة العامة. نُصرّح به هنا بدل الاعتماد على ما قد تسرّبه بيئة
+     المجموعة — tests/smoke.js يشغّل هذه الملفات ببيئة منزوعة المفاتيح. */
+  process.env.PUBLIC_ACCESS = 'true';
+  process.env.LOGIN_REQUIRED = 'false';
   const db = require('./src/database');
   const live = require('./src/lib/live');
   const suggestions = require('./src/systems/suggestions');
