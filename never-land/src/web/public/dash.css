@@ -1047,3 +1047,8 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
   display: flex;
   gap: 8px;
 }
+
+/* أنيميشن أعمدة مخطط النشاط (تكبر من الأسفل) */
+.d-chart rect{transform-box:fill-box;transform-origin:bottom;animation:nlBarGrow .5s ease-out both}
+.d-chart rect.bar-join{animation-delay:.12s}
+@keyframes nlBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}

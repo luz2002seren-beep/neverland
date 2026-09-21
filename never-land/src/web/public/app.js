@@ -639,27 +639,48 @@ function setGroupLogs(keys, value) {
 }
 
 function buildChart() {
-  const wrap = el('div', { style: 'padding:6px 2px' });
+  const wrap = el('div', { class: 'd-chart', style: 'padding:6px 2px' });
   const daily = state.daily || [];
   if (!daily.length) return el('div', { class: 'd-empty', html: `<span class="big">${ic('activity', 28)}</span>لا توجد بيانات نشاط بعد.` });
   const max = Math.max(1, ...daily.map((d) => Math.max(d.messages || 0, d.joins || 0)));
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${daily.length * 34} 120`);
   svg.setAttribute('style', 'width:100%;height:150px');
   daily.forEach((d, i) => {
-    const h = Math.round(((d.messages || 0) / max) * 100);
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', String(i * 34 + 6));
-    rect.setAttribute('y', String(110 - h));
-    rect.setAttribute('width', '18');
-    rect.setAttribute('height', String(h));
-    rect.setAttribute('rx', '5');
-    rect.setAttribute('fill', '#5865f2');
-    rect.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'title')).textContent = `${d.day}: ${d.messages || 0} رسالة • ${d.joins || 0} انضمام`;
-    svg.appendChild(rect);
+    const hm = Math.max(2, Math.round(((d.messages || 0) / max) * 100));
+    const hj = Math.max(2, Math.round(((d.joins || 0) / max) * 100));
+    const title = document.createElementNS(NS, 'title');
+    title.textContent = `${d.day}: ${d.messages || 0} رسالة • ${d.joins || 0} انضمام`;
+    const rm = document.createElementNS(NS, 'rect');
+    rm.setAttribute('x', String(i * 34 + 4));
+    rm.setAttribute('y', String(110 - hm));
+    rm.setAttribute('width', '13');
+    rm.setAttribute('height', String(hm));
+    rm.setAttribute('rx', '4');
+    rm.setAttribute('fill', '#5865f2');
+    rm.setAttribute('class', 'bar-msg');
+    rm.appendChild(title.cloneNode(true));
+    const rj = document.createElementNS(NS, 'rect');
+    rj.setAttribute('x', String(i * 34 + 19));
+    rj.setAttribute('y', String(110 - hj));
+    rj.setAttribute('width', '13');
+    rj.setAttribute('height', String(hj));
+    rj.setAttribute('rx', '4');
+    rj.setAttribute('fill', '#23a55a');
+    rj.setAttribute('class', 'bar-join');
+    rj.appendChild(title);
+    svg.appendChild(rm);
+    svg.appendChild(rj);
   });
   wrap.appendChild(svg);
-  wrap.appendChild(el('div', { class: 'muted', style: 'font-size:.8rem;margin-top:4px', text: 'الأعمدة = عدد الرسائل اليومية' }));
+  wrap.appendChild(
+    el('div', {
+      class: 'muted',
+      style: 'font-size:.8rem;margin-top:6px;display:flex;gap:16px;align-items:center',
+      html: `<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:#5865f2"></i> الرسائل</span><span style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:#23a55a"></i> الأعضاء الجدد</span>`,
+    }),
+  );
   return wrap;
 }
 
