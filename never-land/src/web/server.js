@@ -130,7 +130,7 @@ function createApp() {
   // ترويسات التخزين المؤقّت:
   //   • أصول الواجهة (CSS/JS) تُحمَّل مع بصمة نسخة في الرابط ⇒ تخزين طويل آمن
   //   • صفحات HTML بلا تخزين أبدًا حتى يرى الزائر الروابط الجديدة فورًا
-  const VERSIONED_ASSETS = new Set(['style.css', 'dash.css', 'app.js', 'icons.js']);
+  const VERSIONED_ASSETS = new Set(['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js']);
   app.use((req, res, next) => {
     const base = path.basename(req.path || '');
     if (VERSIONED_ASSETS.has(base)) {

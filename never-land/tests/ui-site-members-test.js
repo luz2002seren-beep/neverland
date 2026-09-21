@@ -74,10 +74,16 @@ async function render({ isOwner }) {
     },
   });
 
-  // نحمّل نفس ملفات الموقع بالترتيب نفسه
-  for (const file of ['icons.js', 'app.js']) {
+  // نحمّل نفس ملفات الموقع بالترتيب نفسه — كوسوم <script> حقيقية.
+  // (مهم: dom.window.eval يُنشئ نطاقًا معجميًا مؤقتًا لكل استدعاء، فـ const
+  //  المعلَنة داخله تختفي بعده ولا تراها الملفات التالية. المتصفح الحقيقي
+  //  يتقاسم البيئة المعجمية العامة بين كل الوسوم، وهذا بالضبط ما نحاكاه هنا —
+  //  ولهذا التقسيم app.js / app-sections.js لا يُختبر صح إلا بهذه الطريقة.)
+  for (const file of ['icons.js', 'app.js', 'app-sections.js']) {
     const code = fs.readFileSync(path.join(publicDir, file), 'utf8');
-    dom.window.eval(code);
+    const s = dom.window.document.createElement('script');
+    s.textContent = code;
+    dom.window.document.body.appendChild(s);
   }
   dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
   await new Promise((r) => setTimeout(r, 900));

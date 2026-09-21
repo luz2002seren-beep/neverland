@@ -147,7 +147,7 @@ function fakeClient({ fail = false } = {}) {
     assert.ok(api.includes("router.post('/guilds/:guildId/presence'"), 'مسار تعديل الحالة ناقص من الموقع');
     assert.ok(api.includes('presence.applied(client)'), 'التشخيص ما يعرض الحالة اللي شافها ديسكورد');
 
-    const app = read('src/web/public/app.js');
+    const app = read('src/web/public/app.js') + read('src/web/public/app-sections.js');
     for (const key of ["'presence.name'", "'presence.type'", "'presence.url'", "'presence.status'", '/presence`']) {
       assert.ok(app.includes(key), `اللوحة ينقصها ${key}`);
     }

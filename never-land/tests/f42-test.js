@@ -443,7 +443,7 @@ async function main() {
     const ticketsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'systems', 'tickets.js'), 'utf8');
     assert.ok(/openTitle/.test(ticketsSrc) && /openDescription/.test(ticketsSrc), 'رسالة الفتح ما صارت تُبنى من الإعدادات');
     assert.ok(/openFooter/.test(ticketsSrc) && /openFields/.test(ticketsSrc), 'التذييل/الحقول ما صارت قابلة للتعديل');
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const key of ['tickets.openTitle', 'tickets.openDescription', 'tickets.openIntro', 'tickets.openFields', 'tickets.openFooter']) {
       assert.ok(appSrc.includes(key), `حقل ${key} ناقص من اللوحة`);
     }
@@ -455,7 +455,7 @@ async function main() {
 
   console.log('\n═══ ١٠) صفحة «ردود أوامر» في الموقع + مسار الـ API ═══');
   {
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(/commandReplies: \{/.test(appSrc), 'قسم «ردود أوامر» ناقص من اللوحة');
     assert.ok(/label: 'ردود أوامر'/.test(appSrc), 'اسم الصفحة لازم يكون «ردود أوامر»');
     assert.ok(/commandReplies: 'messageEdit'/.test(appSrc), 'أيقونة الصفحة ناقصة');

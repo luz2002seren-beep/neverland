@@ -231,7 +231,7 @@ async function main() {
     assert.ok(apiSrc.includes('welcome: (() => {'), 'حالة الترحيب ناقصة من /api/status');
     assert.ok(apiSrc.includes('memberId'), 'اختيار العضو في الاختبار ناقص');
 
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const key of ['welcome.frameImage', 'welcome.frameCircle.cx', 'welcome.frameCircle.cy', 'welcome.frameCircle.r', "value: 'frame'", 'أرسل ترحيب تجريبي']) {
       assert.ok(appSrc.includes(key), `الموقع ينقصه ${key}`);
     }
@@ -348,7 +348,7 @@ async function main() {
     const src = fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'systems', 'welcome.js'), 'utf8');
     assert.ok(src.includes('sendWelcomeMessages') && /handleMemberAdd[\s\S]*sendWelcomeMessages/.test(src), 'دخول العضو لازم يرسل الرسالتين');
     assert.ok(/sendTestWelcome[\s\S]*sendWelcomeMessages/.test(src), 'الاختبار التجريبي لازم يرسل الرسالتين');
-    const appSrc = fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const key of ['welcome.imageFirst', 'welcome.inviterMention', 'welcome.publicInviterId', "'welcome.publicInviteCodes'", 'welcome.emojiFallback']) {
       assert.ok(appSrc.includes(key), `الموقع ينقصه ${key}`);
     }

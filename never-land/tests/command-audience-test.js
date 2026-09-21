@@ -184,7 +184,7 @@ async function run() {
   assert.ok(snapMember.items.every((i) => i.audience === 'member'), 'أمر إدارة تسرّب لغير الإداري');
   assert.ok(snapAdmin.items.every((i) => i.audienceBadge), 'وسم الجمهور ناقص في اللوحة');
 
-  const appSrc = read('src/web/public/app.js');
+  const appSrc = read('src/web/public/app.js') + read('src/web/public/app-sections.js');
   for (const needle of ['أوامر الأعضاء', 'أوامر الإدارة', 'audiences', 'audienceBadge', 'cmd-note']) {
     assert.ok(appSrc.includes(needle), `واجهة اللوحة ينقصها ${needle}`);
   }

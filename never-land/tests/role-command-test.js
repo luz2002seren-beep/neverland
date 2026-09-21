@@ -400,7 +400,7 @@ function makeWorld({ botPosition = 50, botPermissions = [PermissionFlagsBits.Man
     const events = read('src/events/messageCreate.js');
     assert.ok(/textCommands|handleMessage/.test(events), 'الشات لازم يمرّ على نظام الأوامر بلا بريفيكست');
 
-    const app = read('src/web/public/app.js');
+    const app = read('src/web/public/app.js') + read('src/web/public/app-sections.js');
     const apiSrc = read('src/web/routes/api.js');
     assert.ok(apiSrc.includes('catalog.COMMANDS'), 'الموقع لازم يقرأ الكتالوج (فيظهر الأمر بصفحة الأوامر وردود اوامر)');
     assert.ok(app.includes('commandReplies'), 'صفحة «ردود اوامر» ناقصة');

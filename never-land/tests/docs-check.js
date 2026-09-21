@@ -90,7 +90,7 @@ function checkNumbers() {
   );
 
   /* أقسام اللوحة: نعدّ مفاتيح SECTIONS على العمق الأول فقط */
-  const app = fs.readFileSync(path.join(ROOT, 'src', 'web', 'public', 'app.js'), 'utf8');
+  const app = (fs.readFileSync(path.join(ROOT, 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
   const start = app.indexOf('const SECTIONS = {');
   assert.ok(start > -1, 'ما لقيتش const SECTIONS في app.js');
   let depth = 0;

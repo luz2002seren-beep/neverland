@@ -238,7 +238,7 @@ async function main() {
 
   console.log('\n═══ ٥) اللوحة + الـ API ═══');
   {
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     assert.ok(/commandRoom: \{/.test(appSrc), 'قسم «روم الأوامر» ناقص من اللوحة');
     assert.ok(/label: 'روم الأوامر'/.test(appSrc), 'اسم قسم الروم غلط');
     for (const key of ['commandRoom.enabled', 'commandRoom.channelId', 'commandRoom.intervalSeconds', 'commandRoom.text', 'commandRoom.image']) {

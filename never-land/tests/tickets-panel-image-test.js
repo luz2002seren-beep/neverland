@@ -366,7 +366,7 @@ async function main() {
     const cmdSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'config', 'tickets.js'), 'utf8');
     assert.ok(/ensurePanel/.test(cmdSrc), 'أمر /tickets panel ما صار يستخدم مسار الصورة');
 
-    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = (fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
     for (const key of ['tickets.panelImage', 'tickets.panelImageOnly', 'tickets.panelFooterImage', 'tickets.panelPlaceholder', 'tickets.panelChannelId', 'tickets.panelAutoPost', 'tickets.openImage', 'tickets.openImageOnly']) {
       assert.ok(appSrc.includes(key), `حقل ${key} ناقص من الموقع`);
     }
