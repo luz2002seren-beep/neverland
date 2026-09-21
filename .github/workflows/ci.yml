@@ -55,6 +55,10 @@ jobs:
         # اختبار انحدار لثغرة SESSION_SECRET ولعزل بيئة الاختبارات
         run: npm run test:guards
 
+      - name: سلامة التوثيق
+        # الروابط النسبية + مطابقة الأرقام المذكورة في التوثيق مع الكود
+        run: npm run test:docs
+
       - name: مجموعة الاختبارات (56 اختبارًا)
         run: npm test
 
