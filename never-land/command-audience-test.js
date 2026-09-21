@@ -202,10 +202,20 @@ async function run() {
   /*
    * المسار الحقيقي: زائر بلا تسجيل دخول لازم يشوف أوامر الأعضاء فقط.
    * نطفي وضع العرض لأنّه يمنح صلاحية تعديل تلقائيًا (وهو وضع تجربة محلي فقط).
+   *
+   * ونثبّت وضع الوصول أيضًا: بعض اختبارات اللوحة (dashboard-dom-test وغيرها)
+   * تعدّل process.env.PUBLIC_ACCESS/LOGIN_REQUIRED في نفس العملية، و tests/smoke.js
+   * يشغّل هذا الملف بعملية ابنة ترث تلك البيئة. بلا تثبيت، الوصول العام للقراءة
+   * (PUBLIC_ACCESS=true + LOGIN_REQUIRED=false) يخلّي GET /api/commands يرجّع 200
+   * فيفشل التأكيد هنا رغم أنّ أوامر الإدارة تظل محجوبة فعلًا.
    */
   const config = require('./src/config');
   const demoWas = config.web.demoMode;
+  const publicWas = config.web.publicAccess;
+  const loginWas = config.web.loginRequired;
   config.web.demoMode = false;
+  config.web.publicAccess = false;
+  config.web.loginRequired = true;
 
   const http = require('node:http');
   const web = require('./src/web/server');
@@ -230,6 +240,8 @@ async function run() {
     assert.strictEqual(forMember.counts.hiddenFromViewer, 20, 'عدد المحجوب لمشاهد بلا صلاحية غير صحيح');
   } finally {
     config.web.demoMode = demoWas;
+    config.web.publicAccess = publicWas;
+    config.web.loginRequired = loginWas;
     server.close();
   }
 
