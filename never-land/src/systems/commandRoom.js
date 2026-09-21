@@ -32,7 +32,7 @@ const DEFAULTS = () => ({
   channelId: config.commandRoom?.channelId || null,
   text: config.commandRoom?.text || 'مرحبا بكم بسيرفر Never Land — هذا روم مخصص لاستخدام الأوامر وسيتم تنظيفه كل 60 ثانية.',
   intervalSeconds: Math.max(15, Number(config.commandRoom?.intervalSeconds) || 60),
-  image: config.commandRoom?.image || 'src/web/public/assets/commands-room.png',
+  image: config.commandRoom?.image || 'src/web/public/assets/commands-room.webp',
   pin: config.commandRoom?.pin === true,
   /* إعادة النشر: نحذف الرسالة ونبعت وحدة جديدة كل دورة (بلا «تم التعديل») */
   repost: config.commandRoom?.repost !== false,

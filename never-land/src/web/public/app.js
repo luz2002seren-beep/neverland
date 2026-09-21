@@ -1873,7 +1873,7 @@ const SECTIONS = {
       const paint = () => {
         const previewBox = el('div', { class: 'd-sample-row new' });
         const img = el('img', {
-          src: '/assets/commands-room.png',
+          src: '/assets/commands-room.webp',
           alt: 'صورة روم الأوامر',
           style: 'max-width:100%;border-radius:12px;border:1px solid var(--line)',
         });
@@ -2559,7 +2559,7 @@ const SECTIONS = {
         panelPreview.textContent = '';
         const hero = getPath('tickets.panelImage');
         const foot = getPath('tickets.panelFooterImage');
-        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'tickets-panel.png'));
+        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'tickets-panel-v5.webp'));
         if (foot) imageBox(panelPreview, 'الخط/الصورة أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
         if (!hero && !foot) panelPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صور محفوظة — اللوحة تنزل نصية.' }));
       };
@@ -2568,7 +2568,7 @@ const SECTIONS = {
       const paintOpenPreview = () => {
         openPreview.textContent = '';
         const openImg = getPath('tickets.openImage');
-        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel.png'));
+        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel-v5.webp'));
         else openPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صورة — الرسالة تنزل نصية.' }));
       };
       paintOpenPreview();

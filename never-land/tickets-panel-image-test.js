@@ -41,7 +41,7 @@ const BOT = '800000000000000099';
 const PANEL_CHANNEL = '800000000000000111';
 const OTHER_CHANNEL = '800000000000000222';
 
-const HERO = 'src/web/public/assets/tickets-panel.png';
+const HERO = 'src/web/public/assets/tickets-panel-v5.webp';
 const FOOTER = 'src/web/public/assets/tickets-panel-footer.webp'; // نسخة قديمة (للتنظيف فقط)
 
 /** رسالة وهمية */
@@ -95,26 +95,57 @@ const resetTickets = (patch = {}) => {
 };
 
 async function main() {
-  console.log('\n═══ ١) صورة اللوحة: PNG بخلفية شفافة فعلًا ═══');
+  console.log('\n═══ ١) صورة اللوحة: صورة بخلفية شفافة فعلًا ═══');
   {
     const full = path.join(__dirname, HERO);
     assert.ok(fs.existsSync(full), `الصورة ناقصة: ${HERO}`);
     const buffer = fs.readFileSync(full);
-    /* PNG: التوقيع + نوع اللون من IHDR (6 = RGBA = فيها قناة شفافية) */
-    assert.strictEqual(buffer.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'الملف ليس PNG');
-    assert.strictEqual(buffer[25], 6, 'الصورة بلا قناة شفافية (لازم RGBA) — يعني الخلفية السوداء ترجع');
+
+    /* نتعرّف على الصيغة من التوقيع، ثم نتحقق من قناة الشفافية بأسلوبها.
+       المقصود الحقيقي: الصورة ما تكونش بخلفية سوداء — أي أن فيها شفافية فعلًا. */
+    const isPng = buffer.subarray(0, 8).toString('hex') === '89504e470d0a1a0a';
+    const isWebp =
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+    assert.ok(isPng || isWebp, `الصورة ليست PNG ولا WebP (توقيع: ${buffer.subarray(0, 4).toString('hex')})`);
+
+    if (isPng) {
+      /* PNG: نوع اللون في IHDR — 6 يعني RGBA */
+      assert.strictEqual(buffer[25], 6, 'الصورة بلا قناة شفافية (لازم RGBA) — يعني الخلفية السوداء ترجع');
+    } else {
+      /* WebP: chunk VP8X وراية الشفافية في البايت الأول من الرايات (bit 4) */
+      assert.strictEqual(buffer.subarray(12, 16).toString('ascii'), 'VP8X', 'WebP بلا ترويسة VP8X');
+      assert.strictEqual((buffer[20] >> 4) & 1, 1, 'WebP بلا قناة شفافية — يعني الخلفية السوداء ترجع');
+    }
     assert.ok(buffer.length > 50000, 'الصورة صغيرة بشكل غير متوقّع');
 
-    /* ما بقيت أي نسخة قديمة (سوداء/خط زخرفي) داخل المشروع */
-    for (const old of ['tickets-panel.webp', 'tickets-panel-footer.webp']) {
+    /* الدليل القاطع: نفكّ الصورة ونتأكد أن فيها بكسلات شفافة فعلًا */
+    const { loadImage, createCanvas } = require('@napi-rs/canvas');
+    const img = await loadImage(buffer);
+    const canvas = createCanvas(img.width, img.height);
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const pixels = ctx.getImageData(0, 0, img.width, img.height).data;
+    let transparent = 0;
+    for (let i = 3; i < pixels.length; i += 4) if (pixels[i] < 10) transparent += 1;
+    assert.ok(transparent > 0, 'الصورة معتمة كاملة — الشفافية ضاعت');
+
+    /* ما بقيت أي نسخة قديمة (سوداء/خط زخرفي/PNG ما قبل WebP) داخل المشروع */
+    for (const old of ['tickets-panel.webp', 'tickets-panel-footer.webp', 'tickets-panel.png']) {
       assert.ok(!fs.existsSync(path.join(__dirname, 'src', 'web', 'public', 'assets', old)), `نسخة قديمة لسا موجودة: ${old}`);
     }
     assert.strictEqual(tickets.DEFAULT_PANEL_IMAGE, HERO, 'مسار صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(require(path.join(__dirname, 'src', 'config')).defaults.tickets.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي');
     const names = tickets.panelImageNames({ panelImage: HERO, panelFooterImage: '' });
-    assert.ok(names.includes('tickets-panel.png'), 'اسم الصورة الجديدة ناقص');
-    assert.ok(names.includes('tickets-panel.webp') && names.includes('tickets-panel-footer.webp'), 'أسماء النسخ القديمة ناقصة (لازم تتنظّف من الرومات)');
-    ok('صورة اللوحة PNG بخلفية شفافة (RGBA) · بلا خط زخرفي · وأسماء النسخ القديمة معروفة للتنظيف');
+    assert.ok(names.includes('tickets-panel-v5.webp'), 'اسم الصورة الجديدة ناقص');
+    assert.ok(
+      names.includes('tickets-panel.webp') &&
+        names.includes('tickets-panel-footer.webp') &&
+        names.includes('tickets-panel.png'),
+      'أسماء النسخ القديمة ناقصة (لازم تتنظّف من الرومات)',
+    );
+    const ratio = ((transparent / (pixels.length / 4)) * 100).toFixed(1);
+    ok(`صورة اللوحة ${isPng ? 'PNG' : 'WebP'} بخلفية شفافة (${ratio}% بكسلات شفافة) · بلا خط زخرفي · وأسماء النسخ القديمة معروفة للتنظيف`);
   }
 
   console.log('\n═══ ٢) اللوحة الافتراضية: صورة + قائمة (بلا نص) ═══');
@@ -136,9 +167,9 @@ async function main() {
     assert.deepStrictEqual(select.options.map((o) => o.data.value), ['support', 'verify', 'gift', 'staff'], 'ترتيب الأنواع خطأ');
 
     /* لو حبّ المدير يرجّع خط/صورة تحت القائمة — لسا مدعومة */
-    const withFooter = tickets.buildPanelPayloads({ tickets: { ...settings.tickets, panelFooterImage: 'src/web/public/assets/commands-room.png' } }, { id: GUILD, iconURL: () => null });
+    const withFooter = tickets.buildPanelPayloads({ tickets: { ...settings.tickets, panelFooterImage: 'src/web/public/assets/commands-room.webp' } }, { id: GUILD, iconURL: () => null });
     assert.strictEqual(withFooter.length, 2, 'الخط/الصورة الاختيارية تحت القائمة ما اشتغلت');
-    assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['commands-room.png'], 'ملف الخط الاختياري خطأ');
+    assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['commands-room.webp'], 'ملف الخط الاختياري خطأ');
     ok('اللوحة صورة شفافة واحدة (بلا عنوان/وصف/تذييل) + قائمة «اختر القائمة المناسبة لك» بـ4 أنواع بوصف — وبلا خط تحتها');
   }
 
@@ -167,8 +198,8 @@ async function main() {
     const base = { ...db.getGuildSettings(GUILD).tickets, panelImage: HERO, panelFooterImage: '', panelMode: 'select' };
     const sig = tickets.panelSignature(base);
     assert.strictEqual(sig, tickets.panelSignature({ ...base }), 'البصمة لازم تكون ثابتة لو ما تغيّر شي');
-    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/commands-room.png' }), 'تغيير الصورة لازم يغيّر البصمة');
-    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: 'src/web/public/assets/commands-room.png' }), 'إضافة خط تحت القائمة لازم يغيّر البصمة');
+    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/commands-room.webp' }), 'تغيير الصورة لازم يغيّر البصمة');
+    assert.notStrictEqual(sig, tickets.panelSignature({ ...base, panelFooterImage: 'src/web/public/assets/commands-room.webp' }), 'إضافة خط تحت القائمة لازم يغيّر البصمة');
     /* القيم المنقرضة (webp/خط قديم) تُعتبر «بلا صورة» ⇒ نفس بصمة الوضع الحالي (بلا إعادة نشر عبثية) */
     assert.strictEqual(
       tickets.panelSignature({ ...base, panelImage: 'src/web/public/assets/tickets-panel.webp', panelFooterImage: FOOTER }),
@@ -202,7 +233,7 @@ async function main() {
     assert.strictEqual(first.sent, 1, 'لازم رسالة واحدة (الصورة + القائمة)');
     assert.deepStrictEqual(mkMessage.deleted, ['old-panel'], 'اللوحة القديمة ما انحذفت');
     assert.strictEqual(panelChannel.state.sent.length, 1, 'ما انبعتت اللوحة في القناة الصح');
-    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.png'], 'اللوحة المنشورة ليست صورة');
+    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel-v5.webp'], 'اللوحة المنشورة ليست صورة');
     assert.strictEqual(panelChannel.state.sent[0].payload.embeds, undefined, 'اللوحة المنشورة فيها إمبد — لازم صورة عادية');
 
     const saved = db.getGuildSettings(GUILD).tickets;
@@ -270,7 +301,7 @@ async function main() {
     assert.strictEqual(stored.panelImage, HERO, 'الصورة المحفوظة ما تصلّحت');
     assert.strictEqual(stored.panelFooterImage, '', 'الخط المحفوظ ما انشال');
     assert.strictEqual(stored.openImage, HERO, 'صورة التذكرة المحفوظة ما تصلّحت');
-    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel.png'], 'المنشور ما صار PNG');
+    assert.deepStrictEqual(panelChannel.state.sent[0].payload.files.map((f) => f.name), ['tickets-panel-v5.webp'], 'المنشور ما صار صورة اللوحة الجديدة');
     assert.strictEqual(panelChannel.state.sent.at(-1).payload.embeds, undefined, 'المنشور فيه إمبد');
     ok('إعدادات قديمة (webp + خط) تصلّحت لحالها: PNG شفاف · بلا خط · وبلا إمبد');
   }

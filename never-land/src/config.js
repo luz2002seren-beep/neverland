@@ -441,7 +441,7 @@ const config = {
       /** مدة التنظيف بالثواني (الحد الأدنى ١٥ ثانية) */
       intervalSeconds: 60,
       /** صورة الرسالة (مسار داخل المشروع أو رابط خارجي) */
-      image: 'src/web/public/assets/commands-room.png',
+      image: 'src/web/public/assets/commands-room.webp',
       /** تثبيت رسالة الترحيب في الروم (افتراضيًا: بلا تثبيت) */
       pin: false,
       /** يحذف الرسالة ويعيد نشرها كل دورة (تظهر كرسالة جديدة بلا «تم التعديل») */
@@ -469,7 +469,7 @@ const config = {
        *   panelAutoPost    : نشر/تحديث اللوحة تلقائيًا لما تتغيّر الصورة أو الأنواع
        */
       /* صورة PNG بخلفية شفافة — تنزل كما هي بلا سواد (نفس الملف اللي أرسله المالك) */
-      panelImage: 'src/web/public/assets/tickets-panel.png',
+      panelImage: 'src/web/public/assets/tickets-panel-v5.webp',
       panelImageOnly: true,
       /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
       panelFooterImage: '',
@@ -535,7 +535,7 @@ const config = {
        *   openImage     : الصورة اللي تنزل داخل غرفة التذكرة (فاضية '' = ترجع الرسالة النصية)
        *   openImageOnly : true = صورة فقط · false = الصورة تُتجاهل ويطلع النص
        */
-      openImage: 'src/web/public/assets/tickets-panel.png',
+      openImage: 'src/web/public/assets/tickets-panel-v5.webp',
       openImageOnly: true,
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).

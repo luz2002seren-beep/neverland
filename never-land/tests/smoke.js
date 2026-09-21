@@ -2105,7 +2105,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
       "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
       "if(p.length!==1||p[0].content||p[0].embeds) throw new Error('اللوحة مش نظيفة');",
-      "if(p[0].files.length!==1||!/\\.png$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة PNG مرفقة');",
+      /* اللوحة لازم تنزل صورة مرفقة (WebP حاليًا، ونقبل PNG لو رجع أحدهم إليها) */
+      "if(p[0].files.length!==1||!/\\.(webp|png)$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة مرفقة (webp/png)');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
     ].join('')], { cwd: root47, encoding: 'utf8', env: childEnv() });
     assert.ok(outClean.includes('OK'), 'فحص تنظيف اللوحات فشل');
@@ -2368,7 +2369,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(/pin: false/.test(cfg52), 'التثبيت لازم يكون مطفّي افتراضيًا');
     assert.ok(read52('src/systems/commandRoom.js').includes('existing.delete()'), 'حذف الرسالة القديمة وإعادة نشرها ناقص');
     assert.ok(read52('src/web/public/app.js').includes('commandRoom.repost'), 'مفتاح «إعادة النشر» ناقص من اللوحة');
-    assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.png')), 'صورة الروم غير موجودة');
+    assert.ok(fs52.existsSync(path52.join(root52, 'src', 'web', 'public', 'assets', 'commands-room.webp')), 'صورة الروم غير موجودة');
 
     /* النظام + المؤقّت */
     const room52 = read52('src/systems/commandRoom.js');
@@ -2397,7 +2398,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     /* الإعدادات الافتراضية */
     const cfg53 = require(path53.join(root53, 'src', 'config'));
     const t53 = cfg53.defaults.tickets;
-    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel.png', 'صورة اللوحة الافتراضية خطأ');
+    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel-v5.webp', 'صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
     assert.strictEqual(t53.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي (بلا خط تحت القائمة)');
     assert.strictEqual(t53.panelPlaceholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
@@ -2406,13 +2407,15 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(t53.openImage, t53.panelImage, 'صورة رسالة فتح التذكرة ناقصة');
     assert.strictEqual(t53.openImageOnly, true, 'رسالة فتح التذكرة لازم تكون صورة');
 
-    /* ملف الصورة: PNG بخلفية شفافة فعلًا (RGBA) + ما بقيت نسخة سوداء */
-    const img53 = path53.join(root53, 'src', 'web', 'public', 'assets', 'tickets-panel.png');
-    assert.ok(fs53.existsSync(img53), 'صورة اللوحة PNG ناقصة');
+    /* ملف الصورة: WebP بخلفية شفافة فعلًا + ما بقيت نسخة قديمة */
+    const img53 = path53.join(root53, 'src', 'web', 'public', 'assets', 'tickets-panel-v5.webp');
+    assert.ok(fs53.existsSync(img53), 'صورة اللوحة ناقصة');
     const imgBuf53 = fs53.readFileSync(img53);
-    assert.strictEqual(imgBuf53.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'صورة اللوحة ليست PNG');
-    assert.strictEqual(imgBuf53[25], 6, 'صورة اللوحة بلا قناة شفافية (الخلفية السوداء ترجع)');
-    for (const old53 of ['tickets-panel.webp', 'tickets-panel-footer.webp']) {
+    assert.strictEqual(imgBuf53.subarray(0, 4).toString('ascii'), 'RIFF', 'صورة اللوحة ليست WebP');
+    assert.strictEqual(imgBuf53.subarray(8, 12).toString('ascii'), 'WEBP', 'صورة اللوحة ليست WebP');
+    assert.strictEqual(imgBuf53.subarray(12, 16).toString('ascii'), 'VP8X', 'صورة اللوحة بلا ترويسة VP8X');
+    assert.strictEqual((imgBuf53[20] >> 4) & 1, 1, 'صورة اللوحة بلا قناة شفافية (الخلفية السوداء ترجع)');
+    for (const old53 of ['tickets-panel.webp', 'tickets-panel-footer.webp', 'tickets-panel.png']) {
       assert.ok(!fs53.existsSync(path53.join(root53, 'src', 'web', 'public', 'assets', old53)), `نسخة قديمة لسا موجودة: ${old53}`);
     }
 
@@ -2428,7 +2431,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     for (const key53 of ['tickets.panelImage', 'tickets.panelFooterImage', 'tickets.panelPlaceholder', 'tickets.panelChannelId', 'tickets.panelAutoPost', 'tickets.openImage', 'tickets.openImageOnly']) {
       assert.ok(dash53.includes(key53), `حقل ${key53} ناقص من اللوحة`);
     }
-    console.log('  [تم] اللوحة صورة PNG شفافة بلا نص وبلا خط + قائمة الأنواع · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
+    console.log('  [تم] اللوحة صورة WebP شفافة بلا نص وبلا خط + قائمة الأنواع · ورسالة الفتح صورة · وتحديث تلقائي مربوط');
   }
 
  console.log('[اختبار] 54: ترحيب «إطار Never Land» — الأفتار داخل الدائرة + Inv By');

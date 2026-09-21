@@ -42,16 +42,29 @@ const BUTTON_STYLES = {
 const ROOT = path.join(__dirname, '..', '..');
 
 /** صورة اللوحة الافتراضية (PNG بخلفية شفافة — تنزل كما هي) */
-const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel.png';
+const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel-v5.webp';
 
-/** أسماء صور قديمة (النسخ اللي كانت بأخلفية سوداء/خط زخرفي) — تُنظَّف تلقائيًا من الروم */
-const LEGACY_IMAGE_NAMES = ['tickets-panel.webp', 'tickets-panel-footer.webp'];
+/**
+ * أسماء صور قديمة تُنظَّف تلقائيًا من الروم.
+ *
+ * ⚠️ أي اسم في هذه القائمة يُعامل كنسخة منقرضة: resolveImageValue() يرفضه
+ *    ويعيد البديل، و cleanupOldPanels() يحذف رسائله. لذلك لا تسمِّ ملفًا
+ *    جديدًا باسم موجود هنا.
+ *
+ * - tickets-panel.webp / tickets-panel-footer.webp: نسختان بخلفية سوداء وخط زخرفي
+ * - tickets-panel.png: النسخة التي سبقت التحويل إلى WebP (نفس الرسم، 2.5 م.ب)
+ */
+const LEGACY_IMAGE_NAMES = [
+  'tickets-panel.webp',
+  'tickets-panel-footer.webp',
+  'tickets-panel.png',
+];
 
 /** الحالة الحيّة (تظهر في /api/status وللتشخيص) */
 const STATE = { guilds: {} };
 
-/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (4 = PNG شفاف بلا إمبد وبلا خط زخرفي) */
-const PANEL_VERSION = 4;
+/** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (5 = WebP بدل PNG، نفس الرسم بحجم أقل 74%) */
+const PANEL_VERSION = 5;
 
 /**
  * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
