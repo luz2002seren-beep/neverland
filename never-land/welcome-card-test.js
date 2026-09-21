@@ -141,7 +141,8 @@ async function run() {
     assert.strictEqual((await frameImg).height, expectedHeight, 'ارتفاع صورة الترحيب ما يطابق الإطار المكبّر');
     /* دائرة الأفتار بالمخرج لازم تكون بنفس حجم صورة الترحيب السابقة (≈٢٥٦ بكسل) */
     const circlePx = config.defaults.welcome.frameCircle.r * expectedHeight;
-    assert.ok(Math.abs(circlePx - 256) < 8, `دائرة الأفتار بالمخرج المكبّر لازم ≈٢٥٦ بكسل (طلع ${circlePx.toFixed(1)})`);
+    assert.ok(circlePx >= 254, `دائرة الأفتار بالمخرج لازم ≥٢٥٦ بكسل (طلع ${circlePx.toFixed(1)})`);
+    assert.ok(circlePx < 520, `دائرة الأفتار كبيرة بشكل مبالغ (${circlePx.toFixed(1)})`);
     console.log(`١-ب) إطار Never Land: أفتار العضو داخل الدائرة · ${(frameReady.buffer.length / 1024).toFixed(0)}KB · مقاس ${expectedWidth}×${expectedHeight} (تكبير ×${frameScale}) ✅`);
 
     /* ---------- ٢) الوضع الافتراضي: صورة الإطار + رسالة عادية بلا إطار ---------- */

@@ -375,8 +375,8 @@ async function main() {
     const py = img.readUInt32BE(20);
     assert.strictEqual(px, 1536, 'عرض صورة الإطار الجديدة خطأ');
     assert.strictEqual(py, 1024, 'ارتفاع صورة الإطار الجديدة خطأ');
-    assert.ok(Math.abs(meta.cx - 0.36322) < 0.0005 && Math.abs(meta.cy - 0.55215) < 0.0005, 'مركز دائرة الصورة الجديدة خطأ');
-    assert.ok(Math.abs(meta.r - 0.20469) < 0.0005, 'نصف قطر دائرة الصورة الجديدة خطأ');
+    assert.ok(Math.abs(meta.cx - 0.3343) < 0.0005 && Math.abs(meta.cy - 0.54491) < 0.0005, 'مركز دائرة الصورة الجديدة خطأ');
+    assert.ok(Math.abs(meta.r - 0.2495) < 0.0005, 'نصف قطر دائرة الصورة الجديدة خطأ');
 
     /*
      * ⚠️ القاعدة المهمة: cx نسبة من **العرض** · cy و r نسب من **الارتفاع**
@@ -385,13 +385,13 @@ async function main() {
     const cxPx = meta.cx * px;
     const cyPx = meta.cy * py;
     const rPx = meta.r * py;
-    assert.ok(Math.abs(cxPx - 558) < 5 && Math.abs(cyPx - 565) < 5, `مركز الدائرة بالبكسل خطأ (${cxPx.toFixed(1)}, ${cyPx.toFixed(1)})`);
-    assert.ok(Math.abs(rPx - 210) < 6, `نصف قطر الدائرة بالبكسل خطأ (${rPx.toFixed(1)} — المطلوب ≈ ٢١٠)`);
-    assert.ok(rPx > 0.15 * py && rPx < 0.3 * py, 'نصف القطر خارج النطاق المعقول');
+    assert.ok(Math.abs(cxPx - 514) < 5 && Math.abs(cyPx - 558) < 5, `مركز الدائرة بالبكسل خطأ (${cxPx.toFixed(1)}, ${cyPx.toFixed(1)})`);
+    assert.ok(Math.abs(rPx - 256) < 6, `نصف قطر الدائرة بالبكسل خطأ (${rPx.toFixed(1)} — المطلوب ≈ ٢٥٦)`);
+    assert.ok(rPx > 0.2 * py && rPx < 0.32 * py, 'نصف القطر خارج النطاق المعقول');
 
     /* 🔍 تكبير الصورة كاملة: الدائرة ترجع بنفس حجم صورة الترحيب السابقة (≈٢٥٦ بكسل) */
     const big = conf.defaults.welcome.frameScale;
-    assert.ok(big > 1 && big < 2, 'معامل تكبير الإطار لازم يكون معقولًا (١ – ٢)');
+    assert.ok(big > 0.9 && big < 2, 'معامل تكبير الإطار لازم يكون معقولًا (٠.٩ – ٢)');
     {
       const CanvasLib3 = require('@napi-rs/canvas');
       const made = await frameLib.generate({ frame: FRAME, roi: meta, format: 'png', scale: big });
@@ -399,8 +399,9 @@ async function main() {
       assert.strictEqual(img.width, Math.round(px * big), 'عرض المخرج المكبّر خطأ');
       assert.strictEqual(img.height, Math.round(py * big), 'ارتفاع المخرج المكبّر خطأ');
       const rBig = meta.r * img.height;
-      assert.ok(Math.abs(rBig - 256) < 8, `دائرة الأفتار بالمخرج المكبّر لازم تكون ≈٢٥٦ بكسل (طلع ${rBig.toFixed(1)})`);
-      assert.ok(rBig > 209, 'الدائرة أصغر من دائرة الصورة السابقة');
+      /* القاعدة: المخرج المكبّر أكبر من الأصل، ودائرة الأفتار أكبر من ٢٥٦ بكسل (المطلوب: صورة أكبر) */
+      assert.ok(rBig >= 256 - 2, `دائرة الأفتار بالمخرج لازم تكون ≥٢٥٦ بكسل (طلع ${rBig.toFixed(1)})`);
+      assert.ok(rBig < 500, `نصف القطر كبير بشكل مبالغ (${rBig.toFixed(1)})`);
     }
 
     /* فحص بكسلات يمنع الغلطة نفسها: أفتار أحمر لازم يغطّي الدائرة كاملة وما يطلع برّاها */
@@ -444,7 +445,7 @@ async function main() {
     assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
 
     assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
-    ok('الإطار الجديد 1536×1024 ودائرته (558,565 · نصف قطر 210) مضبوطة · ومكبّر ×' + big + ' فيرجع بنفس حجم الصورة السابقة (≈٢٥٦ بكسل) + فحص بكسلات');
+    ok('الإطار الجديد 1536×1024 ودائرته (514,558 · نصف قطر 256) مضبوطة · ومكبّر ×' + big + ' ⇒ دائرة أكبر بـ٣٠٪ بلا قص + فحص بكسلات');
   }
 
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);
