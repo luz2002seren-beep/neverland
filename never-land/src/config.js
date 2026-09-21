@@ -655,8 +655,21 @@ config.validate = () => {
   const problems = [];
   if (!config.bot.token) problems.push('DISCORD_TOKEN غير موجود في ملف .env');
   if (!config.bot.clientId) problems.push('CLIENT_ID غير موجود في ملف .env');
-  if (config.web.enabled && !config.web.demoMode && config.web.sessionSecret.includes('change-me')) {
-    problems.push('SESSION_SECRET افتراضي — غيّره قبل النشر على الإنترنت');
+  /* سر الجلسات: نرفض كل قيمة معروفة/معلنة، لا الافتراضية الإنجليزية فقط.
+     «غيّر_هذا_النص…» هي قيمة .env.example، و«never-land-change-me» هي قيمة
+     config.js الاحتياطية — الاثنتان معلومتان لأي شخص يقرأ المستودع العام،
+     ومن يعرف السر يقدر تزوير كوكي الجلسة وانتحال أي حساب. */
+  const KNOWN_SESSION_SECRETS = ['never-land-change-me', 'غيّر_هذا_النص_الطويل_لحماية_الجلسات'];
+  if (
+    config.web.enabled &&
+    !config.web.demoMode &&
+    (KNOWN_SESSION_SECRETS.includes(config.web.sessionSecret) ||
+      config.web.sessionSecret.length < 32)
+  ) {
+    problems.push(
+      'SESSION_SECRET ضعيف أو افتراضي — ولّد سرًا عشوائيًا بـ: ' +
+        'node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))"',
+    );
   }
   return problems;
 };
