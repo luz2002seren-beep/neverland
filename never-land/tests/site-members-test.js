@@ -192,17 +192,27 @@ async function run() {
   /* ───────── ٢) الحظر ───────── */
   const banRes = await owner.post(`/api/admin/members/${OTHER_ID}/status`, { status: 'banned', reason: 'تخريب الإعدادات' });
   assert.strictEqual(banRes.status, 200, 'الحظر فشل');
-  assert.ok(banRes.json.sessions >= 1, 'جلسة المحظور غير محسوبة — لازم تبقى معروفة ليعرفها الخادم ويمنعها');
+  assert.strictEqual(banRes.json.status, 'banned', 'رد الحظر لا يؤكد الحالة الجديدة');
+  assert.ok(
+    typeof banRes.json.killedSessions === 'number' && banRes.json.killedSessions >= 1,
+    `الحظر لم يقطع جلسات المحظور (killedSessions=${banRes.json.killedSessions})`
+  );
+  assert.ok(/قطع/.test(banRes.json.message || ''), 'رسالة الحظر لا تذكر قطع الجلسات');
   assert.strictEqual(siteUsers.statusOf(OTHER_ID), 'banned');
 
-  const bannedPage = await other.get('/dashboard');
-  assert.strictEqual(bannedPage.status, 403, `المحظور ما زال يفتح الموقع (${bannedPage.status})`);
-  assert.ok(bannedPage.text.includes('محظور'), 'صفحة الحظر لا تظهر السبب');
-  assert.ok(bannedPage.text.includes('تخريب الإعدادات'), 'سبب الحظر غير معروض');
+  // جلسة المحظور انقطعت فورًا — كوكي الجلسة القديمة لم يعد يدلّ على هويته،
+  // فصار زائرًا مجهولًا (user=null) بدل عضو مسجّل. وأي محاولة دخول جديدة
+  // تُرفض 403 في /auth/callback (اختُبرت في kickban-test).
   const bannedApi = await other.get('/api/me');
-  assert.strictEqual(bannedApi.status, 403, 'المحظور ما زال يصل للواجهة البرمجية');
-  assert.strictEqual(bannedApi.json.error, 'banned');
-  console.log('٢) الحظر: الموقع والـAPI ممنوعان على المحظور مع سبب واضح ✅');
+  assert.strictEqual(bannedApi.status, 200, 'المحظور لم يستطع فتح /api/me');
+  assert.strictEqual(bannedApi.json.user, null, 'جلسة المحظور ما زالت حيّة — هويته لم تُمحَ');
+  assert.strictEqual(bannedApi.json.isOwner, false, 'المحظور ما زال يُحسب مالكًا');
+  const bannedPage = await other.get('/dashboard');
+  assert.ok(
+    bannedPage.status === 200 || bannedPage.status === 302,
+    `/dashboard ردّ بحالة غير متوقعة على المحظور (${bannedPage.status})`
+  );
+  console.log('٢) الحظر: الحساب محظور + الجلسة مقطوعة فورًا (طُرد من الموقع) ✅');
 
   /* ───────── ٥) الحمايات ───────── */
   const banOwner = await owner.post(`/api/admin/members/${OWNER_ID}/status`, { status: 'banned' });

@@ -116,11 +116,12 @@ router.post('/members/:id/status', async (req, res) => {
   }
 
   /*
-   * ملاحظة مهمّة: عند الحظر لا نقطع الجلسة — نتركها وميضًا حتى يتعرّف الخادم
-   * على هوية المحظور في كل طلب ويعرض له صفحة الحظر. لو قطعنا الجلسة لرجع
-   * زائرًا مجهولًا وشاهد الصفحات العامة.
-   * أما «قطع الجلسة» فهو زر منفصل يطرده من الموقع (يحتاج يسجّل دخول جديد).
+   * عند الحظر نقطع جلسات العضو فورًا فيُطرد من الموقع لحظيًا — وهو ما يتوقعه
+   * المالك. وأي محاولة دخول جديدة تُرفض من /auth/callback بصفحة «محظور».
+   * (سابقًا كانت الجلسة تبقى لتظهر صفحة الحظر، فكان العضو يبقى داخل الموقع
+   * ويبدو للمالك أن «الحظر لا يعمل».)
    */
+  const killedSessions = status === 'banned' ? await destroyUserSessions(id) : 0;
   const actionMap = { banned: 'member.ban', viewonly: 'member.viewonly', active: 'member.active' };
   audit.record(req, {
     action: actionMap[status] || 'member.status',
@@ -132,10 +133,12 @@ router.post('/members/:id/status', async (req, res) => {
   return res.json({
     ok: true,
     user: siteUsers.get(id),
+    status,
+    killedSessions,
     sessions: await countUserSessions(id),
     message:
       status === 'banned'
-        ? 'تم حظر الحساب من الموقع بالكامل — أي صفحة أو أمر يُرفض، وأي محاولة دخول جديدة تُرفض.'
+        ? `تم حظر الحساب وقطع ${killedSessions} جلسة نشطة — طُرد من الموقع فورًا، وأي محاولة دخول جديدة تُرفض.`
         : status === 'viewonly'
           ? 'صار يشوف الموقع بلا تعديل ولا حفظ.'
           : 'رجع الحساب طبيعيًا.',
