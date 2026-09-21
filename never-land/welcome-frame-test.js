@@ -375,12 +375,45 @@ async function main() {
     const py = img.readUInt32BE(20);
     assert.strictEqual(px, 1536, 'عرض صورة الإطار الجديدة خطأ');
     assert.strictEqual(py, 1024, 'ارتفاع صورة الإطار الجديدة خطأ');
-    assert.ok(Math.abs(meta.cx - 0.33398) < 0.0005 && Math.abs(meta.cy - 0.56494) < 0.0005, 'مركز دائرة الصورة الجديدة خطأ');
-    assert.ok(Math.abs(meta.r - 0.25244) < 0.0005, 'نصف قطر دائرة الصورة الجديدة خطأ');
-    /* مركز الدائرة المقيس من الصورة نفسها (فحص بكسلات: الحلقة لامعة) */
+    assert.ok(Math.abs(meta.cx - 0.36322) < 0.0005 && Math.abs(meta.cy - 0.55215) < 0.0005, 'مركز دائرة الصورة الجديدة خطأ');
+    assert.ok(Math.abs(meta.r - 0.20469) < 0.0005, 'نصف قطر دائرة الصورة الجديدة خطأ');
+
+    /*
+     * ⚠️ القاعدة المهمة: cx نسبة من **العرض** · cy و r نسب من **الارتفاع**
+     * (هذا اللي يستعمله الرسم فعلًا) — أي خلط بين العرض والارتفاع يخلّي الأفتار صغير/كبير.
+     */
     const cxPx = meta.cx * px;
     const cyPx = meta.cy * py;
-    assert.ok(Math.abs(cxPx - 513) < 4 && Math.abs(cyPx - 578) < 4, `مركز الدائرة بالبكسل خطأ (${cxPx.toFixed(1)}, ${cyPx.toFixed(1)})`);
+    const rPx = meta.r * py;
+    assert.ok(Math.abs(cxPx - 558) < 5 && Math.abs(cyPx - 565) < 5, `مركز الدائرة بالبكسل خطأ (${cxPx.toFixed(1)}, ${cyPx.toFixed(1)})`);
+    assert.ok(Math.abs(rPx - 210) < 6, `نصف قطر الدائرة بالبكسل خطأ (${rPx.toFixed(1)} — المطلوب ≈ ٢١٠)`);
+    assert.ok(rPx > 0.15 * py && rPx < 0.3 * py, 'نصف القطر خارج النطاق المعقول');
+
+    /* فحص بكسلات يمنع الغلطة نفسها: أفتار أحمر لازم يغطّي الدائرة كاملة وما يطلع برّاها */
+    {
+      const CanvasLib2 = require('@napi-rs/canvas');
+      const red = CanvasLib2.createCanvas(512, 512);
+      const rctx = red.getContext('2d');
+      rctx.fillStyle = '#ff0000';
+      rctx.fillRect(0, 0, 512, 512);
+      const redPath = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-red-'));
+      const redFile = path.join(redPath, 'red.png');
+      fs.writeFileSync(redFile, red.toBuffer('image/png'));
+
+      const made = await frameLib.generate({ avatarUrl: redFile, format: 'png' });
+      const img = await CanvasLib2.loadImage(made.buffer);
+      const probe = CanvasLib2.createCanvas(img.width, img.height);
+      const pctx = probe.getContext('2d');
+      pctx.drawImage(img, 0, 0);
+      const at = (x, y) => pctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+      const isRed = (d) => d[0] > 120 && d[1] < 90 && d[2] < 95;
+      const c2 = made.buffer && meta.cx * img.width;
+      const y2 = meta.cy * img.height;
+      const r2 = meta.r * img.height;
+      assert.ok(isRed(at(c2, y2)), 'الأفتار ما انرسم بمركز الدائرة');
+      assert.ok(isRed(at(c2, y2 - r2 * 0.95)) && isRed(at(c2 - r2 * 0.95, y2)), 'الأفتار ما يغطّي الدائرة كاملة (نصف القطر صغير)');
+      assert.ok(!isRed(at(c2, y2 + r2 + 14)) && !isRed(at(c2 + r2 + 14, y2)), 'الأفتار طالع برّا الدائرة (نصف القطر كبير)');
+    }
 
     /* الإعدادات القديمة (دائرة النسخة الأولى) تُرقّى مرة واحدة · والمخصّصة ما تُلمس */
     const legacyGuild = '920000000000000042';
@@ -397,7 +430,7 @@ async function main() {
     assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
 
     assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
-    ok('الإطار الجديد 1536×1024 ودائرته (513,578) مضبوطة — والإعدادات المحفوظة القديمة تُرقّى مرة واحدة');
+    ok('الإطار الجديد 1536×1024 ودائرته (558,565 · نصف قطر 210) مضبوطة + فحص بكسلات يمنع صغر/كبر الأفتار');
   }
 
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);

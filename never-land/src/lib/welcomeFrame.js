@@ -29,7 +29,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const DEFAULT_FRAME = 'assets/welcome-frame.png';
 
 /** مكان دائرة الأفتار داخل الإطار (نسب من عرض/ارتفاع الصورة — مقيسة من الصورة نفسها) */
-const DEFAULT_ROI = { cx: 0.33398, cy: 0.56494, r: 0.25244 };
+/* ملاحظة: cx نسبة من العرض · cy و r نسب من الارتفاع — نفس ما يستعمله الرسم أدناه */
+const DEFAULT_ROI = { cx: 0.36322, cy: 0.55215, r: 0.20469 };
 
 /** تخزين مؤقت للصورة الأساسية (نقرأها من القرص مرة واحدة) */
 const cache = { path: null, image: null, width: 0, height: 0 };

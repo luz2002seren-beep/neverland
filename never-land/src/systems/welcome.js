@@ -26,7 +26,19 @@ try {
 const STATE = { guilds: {} };
 
 /** مكان دائرة النسخة القديمة من الإطار (لمعرفة إن المدير عدّل الدائرة بيده) */
-const OLD_FRAME_CIRCLE = { cx: 0.33431, cy: 0.56543, r: 0.2525 };
+const OLD_FRAME_CIRCLES = [
+  { cx: 0.33431, cy: 0.56543, r: 0.2525 },     /* الإطار الأول */
+  { cx: 0.33398, cy: 0.56494, r: 0.25244 },    /* الإطار الثاني */
+  { cx: 0.36325, cy: 0.55217, r: 0.13647 },    /* قيمة بالإطار الثالث حسبت غلط (r من العرض بدل الارتفاع) */
+];
+
+/** هل مكان الدائرة المحفوظ = مكان نسخة قديمة من الإطار؟ (يعني المدير ما ضبطه بيده) */
+function isLegacyCircle(circle) {
+  if (!circle || circle.cx === undefined) return true;
+  return OLD_FRAME_CIRCLES.some(
+    (old) => String(circle.cx) === String(old.cx) && String(circle.cy) === String(old.cy) && String(circle.r) === String(old.r),
+  );
+}
 
 /* النص الافتراضي القديم (لتحديد إن العميل ما عدّله بنفسه) */
 const OLD_DEFAULT_MESSAGE = 'أهلاً بك {user} في **{server}**، عدد الأعضاء الآن **{memberCount}**.';
@@ -99,10 +111,7 @@ function ensureFrameLayout(guildId) {
     const raw = db.getGuildSettings(guildId)?.welcome || {};
     const defaults = require('../config').defaults.welcome;
     const circle = raw.frameCircle;
-    const legacy = !circle || circle.cx === undefined
-      || (String(circle.cx) === String(OLD_FRAME_CIRCLE.cx)
-        && String(circle.cy) === String(OLD_FRAME_CIRCLE.cy)
-        && String(circle.r) === String(OLD_FRAME_CIRCLE.r));
+    const legacy = isLegacyCircle(circle);
 
     const patch = {};
     if (legacy) patch.frameCircle = defaults.frameCircle;
