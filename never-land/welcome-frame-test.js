@@ -442,6 +442,15 @@ async function main() {
     const customGuild = '920000000000000043';
     db.updateGuildSettings(customGuild, { welcome: { frameCircle: { cx: 0.5, cy: 0.5, r: 0.2 } } });
     assert.strictEqual(welcome.ensureFrameLayout(customGuild), false, 'الدائرة المخصّصة بيد المدير ما تُلمس');
+    /* معامل التكبير المحفوظ من نسخة سابقة يُرقّى كذلك — والمخصّص ما يُلمس */
+    const scaleGuild = '920000000000000044';
+    db.updateGuildSettings(scaleGuild, { welcome: { frameScale: 1.222 } });
+    assert.strictEqual(welcome.ensureFrameLayout(scaleGuild), true, 'التكبير القديم لازم يُرقّى');
+    assert.strictEqual(db.getGuildSettings(scaleGuild).welcome.frameScale, conf.defaults.welcome.frameScale, 'قيمة التكبير المرقّاة خطأ');
+    const customScale = '920000000000000045';
+    db.updateGuildSettings(customScale, { welcome: { frameScale: 1.15 } });
+    assert.strictEqual(welcome.ensureFrameLayout(customScale), false, 'التكبير المخصّص ما يُلمس');
+    assert.strictEqual(db.getGuildSettings(customScale).welcome.frameScale, 1.15, 'التكبير المخصّص تغيّر — ممنوع');
     assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
 
     assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');

@@ -33,6 +33,9 @@ const OLD_FRAME_CIRCLES = [
   { cx: 0.36322, cy: 0.55215, r: 0.20469 },    /* الإطار الثالث (قيمته الصحيحة) */
 ];
 
+/** معاملات تكبير محفوظة من نسخ سابقة (تُرقّى للقيمة الحالية) */
+const OLD_FRAME_SCALES = [1.222, 1.002];
+
 /** هل مكان الدائرة المحفوظ = مكان نسخة قديمة من الإطار؟ (يعني المدير ما ضبطه بيده) */
 function isLegacyCircle(circle) {
   if (!circle || circle.cx === undefined) return true;
@@ -117,6 +120,10 @@ function ensureFrameLayout(guildId) {
     const patch = {};
     if (legacy) patch.frameCircle = defaults.frameCircle;
     if (!raw.frameImage) patch.frameImage = defaults.frameImage;
+    /* معامل التكبير: لو محفوظ من نسخة سابقة ⇒ نحدّثه للقيمة الحالية */
+    if (OLD_FRAME_SCALES.some((value) => String(raw.frameScale) === String(value)) && String(raw.frameScale) !== String(defaults.frameScale)) {
+      patch.frameScale = defaults.frameScale;
+    }
     if (!Object.keys(patch).length) return false;
 
     db.updateGuildSettings(guildId, { welcome: patch });
