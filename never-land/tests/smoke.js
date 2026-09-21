@@ -1941,7 +1941,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(text44.includes('checkMention') && text44.includes('منشن صريح'), 'قاعدة المنشن الصريح ناقصة');
     const userBranch44 = text44.split("if (kind === 'user')")[1].split('continue;')[0];
     assert.ok(!userBranch44.includes('findMember(guild, t)'), 'لسا يقبل كتابة الاسم بلا منشن');
-    assert.ok(app44.includes('منشن صريح'), 'قاعدة المنشن غير موضّحة في اللوحة');
+    // كروت الشرح شِيلت من اللوحة بطلب المستخدم — القاعدة نفسها مثبتة في البوت (textCommands.js فوق)
 
     // ٤) الاختبار العملي (٣ أقسام)
     const { execFileSync } = require('node:child_process');
@@ -1976,7 +1976,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ٣) المسارات واللوحة
     assert.ok(read45('src/web/routes/api.js').includes('commands/rules'), 'مسار قواعد الأمر ناقص من الخدمة');
     const app45 = read45('src/web/public/app.js') + read45('src/web/public/app-sections.js');
-    for (const needle of ['commands/rules', 'cmd-rules', 'قواعد الأمر', 'حذف الرد بعد ٥ ثوانٍ', 'اختصار بأي لغة', 'الاختصارات بأي لغة', 'كلمة وحدة تكفي', 'اخفاء', 'اظهار']) {
+    // كروت الشرح النصية شِيلت؛ نبقي فقط ما هو ميزة فعلية في محرر القواعد
+    for (const needle of ['commands/rules', 'cmd-rules', 'قواعد']) {
       assert.ok(app45.includes(needle), `لوحة القواعد ينقصها ${needle}`);
     }
     const css45 = read45('src/web/public/dash.css');
@@ -2013,7 +2014,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(!text46.includes('120000'), 'لسا في حذف تلقائي بعد دقيقتين لردود الأوامر');
     assert.ok(text46.includes('autoDeleteReplyAfter5s ? 5000 : 0'), 'الحذف التلقائي ما صار اختياريًا');
     assert.ok(text46.includes('if (lifetime > 0)'), 'الحذف ما صار مشروطًا بالخيار');
-    assert.ok(read46('src/web/public/app.js') + read46('src/web/public/app-sections.js').includes('ردود الأوامر ما تختفي'), 'ما شرحنا باللوحة إن الرد ما يختفي');
+    // السلوك (بلا حذف تلقائي) مثبت في البوت أعلاه؛ كرت الشرح شِيل من اللوحة
     for (const rel of ['src/commands/general/help.js', 'src/commands/general/botinfo.js', 'src/commands/general/userinfo.js',
       'src/commands/config/settings.js', 'src/commands/config/logs.js', 'src/commands/config/tickets.js',
       'src/systems/applications.js', 'src/systems/leveling.js', 'src/systems/logging.js', 'src/systems/tickets.js', 'src/systems/setupWizard.js']) {

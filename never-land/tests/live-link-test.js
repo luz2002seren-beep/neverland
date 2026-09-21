@@ -319,7 +319,8 @@ async function run() {
   assert.ok(read('src/lib/live.js').includes('settingsChanged'), 'الرابط الحيّ ناقص');
   assert.ok(read('src/web/routes/api.js').includes('event: settings'), 'البثّ الحيّ ما يبثّ تغييرات الإعدادات');
   const appSrc = read('src/web/public/app.js') + read('src/web/public/app-sections.js');
-  for (const needle of ['PAGE_CLIENT_ID', "addEventListener('settings'", 'refreshAfterExternalChange', 'sync-live', 'اقتراح الأوامر المشابهة', 'منشن صريح', 'نيفر']) {
+  // 'منشن صريح' و'نيفر' كانتا في كروت شرح شِيلت من اللوحة — السلوك مثبت في البوت (أعلى)
+  for (const needle of ['PAGE_CLIENT_ID', "addEventListener('settings'", 'refreshAfterExternalChange', 'sync-live', 'اقتراح الأوامر المشابهة']) {
     assert.ok(appSrc.includes(needle), `اللوحة ينقصها ${needle}`);
   }
 
