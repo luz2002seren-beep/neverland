@@ -54,6 +54,23 @@ const config = {
     clientSecret: process.env.CLIENT_SECRET || '',
     defaultLanguage: (process.env.DEFAULT_LANGUAGE || 'ar').trim().toLowerCase().startsWith('en') ? 'en' : 'ar',
     developerIds: list(process.env.DEVELOPER_IDS),
+    /**
+     * 🟣 حالة البوت (Presence) — تحت اسمه في كل السيرفرات.
+     *   name   الاسم الظاهر (الافتراضي: 𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅)
+     *   type   streaming = بث مباشر (اللون البنفسجي + شارة «مباشر») · playing · watching · listening · competing · custom
+     *   url    رابط البث (لازم لنوع streaming)
+     *   status online · idle · dnd · invisible
+     * تُعدَّل من الموقع (قسم الإعدادات العامة) وتُطبَّق فورًا بلا إعادة تشغيل.
+     */
+    presence: {
+      /* القيمة القديمة 'NEVER LAND' ما تنعتمد — نستعمل الاسم المطلوب */
+      name: (!process.env.PRESENCE_NAME || process.env.PRESENCE_NAME.trim() === 'NEVER LAND'
+        ? '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅'
+        : process.env.PRESENCE_NAME.trim()),
+      type: (process.env.PRESENCE_TYPE || 'streaming').trim().toLowerCase(),
+      url: (process.env.PRESENCE_URL || '').trim() || 'https://www.twitch.tv/never_land',
+      status: (process.env.PRESENCE_STATUS || 'online').trim().toLowerCase(),
+    },
     resetCommands: bool(process.env.RESET_COMMANDS, false),
     /** ألوان embeddings */
     colors: {

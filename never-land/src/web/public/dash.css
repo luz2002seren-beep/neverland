@@ -1009,3 +1009,41 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 .cr-card .d-card-body { padding: 10px 14px 14px; }
 .cr-body .d-field { align-items: flex-start; }
 .cr-preview { max-height: 260px; overflow: auto; }
+
+/* ---------------------------------------------
+   🟣 معاينة حالة البوت (Presence)
+   --------------------------------------------- */
+.pres-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pres-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.pres-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25) inset;
+}
+.pres-dot.live {
+  box-shadow: 0 0 8px rgba(145, 70, 255, 0.85);
+}
+.pres-badge {
+  background: #9146ff;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+.pres-actions {
+  display: flex;
+  gap: 8px;
+}

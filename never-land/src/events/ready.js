@@ -37,19 +37,22 @@ module.exports = {
     console.log('');
 
     /* ---------------------------------------------------------
-     * Presence
-     * Playing: NEVER LAND
+     * Presence — حالة البوت (بث مباشر = لون بنفسجي + شارة «مباشر»)
+     * القيم من الإعدادات، وأي تعديل من الموقع يُطبَّق فورًا بلا إعادة تشغيل.
      * --------------------------------------------------------- */
 
-    client.user.setPresence({
-      activities: [
-        {
-          name: 'NEVER LAND',
-          type: ActivityType.Playing,
-        },
-      ],
-      status: 'online',
-    });
+    try {
+      const presence = require('../systems/presence');
+      const result = presence.apply(client);
+      const info = presence.describe(result.applied);
+      console.log(
+        `[الحالة] ${info.text} — ${info.typeLabel}${result.ok ? '' : ` (تعذّر: ${result.reason})`}`,
+      );
+    } catch (err) {
+      /* حماية: لو صار أي خطأ نرجع لحالة «يشتغل» العادية */
+      console.warn(`[تنبيه] تعذّر ضبط حالة البوت: ${err.message}`);
+      client.user.setPresence({ activities: [{ name: '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅', type: ActivityType.Playing }], status: 'online' });
+    }
 
     /* ---------------------------------------------------------
      * تسجيل كل السيرفرات في قاعدة البيانات

@@ -1100,6 +1100,41 @@ router.post('/guilds/:guildId/actions/:action', async (req, res) => {
   }
 });
 
+/**
+ * 🟣 حالة البوت (Presence) — تُطبَّق فورًا على البوت الشغّال:
+ *   POST /api/guilds/:guildId/presence  { name, type, url, status }
+ */
+router.post('/guilds/:guildId/presence', async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+    if (!canEdit(req)) return res.status(403).json({ ok: false, message: 'هذا التعديل يحتاج صلاحية مدير.' });
+
+    const presence = require('../../systems/presence');
+    const client = safeClient();
+    if (!client) return res.status(400).json({ ok: false, message: 'البوت مو متصل حاليًا.' });
+
+    const saved = presence.save(client, guildId, {
+      name: req.body?.name,
+      type: req.body?.type,
+      url: req.body?.url,
+      status: req.body?.status,
+    });
+    if (!saved.ok && saved.reason !== 'noClient') {
+      return res.status(400).json({ ok: false, message: `تعذّر ضبط الحالة (${saved.reason})`, presence: saved.presence });
+    }
+
+    const info = presence.describe(saved.presence);
+    return res.json({
+      ok: true,
+      message: `🟣 حالة البوت الآن: «${info.text}» — ${info.typeLabel} · ${info.statusLabel}`,
+      presence: info,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: err.message });
+  }
+});
+
 /* ------------------------------------ فحص البوت ------------------------------------ */
 /* ---------------------------- المزامنة الحقيقية ---------------------------- */
 
@@ -1196,6 +1231,20 @@ router.get('/status', (req, res) => {
      * بصمة الإصدار المنشور: تتأكّد بنفسك إن السيرفر شغّال على آخر كود ولا لأ.
      * قارن القيم مع الملفات عندك — أو شوف topBoardFooter = false يعني «التوب بلا فوتر».
      */
+    /* 🟣 حالة البوت (Presence): المطلوب + اللي شافه ديسكورد فعلًا */
+    presence: (() => {
+      try {
+        const presence = require('../../systems/presence');
+        const client = safeClient();
+        return {
+          wanted: presence.describe(),
+          applied: client ? presence.applied(client) : null,
+          last: presence.state(),
+        };
+      } catch {
+        return null;
+      }
+    })(),
     /* 👋 الترحيب: آخر ترحيب انبعت + العضو + الداعي + إيموجيات ناقصة (تشخيص حيّ) */
     welcome: (() => {
       try {

@@ -702,6 +702,81 @@ const SECTIONS = {
 
       const repaint = () => setTimeout(paintSample, 120);
 
+      /* --------- معاينة حالة البوت (Presence): بنفسجية وقت البث --------- */
+      const presenceBox = el('div', { class: 'd-sample pres-preview' });
+      const paintPresence = () => {
+        presenceBox.textContent = '';
+        const name = String(getPath('presence.name') || '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅');
+        const type = String(getPath('presence.type') || 'streaming');
+        const status = String(getPath('presence.status') || 'online');
+        const verbs = { streaming: 'يبثّ', playing: 'يشتغل على', watching: 'يشاهد', listening: 'يسمع', competing: 'يتنافس في', custom: 'الحالة' };
+        const statusLabels = { online: 'متصل', idle: 'خامل', dnd: 'عدم الإزعاج', invisible: 'غير ظاهر' };
+        const dotColors = { online: '#23a55a', idle: '#f0b232', dnd: '#f23f43', invisible: '#80848e' };
+        const isStream = type === 'streaming';
+
+        const line = el('div', { class: 'd-sample-row pres-line' });
+        const dot = el('span', { class: `pres-dot${isStream ? ' live' : ''}` });
+        dot.style.background = isStream ? '#9146ff' : (dotColors[status] || '#23a55a');
+        line.appendChild(dot);
+        line.appendChild(el('b', { text: name }));
+        if (isStream) line.appendChild(el('span', { class: 'pres-badge', text: 'مباشر' }));
+        presenceBox.appendChild(line);
+        presenceBox.appendChild(el('div', { class: 'd-chip', text: `${verbs[type] || 'الحالة'} ${name} · ${statusLabels[status] || status}` }));
+        if (isStream && !getPath('presence.url')) {
+          presenceBox.appendChild(el('div', { class: 'd-chip warn', text: 'نوع «بث مباشر» يحتاج رابط بث (افتراضيًا رابط تويش)' }));
+        }
+      };
+      paintPresence();
+
+      const applyPresenceBtn = el('button', { class: 'd-btn sm primary', html: `${ic('check', 15)} طبّق الحالة الآن` });
+      applyPresenceBtn.addEventListener('click', async () => {
+        applyPresenceBtn.disabled = true;
+        try {
+          const result = await api(`/guilds/${state.guildId}/presence`, {
+            method: 'POST',
+            body: {
+              name: getPath('presence.name'),
+              type: getPath('presence.type'),
+              url: getPath('presence.url'),
+              status: getPath('presence.status'),
+            },
+          });
+          toast(result.message || 'تحدّثت حالة البوت.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أضبط الحالة.', true);
+        } finally {
+          applyPresenceBtn.disabled = false;
+        }
+      });
+
+      const presenceFields = [
+        dField('المعاينة', 'شكل الحالة كما تظهر عند الأعضاء', [presenceBox], { wide: true }),
+        dField('اسم الحالة', 'اللي ينكتب جنب «يبثّ» — يدعم الخط المزخرف', [
+          dInput('presence.name', { full: true, placeholder: '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅', onChange: () => paintPresence() }),
+        ], { wide: true }),
+        dField('نوع الحالة', '«بث مباشر» = لون بنفسجي + شارة مباشر (زي حالة ستريمنغ)', [
+          dChips('presence.type', [
+            { value: 'streaming', label: 'بث مباشر (بنفسجي)', onAfter: () => paintPresence() },
+            { value: 'playing', label: 'يلعب', onAfter: () => paintPresence() },
+            { value: 'watching', label: 'يشاهد', onAfter: () => paintPresence() },
+            { value: 'listening', label: 'يسمع', onAfter: () => paintPresence() },
+            { value: 'competing', label: 'يتنافس', onAfter: () => paintPresence() },
+          ]),
+        ], { wide: true }),
+        dField('رابط البث', 'مطلوب لنوع «بث مباشر» — رابط تويش أو يوتيوب', [
+          dInput('presence.url', { full: true, placeholder: 'https://www.twitch.tv/never_land', onChange: () => paintPresence() }),
+        ], { wide: true }),
+        dField('حالة الاتصال', 'لون النقطة جنب الاسم', [
+          dChips('presence.status', [
+            { value: 'online', label: 'متصل', onAfter: () => paintPresence() },
+            { value: 'idle', label: 'خامل', onAfter: () => paintPresence() },
+            { value: 'dnd', label: 'عدم الإزعاج', onAfter: () => paintPresence() },
+            { value: 'invisible', label: 'غير ظاهر', onAfter: () => paintPresence() },
+          ]),
+        ], { wide: true }),
+        dField('تطبيق الحالة', 'يُطبَّق فورًا على البوت الشغّال (بلا إعادة تشغيل)', [applyPresenceBtn]),
+      ];
+
       return [
         dCard('الأساسيات', 'تنطبق على كل الأنظمة', 'settings', [
           dField('لغة البوت', 'اللغة الافتراضية للرسائل والأوامر', [
@@ -712,6 +787,7 @@ const SECTIONS = {
           dField('نظام الدعوات (Referral)', 'تتبّع من دعا من', [dSwitch('referral.enabled')]),
           dField('قناة الدعوات', '', [dSelect('referral.channelId', channelOptions())]),
         ]),
+        dCard('حالة البوت (Presence)', 'اللي تظهر تحت اسم البوت في كل السيرفرات · «بث مباشر» = لون بنفسجي + شارة مباشر · التعديل يطبَّق فورًا بلا إعادة تشغيل.', 'activity', presenceFields, { wide: true }),
         dCard(
           'شكل الردود',
           'ردود البوت كلها بالإنجليزية وبالخط المزخرف — القوائم والأزرار تبقى بنص عادي حتى تكون واضحة.',

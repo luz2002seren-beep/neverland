@@ -2474,6 +2474,31 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     console.log('  [تم] إعطاء/سحب الرتب بالمنشن والآيدي (سلاش + شات) + الكتالوج + الرد النصي');
   }
 
+ console.log('[اختبار] 56: حالة البوت (Presence) — 𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅 بنفسجية (بث مباشر)');
+  {
+    const { execFileSync } = require('node:child_process');
+    const path56 = require('node:path');
+    const fs56 = require('node:fs');
+    const root56 = path56.join(__dirname, '..');
+    const read56 = (rel) => fs56.readFileSync(path56.join(root56, rel), 'utf8');
+
+    const out56 = execFileSync('node', ['presence-test.js'], { cwd: root56, encoding: 'utf8' });
+    assert.ok(out56.includes('حالة البوت جاهزة'), 'اختبار حالة البوت فشل');
+
+    const config56 = require(path56.join(root56, 'src', 'config'));
+    assert.strictEqual(config56.bot.presence.name, '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅', 'اسم حالة البوت خطأ');
+    assert.strictEqual(config56.bot.presence.type, 'streaming', 'نوع حالة البوت لازم بث مباشر (بنفسجي)');
+    assert.ok(config56.bot.presence.url.startsWith('https://'), 'رابط البث ناقص');
+
+    const presence56 = require(path56.join(root56, 'src', 'systems', 'presence'));
+    assert.strictEqual(presence56.describe().purple, true, 'الحالة لازم تكون بنفسجية');
+    assert.ok(read56('src/events/ready.js').includes('presence.apply(client)'), 'الإقلاع ما يضبط حالة البوت');
+    assert.ok(read56('src/web/routes/api.js').includes("router.post('/guilds/:guildId/presence'"), 'مسار تعديل الحالة ناقص');
+    assert.ok(read56('src/web/public/app.js').includes('بث مباشر (بنفسجي)'), 'خيار البث البنفسجي ناقص من اللوحة');
+    assert.ok(!/name: 'NEVER LAND'/.test(read56('src/events/ready.js')), 'الاسم القديم لسا موجود');
+    console.log('  [تم] الحالة 𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅 بنوع بث مباشر (بنفسجي) + تعديل فوري من الموقع');
+  }
+
  console.log('[نجاح] جميع اختبارات الميزات الجديدة نجحت!');
 
   process.exit(0);
