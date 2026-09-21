@@ -16,7 +16,7 @@
     "test:watch": "node --watch tests/smoke.js",
     "test:guards": "node tests/security-guards.js",
     "test:docs": "node tests/docs-check.js",
-    "test:all": "node tests/security-guards.js && node tests/docs-check.js && node tests/smoke.js",
+    "test:all": "node tools/run-tests.js",
     "check:site": "node tools/site-check.js",
     "deploy:railway": "bash deploy-railway.sh",
     "link:public": "node tools/public-link.js",
