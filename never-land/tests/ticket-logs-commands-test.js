@@ -25,9 +25,9 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-cmdsim-'));
 process.env.DATABASE_PATH = path.join(tmp, 'sim.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const ticketsCommand = require('./src/commands/config/tickets');
-const logsCommand = require('./src/commands/config/logs');
+const db = require('../src/database');
+const ticketsCommand = require('../src/commands/config/tickets');
+const logsCommand = require('../src/commands/config/logs');
 
 const GUILD = 'guild-cmd-sim';
 let checks = 0;
@@ -104,7 +104,7 @@ async function main() {
   assert.ok(replyText(t1.replyPayload).includes('خارجي'), 'الرد يوضّح أن الإيموجي لديسكورد');
   ok('نص + إيموجي متحرّك من ديسكورد + لون — ويتحفظون صح');
 
-  const built = require('./src/systems/tickets').ticketControls('1', false, db.getGuildSettings(GUILD).tickets).toJSON().components;
+  const built = require('../src/systems/tickets').ticketControls('1', false, db.getGuildSettings(GUILD).tickets).toJSON().components;
   assert.strictEqual(built[1].label, 'سكّر التذكرة');
   assert.strictEqual(built[1].emoji.id, '123456789012345678');
   assert.strictEqual(built[1].emoji.animated, true);
@@ -114,7 +114,7 @@ async function main() {
   const t2 = fakeInteraction('button', { الزر: 'claim', إيموجي: 'حذف' });
   await ticketsCommand.run(null, t2.interaction, 'ar');
   assert.strictEqual(db.getGuildSettings(GUILD).tickets.buttons.claim.emoji, '');
-  const built2 = require('./src/systems/tickets').ticketControls('1', false, db.getGuildSettings(GUILD).tickets).toJSON().components;
+  const built2 = require('../src/systems/tickets').ticketControls('1', false, db.getGuildSettings(GUILD).tickets).toJSON().components;
   assert.strictEqual(built2[0].emoji, undefined);
   assert.strictEqual(built2[0].label, 'استلام');
   ok('«حذف» يشيل الإيموجي ويرجّع النص الافتراضي');
@@ -186,7 +186,7 @@ async function main() {
   ok('/logs channels يعرض خريطة (حدث ← روم)');
 
   console.log('\n═══ الكتالوج والأوامر ═══');
-  const catalogModule = require('./src/data/commandCatalog');
+  const catalogModule = require('../src/data/commandCatalog');
   const catalog = catalogModule.COMMANDS;
   assert.ok(catalog.tickets.usage.some((u) => u.includes('tickets button')), 'شرح /tickets button ناقص');
   assert.ok(catalog.logs.usage.some((u) => u.includes('logs eventchannel')), 'شرح /logs eventchannel ناقص');

@@ -25,13 +25,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-f42-'));
 process.env.DATABASE_PATH = path.join(tmp, 'f42.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const periods = require('./src/lib/periods');
-const leveling = require('./src/systems/leveling');
-const replyFormat = require('./src/lib/replyFormat');
-const dmPolicy = require('./src/lib/dmPolicy');
-const tickets = require('./src/systems/tickets');
-const textCommands = require('./src/systems/textCommands');
+const db = require('../src/database');
+const periods = require('../src/lib/periods');
+const leveling = require('../src/systems/leveling');
+const replyFormat = require('../src/lib/replyFormat');
+const dmPolicy = require('../src/lib/dmPolicy');
+const tickets = require('../src/systems/tickets');
+const textCommands = require('../src/systems/textCommands');
 
 let checks = 0;
 const ok = (label) => {
@@ -103,7 +103,7 @@ async function main() {
     ok('إمبيد /top: عنوان «توب — توب داي» + ميداليات + خبرة — بلا فوتر وبلا تلميح أوامر');
 
     /* الترجمة الإنجليزية + الخط المزخرف تشمل نصوص التوب الجديدة */
-    const replies = require('./src/lib/replies');
+    const replies = require('../src/lib/replies');
     const cfg = { english: true, fancyFont: false };
     const titleEn = replies.decorateText(String(data.title), cfg);
     assert.ok(!/[\u0600-\u06FF]/.test(titleEn), 'عنوان التوب ما انترجم للإنجليزية: ' + titleEn);
@@ -119,19 +119,19 @@ async function main() {
 
   console.log('\n═══ ٤) خيارات الأمر /top (النوع · الفترة · الصفحة) + t day ═══');
   {
-    const topSrc = fs.readFileSync(path.join(__dirname, 'src', 'commands', 'general', 'top.js'), 'utf8');
+    const topSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'general', 'top.js'), 'utf8');
     assert.ok(/require\('\.\.\/\.\.\/lib\/periods'\)/.test(topSrc), 'أمر التوب ما صار يستعمل الفترات المشتركة');
     assert.ok(/isPeriod/.test(topSrc), 'التحقق من الفترة ناقص');
     assert.ok(/month/.test(topSrc), 'خيار «توب منث» ناقص من الأمر');
     assert.ok(/topBoardEmbed/.test(topSrc), 'أمر التوب ما صار يستعمل اللوحة الجديدة');
     assert.ok(/text/.test(topSrc) && /voice/.test(topSrc), 'خيارات المصدر (كتابي/صوتي) ناقصة');
 
-    const tcSrc = fs.readFileSync(path.join(__dirname, 'src', 'systems', 'textCommands.js'), 'utf8');
+    const tcSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'systems', 'textCommands.js'), 'utf8');
     assert.ok(/'توب منث'|توب منث/.test(tcSrc), 'أمر الشات «توب منث» ناقص');
     assert.ok(/top.*'t'|'t'.*top/.test(tcSrc), 'الاسم القصير t ناقص');
 
     /* t day → يفتح أمر التوب بفترة اليوم (نفس مسار أوامر الشات الحقيقي) */
-    const topCommand = require('./src/commands/general/top');
+    const topCommand = require('../src/commands/general/top');
     const replies = [];
     const client = {
       user: { id: '100000000000000002' },
@@ -266,9 +266,9 @@ async function main() {
     ok('replyFormat.preview() يرجّع قبل/بعد للمعاينة في الموقع');
 
     /* الأسطر الحقيقية: أمر الحظر يستدعي المحرّك عبر الردود */
-    const repliesSrc = fs.readFileSync(path.join(__dirname, 'src', 'lib', 'replies.js'), 'utf8');
+    const repliesSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'replies.js'), 'utf8');
     assert.ok(/replyFormat\.apply/.test(repliesSrc), 'محرّك شكل الرد ما انربط بمحرّك الردود');
-    const banSrc = fs.readFileSync(path.join(__dirname, 'src', 'commands', 'moderation', 'ban.js'), 'utf8');
+    const banSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'moderation', 'ban.js'), 'utf8');
     assert.ok(/__replyVars/.test(banSrc), 'متغيّرات رد الحظر (الحالة/السبب) ناقصة');
     ok('المحرّك مربوط بالردود الحقيقية + متغيّرات العقوبات موجودة');
   }
@@ -301,7 +301,7 @@ async function main() {
     assert.ok(sent[0].content.includes('رجاءً ردّ علينا'), 'نص الرسالة المخصّصة ناقص');
 
     /* التذكير ينترجم للإنجليزية (زي باقي الردود) — مع بقاء اسم العضو كما هو */
-    const replies2 = require('./src/lib/replies');
+    const replies2 = require('../src/lib/replies');
     /* نسخة الخاص في الإرسال الحقيقي تمر بمحرّك الردود (decorate) — نتأكد إن القاموس يغطي النص */
     const reminderEn = sent[0].content.split('\n').map((line) => replies2.translate(line));
     assert.ok(!/[\u0600-\u06FF]/.test(reminderEn[0]), 'سطر التذكير ما انترجم: ' + reminderEn[0]);
@@ -309,23 +309,23 @@ async function main() {
     assert.ok(reminderEn.some((l) => l.startsWith('Message:')), 'سطر الرسالة ما انترجم: ' + reminderEn.join(' | '));
     ok('رسالة التذكير تنترجم للإنجليزية تلقائيًا (نص عادي بلا إمبد)');
 
-    const ticketsSrc = fs.readFileSync(path.join(__dirname, 'src', 'commands', 'config', 'tickets.js'), 'utf8');
+    const ticketsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'config', 'tickets.js'), 'utf8');
     assert.ok(/sub === 'remind'/.test(ticketsSrc), 'أمر تذكير ناقص من أمر التذاكر');
-    const tcSrc = fs.readFileSync(path.join(__dirname, 'src', 'systems', 'textCommands.js'), 'utf8');
+    const tcSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'systems', 'textCommands.js'), 'utf8');
     assert.ok(/تذكير/.test(tcSrc), 'كلمة «تذكير» بالشات ناقصة');
     ok('«تذكير» متاح كأمر /tickets remind وكلمة بالشات داخل الروم');
   }
 
   console.log('\n═══ ٨) إضافة أعضاء للتذكرة: قائمة الأعضاء صارت تشتغل ═══');
   {
-    const icSrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'interactionCreate.js'), 'utf8');
+    const icSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'interactionCreate.js'), 'utf8');
     assert.ok(/isAnySelectMenu/.test(icSrc), 'الفحص isAnySelectMenu ناقص — قائمة الأعضاء بتضل معطّلة');
     assert.ok(/action === 'adduser'/.test(icSrc), 'معالج إضافة العضو ناقص');
     assert.ok(/for \(const id of selected\)/.test(icSrc), 'لازم يضيف أكثر من عضو مرة وحدة');
     ok('قائمة الأعضاء (UserSelect) صارت تُلتقط + إضافة أكثر من عضو (حتى ٥)');
 
     /* محاكاة كاملة لتفاعل القائمة عبر معالج الأحداث الحقيقي */
-    const interactionCreate = require('./src/events/interactionCreate');
+    const interactionCreate = require('../src/events/interactionCreate');
     const ticket = db.createTicket({ guildId: GUILD, userId: '200000000000000010', channelId: '502000000000000502', type: 'support' });
     const edits = [];
     const roomMsgs = [];
@@ -440,10 +440,10 @@ async function main() {
     assert.strictEqual(openButtons.length, 4, 'أزرار التحكّم ناقصة من رسالة الفتح');
     ok('رسالة فتح التذكرة صورة بلا نص + المنشن وأزرار التحكّم (استلام · إغلاق · أرشيف · إضافة عضو)');
 
-    const ticketsSrc = fs.readFileSync(path.join(__dirname, 'src', 'systems', 'tickets.js'), 'utf8');
+    const ticketsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'systems', 'tickets.js'), 'utf8');
     assert.ok(/openTitle/.test(ticketsSrc) && /openDescription/.test(ticketsSrc), 'رسالة الفتح ما صارت تُبنى من الإعدادات');
     assert.ok(/openFooter/.test(ticketsSrc) && /openFields/.test(ticketsSrc), 'التذييل/الحقول ما صارت قابلة للتعديل');
-    const appSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     for (const key of ['tickets.openTitle', 'tickets.openDescription', 'tickets.openIntro', 'tickets.openFields', 'tickets.openFooter']) {
       assert.ok(appSrc.includes(key), `حقل ${key} ناقص من اللوحة`);
     }
@@ -455,14 +455,14 @@ async function main() {
 
   console.log('\n═══ ١٠) صفحة «ردود أوامر» في الموقع + مسار الـ API ═══');
   {
-    const appSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     assert.ok(/commandReplies: \{/.test(appSrc), 'قسم «ردود أوامر» ناقص من اللوحة');
     assert.ok(/label: 'ردود أوامر'/.test(appSrc), 'اسم الصفحة لازم يكون «ردود أوامر»');
     assert.ok(/commandReplies: 'messageEdit'/.test(appSrc), 'أيقونة الصفحة ناقصة');
     assert.ok(/command-replies/.test(appSrc), 'اللوحة ما تتصل بمسار ردود الأوامر');
     assert.ok(/نص الرد/.test(appSrc) && /شكل الرد/.test(appSrc), 'حقول تعديل الرد ناقصة');
 
-    const apiSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'routes', 'api.js'), 'utf8');
+    const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'routes', 'api.js'), 'utf8');
     assert.ok(/command-replies/.test(apiSrc), 'مسار /command-replies ناقص من الـ API');
     assert.ok(/replyFormat\.preview/.test(apiSrc), 'المعاينة الحيّة ناقصة من الـ API');
     assert.ok(/canAccess/.test(apiSrc.slice(apiSrc.indexOf('command-replies'), apiSrc.indexOf('command-replies') + 2000)), 'المسار بلا حماية صلاحيات');

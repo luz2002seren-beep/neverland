@@ -46,17 +46,17 @@ async function run() {
   process.env.OWNER_USER_ID = OWNER_ID;
   process.env.SESSION_SECRET = 'security-test-secret';
 
-  const config = require('./src/config');
+  const config = require('../src/config');
   config.web.ownerUserId = OWNER_ID;
   config.web.demoMode = false;
   config.web.requiredRoleId = '';
   config.web.publicAccess = true;
   config.web.loginRequired = false;
 
-  const security = require('./src/lib/security');
-  const db = require('./src/database');
-  const web = require('./src/web/server');
-  const webGuilds = require('./src/web/guilds');
+  const security = require('../src/lib/security');
+  const db = require('../src/database');
+  const web = require('../src/web/server');
+  const webGuilds = require('../src/web/guilds');
 
   /* الوصول للسيرفرات: نسمح بالسيرفر التجريبي فقط (ما في سيرفرات حقيقية بالاختبار) */
   const realCanAccess = webGuilds.canAccessGuild;

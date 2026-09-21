@@ -24,10 +24,10 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-wframe-'));
 process.env.DATABASE_PATH = path.join(tmp, 'wframe.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const config = require('./src/config');
-const welcome = require('./src/systems/welcome');
-const frameLib = require('./src/lib/welcomeFrame');
+const db = require('../src/database');
+const config = require('../src/config');
+const welcome = require('../src/systems/welcome');
+const frameLib = require('../src/lib/welcomeFrame');
 
 let checks = 0;
 const ok = (label) => {
@@ -36,7 +36,7 @@ const ok = (label) => {
 };
 
 const GUILD = '910000000000000001';
-const FRAME = path.join(__dirname, 'assets', 'welcome-frame.png');
+const FRAME = path.join(__dirname, '..', 'assets', 'welcome-frame.png');
 const AVATAR = 'https://cdn.discordapp.com/embed/avatars/2.png';
 
 function mkMember(id = '910000000000000042', name = 'Ahmed') {
@@ -180,7 +180,7 @@ async function main() {
     assert.strictEqual(custom.inviter, '<@1345866950776979547>', 'كود مُعلن كعام ⇒ يُمنشن صاحب الدعوة العام');
 
     /* الحدث يمرّر معلومات الدعوة للنظام */
-    const eventsSrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'members.js'), 'utf8');
+    const eventsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'members.js'), 'utf8');
     assert.ok(eventsSrc.includes('inviteInfo'), 'حدث الدخول ما يقرأ الدعوة');
     assert.ok(eventsSrc.includes('welcome.handleMemberAdd(client, member, { inviteInfo })'), 'معلومات الدعوة ما تُمرَّر للترحيب');
     ok('{inviter} منشن (خاص) · {inviterMention} · {inviterName} · {inviteCode} · والعامة ⇒ منشن صاحب الدعوة العام');
@@ -220,10 +220,10 @@ async function main() {
 
   console.log('\n═══ ٦) الربط: الإقلاع · الموقع · الاختبار · التشخيص ═══');
   {
-    const readySrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'ready.js'), 'utf8');
+    const readySrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'ready.js'), 'utf8');
     assert.ok(readySrc.includes('ensureStyle'), 'ترقية شكل الترحيب غير مربوطة بالإقلاع');
 
-    const apiSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'routes', 'api.js'), 'utf8');
+    const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'routes', 'api.js'), 'utf8');
     assert.ok(/action === 'welcome'/.test(apiSrc), 'مسار «ترحيب تجريبي» ناقص');
     assert.ok(apiSrc.includes('sendTestWelcome'), 'المسار ما ينادي إرسال الترحيب');
     assert.ok(apiSrc.includes('welcomeFrame'), 'معاينة الصورة ما تستخدم الإطار');
@@ -231,7 +231,7 @@ async function main() {
     assert.ok(apiSrc.includes('welcome: (() => {'), 'حالة الترحيب ناقصة من /api/status');
     assert.ok(apiSrc.includes('memberId'), 'اختيار العضو في الاختبار ناقص');
 
-    const appSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     for (const key of ['welcome.frameImage', 'welcome.frameCircle.cx', 'welcome.frameCircle.cy', 'welcome.frameCircle.r', "value: 'frame'", 'أرسل ترحيب تجريبي']) {
       assert.ok(appSrc.includes(key), `الموقع ينقصه ${key}`);
     }
@@ -240,7 +240,7 @@ async function main() {
 
   console.log('\n═══ ٧) تصحيح الإيموجيات الناقصة (نص الترحيب) ═══');
   {
-    const welcome = require('./src/systems/welcome');
+    const welcome = require('../src/systems/welcome');
     const NL_ID = '1461135643735490735';
     const guild = {
       id: GUILD,
@@ -277,14 +277,14 @@ async function main() {
     assert.ok(saved && saved[1].welcome.message.includes('<a:os49:999>'), 'لازم يبدّل رقم الإيموجي في النص المحفوظ');
     assert.ok(saved[1].welcome.message.includes('𝑊𝑒𝑙𝑐𝑜𝑚𝑒'), 'باقي النص لازم يبقى كما هو');
 
-    assert.ok(/ensureEmojis/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يصحّح الإيموجيات');
+    assert.ok(/ensureEmojis/.test(fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يصحّح الإيموجيات');
     ok('الإيموجي الناقص يُرفع تلقائيًا للسيرفر ويُبدَّل رابطه في النص (بدل ما ينطبع «:os49:»)');
   }
 
   console.log('\n═══ ٨) الإرسال: الصورة أولًا ثم النص · منشن الداعي · إيموجي من آيدي خارجي ═══');
   {
-    const welcome = require('./src/systems/welcome');
-    const config = require('./src/config');
+    const welcome = require('../src/systems/welcome');
+    const config = require('../src/config');
     const settings = { welcome: { ...config.defaults.welcome } };
 
     /* ٨-أ: رسالتان — الصورة أولًا (بلا نص) ثم النص (بلا صورة) */
@@ -339,16 +339,16 @@ async function main() {
     assert.ok(!failed[1].content.includes(`:${NL}>`), 'إيموجي ما قدرنا نرفعه لازم يُبدَّل (ما ينطبع :os49: نصًا)');
     assert.ok(failed[1].content.includes(config.defaults.welcome.emojiFallback), 'لازم يظهر الإيموجي البديل');
     assert.ok(
-      /create\(\{[^}]*attachment/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8'))
-        && fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8').includes('client.application.emojis.create'),
+      /create\(\{[^}]*attachment/.test(fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'systems', 'welcome.js'), 'utf8'))
+        && fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'systems', 'welcome.js'), 'utf8').includes('client.application.emojis.create'),
       'لازم يدعم إيموجي البوت نفسه (application emojis) لو ما قدر يرفعه للسيرفر',
     );
 
     /* ٨-د: الجسر بين الدخول والاختبار والموقع */
-    const src = fs.readFileSync(require('node:path').join(__dirname, 'src', 'systems', 'welcome.js'), 'utf8');
+    const src = fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'systems', 'welcome.js'), 'utf8');
     assert.ok(src.includes('sendWelcomeMessages') && /handleMemberAdd[\s\S]*sendWelcomeMessages/.test(src), 'دخول العضو لازم يرسل الرسالتين');
     assert.ok(/sendTestWelcome[\s\S]*sendWelcomeMessages/.test(src), 'الاختبار التجريبي لازم يرسل الرسالتين');
-    const appSrc = fs.readFileSync(require('node:path').join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     for (const key of ['welcome.imageFirst', 'welcome.inviterMention', 'welcome.publicInviterId', "'welcome.publicInviteCodes'", 'welcome.emojiFallback']) {
       assert.ok(appSrc.includes(key), `الموقع ينقصه ${key}`);
     }
@@ -364,8 +364,8 @@ async function main() {
 
   console.log('\n═══ ٩) صورة الإطار الجديدة + ترقية مكان الدائرة تلقائيًا ═══');
   {
-    const welcome = require('./src/systems/welcome');
-    const conf = require('./src/config');
+    const welcome = require('../src/systems/welcome');
+    const conf = require('../src/config');
     assert.ok(typeof welcome.ensureFrameLayout === 'function', 'دالة ترقية مكان الدائرة ناقصة');
 
     /* صورة الإطار = النسخة الجديدة (نفس رمز الصورة التي أرسلها المدير) */
@@ -453,7 +453,7 @@ async function main() {
     assert.strictEqual(db.getGuildSettings(customScale).welcome.frameScale, 1.15, 'التكبير المخصّص تغيّر — ممنوع');
     assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
 
-    assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
+    assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, '..', 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
     ok('الإطار الجديد 1536×1024 ودائرته (514,558 · نصف قطر 256) مضبوطة · ومكبّر ×' + big + ' ⇒ دائرة أكبر بـ٣٠٪ بلا قص + فحص بكسلات');
   }
 

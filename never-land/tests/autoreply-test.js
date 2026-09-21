@@ -19,8 +19,8 @@
  */
 
 const assert = require('node:assert');
-const config = require('./src/config');
-const arabicText = require('./src/lib/arabicText');
+const config = require('../src/config');
+const arabicText = require('../src/lib/arabicText');
 
 /* ------------------------- قاعدة بيانات وهمية بالذاكرة ------------------------- */
 
@@ -31,9 +31,9 @@ const mockDb = {
   updateGuildSettings: () => settings,
 };
 
-const dbPath = require.resolve('./src/database');
+const dbPath = require.resolve('../src/database');
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: mockDb };
-const autoreply = require('./src/systems/autoreply');
+const autoreply = require('../src/systems/autoreply');
 
 const GUILD = 'guild-test';
 const CHAN_A = 'chan-a';

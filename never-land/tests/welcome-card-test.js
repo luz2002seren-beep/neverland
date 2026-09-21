@@ -29,15 +29,15 @@ async function run() {
   process.env.DEMO_MODE = 'false';
   process.env.PUBLIC_ACCESS = 'true';
 
-  const config = require('./src/config');
+  const config = require('../src/config');
   config.web.demoMode = false;
   config.web.requiredRoleId = '';
   config.web.publicAccess = true;
   config.web.loginRequired = false;
 
-  const db = require('./src/database');
-  const welcome = require('./src/systems/welcome');
-  const card = require('./src/lib/welcomeCard');
+  const db = require('../src/database');
+  const welcome = require('../src/systems/welcome');
+  const card = require('../src/lib/welcomeCard');
   const GUILD = '100000000000000001';
 
   /* ---------- صورة أفتار وأيقونة حقيقية (سيرفر محلي) ---------- */
@@ -103,14 +103,14 @@ async function run() {
     assert.strictEqual(buffer.readUInt32BE(20), card.CARD_H, `ارتفاع الصورة غير صحيح (${buffer.readUInt32BE(20)})`);
 
     for (const file of ['DejaVuSans.ttf', 'DejaVuSans-Bold.ttf']) {
-      assert.ok(fs.existsSync(path.join(__dirname, 'assets', 'fonts', file)), `الخط ${file} غير مرفق بالمشروع — الصورة ستطلع بلا حروف على أي سيرفر بلا خطوط`);
+      assert.ok(fs.existsSync(path.join(__dirname, '..', 'assets', 'fonts', file)), `الخط ${file} غير مرفق بالمشروع — الصورة ستطلع بلا حروف على أي سيرفر بلا خطوط`);
     }
     const latin = await card.generateWelcomeCard({ user: { username: 'Sara', globalName: 'Sara', displayAvatarURL: () => imgUrl }, memberCount: 12, guildName: 'Never Land', message: 'Welcome Sara to Never Land', footer: 'Member #12' });
     assert.ok(latin && latin.length > 8000, 'صورة الترحيب بالإنجليزي فشلت');
     console.log(`١) صورة الترحيب: ${card.CARD_W}×${card.CARD_H} · ${Math.round(buffer.length / 1024)}KB · عربي وإنجليزي · الخطوط مرفقة ✅`);
 
     /* ---------- ١-ب) الوضع الافتراضي الجديد: إطار Never Land (الأفتار داخل الدائرة) ---------- */
-    const frameLib = require('./src/lib/welcomeFrame');
+    const frameLib = require('../src/lib/welcomeFrame');
     assert.ok(frameLib.available(), 'إطار الترحيب غير متاح (المكتبة أو الصورة ناقصة)');
     /* الصورة الحقيقية تُبنى بنفس إعدادات السيرفر الافتراضية (الإطار + مكان الدائرة + التكبير) */
     const frameDefaults = config.defaults.welcome;
@@ -133,7 +133,7 @@ async function run() {
     assert.ok(frameShot.buffer.slice(1, 4).toString() === 'PNG', 'إخراج PNG للإطار غير صالح');
     /* الإطار + الأفتار = صورة واحدة مقاسها نفس مقاس الإطار */
     const frameImg = require('@napi-rs/canvas').loadImage(frameReady.buffer);
-    const baseImg = await require('@napi-rs/canvas').loadImage(path.join(__dirname, 'assets', 'welcome-frame.png'));
+    const baseImg = await require('@napi-rs/canvas').loadImage(path.join(__dirname, '..', 'assets', 'welcome-frame.png'));
     const frameScale = config.defaults.welcome.frameScale || 1;
     const expectedWidth = Math.round(baseImg.width * frameScale);
     const expectedHeight = Math.round(baseImg.height * frameScale);
@@ -210,7 +210,7 @@ async function run() {
 
     /* ---------- ٦) معاينة اللوحة ----------
      * نفحصها بوضع العرض (demo) مثل ما يشوفها الزائر على الموقع العام. */
-    const web = require('./src/web/server');
+    const web = require('../src/web/server');
     config.web.demoMode = true;
     const app = web.createApp();
     const server = await new Promise((resolve) => {

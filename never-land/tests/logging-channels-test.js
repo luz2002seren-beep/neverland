@@ -27,8 +27,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-logch-'));
 process.env.DATABASE_PATH = path.join(tmp, 'logs.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const logging = require('./src/systems/logging');
+const db = require('../src/database');
+const logging = require('../src/systems/logging');
 
 const GUILD = 'guild-logs-test';
 let checks = 0;

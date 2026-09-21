@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 /**
  * ربط GitHub بدون كلمة مرور (Device Flow) + إنشاء المستودع + رفع المشروع.
- *   node github-login.js start                 → يعطي كودًا تدخله في github.com/login/device
- *   node github-login.js finish <اسم> [vis]    → بعد الموافقة: ينشئ المستودع ويرفع الملفات
+ *   node tools/github-login.js start                 → يعطي كودًا تدخله في github.com/login/device
+ *   node tools/github-login.js finish <اسم> [vis]    → بعد الموافقة: ينشئ المستودع ويرفع الملفات
+ *
+ * متغيّرات اختيارية:
+ *   NL_PROJECT   مجلد المشروع (افتراضيًا: المجلد الأب لهذا الملف)
+ *   NL_GH_STATE  أين تُحفظ حالة Device Flow (افتراضيًا: مجلد النظام المؤقت)
  */
 'use strict';
 const fs = require('fs');
+const path = require('node:path');
+const os = require('node:os');
 const { execSync } = require('child_process');
 
-const CLIENT_ID = '178c6fc778ccc68e1d6a'; // معرّف عميل GitHub CLI العام (يدعم Device Flow)
-const STATE = '/home/user/gh-device.json';
-const PROJECT = '/home/user/never-land';
+/* معرّف عميل OAuth العام الخاص بـ GitHub CLI — ليس سرًا (معلن في مصدر gh)،
+   وموجود هنا لأن Device Flow يحتاج client_id معروفًا لدى GitHub. */
+const CLIENT_ID = '178c6fc778ccc68e1d6a';
+
+/* كانت هذه مسارات مطلقة من جهاز صاحب المشروع الأصلي، فالسكربت كان معطّلًا
+   لأي شخص آخر. صارت تُشتقّ من مكان الملف وقابلة للضبط بمتغيّرات بيئة. */
+const PROJECT = process.env.NL_PROJECT || path.join(__dirname, '..');
+const STATE = process.env.NL_GH_STATE || path.join(os.tmpdir(), 'gh-device.json');
 
 const arg = process.argv[2] || 'start';
 

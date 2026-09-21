@@ -17,23 +17,23 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 const GIF_DIR = path.join(ROOT, 'assets', 'autoline');
 const EXPECTED = ['glow', 'flow', 'pulse', 'dash'];
 
-const config = require('./src/config');
+const config = require('../src/config');
 
 /* نُثبّت قاعدة بيانات وهمية *قبل* تحميل الوحدة حتى تلتقطها */
-const realDb = require('./src/database');
+const realDb = require('../src/database');
 let CURRENT_SETTINGS = null;
-const DB_PATH = require.resolve('./src/database');
+const DB_PATH = require.resolve('../src/database');
 require.cache[DB_PATH] = {
   id: DB_PATH,
   filename: DB_PATH,
   loaded: true,
   exports: { ...realDb, getGuildSettings: () => CURRENT_SETTINGS },
 };
-const autoline = require('./src/systems/autoline');
+const autoline = require('../src/systems/autoline');
 
 /* ------------------------------ أدوات مساعدة ------------------------------ */
 

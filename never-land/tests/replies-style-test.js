@@ -25,8 +25,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-replies-'));
 process.env.DATABASE_PATH = path.join(tmp, 'replies.db');
 process.env.DEMO_MODE = 'true';
 
-const config = require('./src/config');
-const replies = require('./src/lib/replies');
+const config = require('../src/config');
+const replies = require('../src/lib/replies');
 
 let checks = 0;
 const ok = (label) => {

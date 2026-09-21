@@ -14,7 +14,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 const publicDir = path.join(ROOT, 'src', 'web', 'public');
 
 const GUILD = {

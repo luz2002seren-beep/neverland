@@ -11,10 +11,10 @@ process.env.DATABASE_PATH = require('node:path').join(
 );
 const assert = require('node:assert');
 const { Collection } = require('discord.js');
-const config = require('./src/config');
-const help = require('./src/commands/general/help');
+const config = require('../src/config');
+const help = require('../src/commands/general/help');
 
-const catalog = require('./src/data/commandCatalog');
+const catalog = require('../src/data/commandCatalog');
 
 /** عميل وهمي فيه أوامر بأقسام مختلفة (الجمهور يُقرأ من الكتالوج الحقيقي) */
 function fakeClient() {
@@ -95,8 +95,8 @@ function linkButtons(rows) {
   assert.strictEqual(links2.length, 0, 'زر رابط باقي في تفاصيل الأمر');
 
   // ٥) الطريقة الوحيدة لرابط الموقع: كلمة «نيفر» — وبشرطين (رول الموقع + تسجيل)
-  const siteLink = require('./src/systems/siteLink');
-  const siteUsers = require('./src/web/siteUsers');
+  const siteLink = require('../src/systems/siteLink');
+  const siteUsers = require('../src/web/siteUsers');
   const roleId = String(config.web.requiredRoleId || '');
   const out = [];
   const fakeMsg = (content, member) => ({

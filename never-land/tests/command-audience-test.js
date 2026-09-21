@@ -24,17 +24,17 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 async function run() {
   const db = (() => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-aud-'));
     process.env.DATABASE_PATH = path.join(dir, 'aud.db');
-    return require('./src/database');
+    return require('../src/database');
   })();
 
-  const catalog = require('./src/data/commandCatalog');
+  const catalog = require('../src/data/commandCatalog');
   const { Collection } = require('discord.js');
 
   /* ------------------------- ١) الكتالوج ------------------------- */
@@ -60,7 +60,7 @@ async function run() {
 
   /* ------------------------- ٢) ديسكورد ------------------------- */
   const client = { commands: new Collection() };
-  const { loadCommands } = require('./src/handlers/commands');
+  const { loadCommands } = require('../src/handlers/commands');
   const { loaded } = loadCommands(client);
   const staffCmds = [...client.commands.values()].filter((c) => c.audience === 'staff');
   const memberCmds = [...client.commands.values()].filter((c) => c.audience === 'member');
@@ -79,7 +79,7 @@ async function run() {
   console.log('   مثال:', staffCmds[0].data.name, '→ default_member_permissions =', staffCmds[0].data.toJSON().default_member_permissions);
 
   /* ------------------------- ٣) /help ------------------------- */
-  const help = require('./src/commands/general/help');
+  const help = require('../src/commands/general/help');
   const staffMember = { id: '1', guild: { ownerId: '9' }, permissions: { has: (p) => p === 'ManageGuild' || p === 32n } };
   const plainMember = { id: '2', guild: { ownerId: '9' }, permissions: { has: () => false } };
 
@@ -108,7 +108,7 @@ async function run() {
   console.log('   العضو طلب /help ban → رفض ✔ · الإدارة → تفاصيل كاملة ✔');
 
   /* ------------------- ٤) الشات بلا بريفيكست ------------------- */
-  const text = require('./src/systems/textCommands');
+  const text = require('../src/systems/textCommands');
   const { SlashCommandBuilder } = require('discord.js');
   const GUILD = '100000000000000321';
 
@@ -168,7 +168,7 @@ async function run() {
   assert.ok(calls.includes('ban'), 'أمر الإدارة ما اشتغل للإدارة');
 
   /* السجل: محاولة العضو مسجّلة */
-  const audit = require('./src/lib/audit');
+  const audit = require('../src/lib/audit');
   const deniedRows = db.listAudit({ guildId: GUILD, limit: 50 }).items.filter((r) => r.action === 'command.denied');
   console.log('   سجل النشاط: محاولات مرفوضة =', deniedRows.length, '| الوصف:', audit.ACTION_LABELS['command.denied']);
   assert.ok(deniedRows.length >= 1, 'محاولة العضو ما انتسجلت في سجل النشاط');
@@ -209,7 +209,7 @@ async function run() {
    * (PUBLIC_ACCESS=true + LOGIN_REQUIRED=false) يخلّي GET /api/commands يرجّع 200
    * فيفشل التأكيد هنا رغم أنّ أوامر الإدارة تظل محجوبة فعلًا.
    */
-  const config = require('./src/config');
+  const config = require('../src/config');
   const demoWas = config.web.demoMode;
   const publicWas = config.web.publicAccess;
   const loginWas = config.web.loginRequired;
@@ -218,7 +218,7 @@ async function run() {
   config.web.loginRequired = true;
 
   const http = require('node:http');
-  const web = require('./src/web/server');
+  const web = require('../src/web/server');
   const server = await new Promise((resolve) => {
     const srv = http.createServer(web.createApp()).listen(0, '127.0.0.1', () => resolve(srv));
   });

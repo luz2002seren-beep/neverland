@@ -26,9 +26,9 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-tkb-'));
 process.env.DATABASE_PATH = path.join(tmp, 'buttons.db');
 process.env.DEMO_MODE = 'true';
 
-const config = require('./src/config');
-const db = require('./src/database');
-const tickets = require('./src/systems/tickets');
+const config = require('../src/config');
+const db = require('../src/database');
+const tickets = require('../src/systems/tickets');
 
 const GUILD = 'guild-btn-test';
 let checks = 0;

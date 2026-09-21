@@ -23,8 +23,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-room-'));
 process.env.DATABASE_PATH = path.join(tmp, 'room.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const room = require('./src/systems/commandRoom');
+const db = require('../src/database');
+const room = require('../src/systems/commandRoom');
 
 let checks = 0;
 const ok = (label) => {
@@ -238,7 +238,7 @@ async function main() {
 
   console.log('\n═══ ٥) اللوحة + الـ API ═══');
   {
-    const appSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     assert.ok(/commandRoom: \{/.test(appSrc), 'قسم «روم الأوامر» ناقص من اللوحة');
     assert.ok(/label: 'روم الأوامر'/.test(appSrc), 'اسم قسم الروم غلط');
     for (const key of ['commandRoom.enabled', 'commandRoom.channelId', 'commandRoom.intervalSeconds', 'commandRoom.text', 'commandRoom.image']) {
@@ -247,7 +247,7 @@ async function main() {
     assert.ok(/command-room\/publish/.test(appSrc) && /command-room\/clean/.test(appSrc), 'أزرار «أرسل الآن»/«نظّف الآن» ناقصة');
     ok('اللوحة: قسم روم الأوامر بكل حقوله + زرّي النشر والتنظيف الفوري');
 
-    const apiSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'routes', 'api.js'), 'utf8');
+    const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'routes', 'api.js'), 'utf8');
     assert.ok(/command-room\/:action/.test(apiSrc), 'مسارات روم الأوامر ناقصة من الـ API');
     assert.ok(/commandRoom: \(\(\) => \{/.test(apiSrc), 'حالة روم الأوامر ناقصة من /api/status');
     /* المسار اللي يكتب (النشر/التنظيف) لازم يمر بـ canEdit، ومسار القراءة بـ canAccess */
@@ -257,15 +257,15 @@ async function main() {
     assert.ok(/canAccess\(/.test(apiSrc.slice(get53, get53 + 300)), 'مسار القراءة بلا حماية (canAccess)');
     ok('الـ API: مسار التنفيذ محمي بـ canEdit · القراءة بـ canAccess · وحالة حيّة في /api/status');
 
-    const readySrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'ready.js'), 'utf8');
+    const readySrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'ready.js'), 'utf8');
     assert.ok(/commandRoom'\)\.start\(client\)/.test(readySrc), 'مؤقّت روم الأوامر ما انربط بالبوت');
     ok('البوت يشغّل مؤقّت روم الأوامر عند الإقلاع');
 
-    const repliesSrc = fs.readFileSync(path.join(__dirname, 'src', 'lib', 'replies.js'), 'utf8');
+    const repliesSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'replies.js'), 'utf8');
     assert.ok(repliesSrc.includes('__raw'), 'خاصية «أرسلها كما هي» (__raw) ناقصة — الرسالة العربية بتتترجم');
     ok('الرسالة الإعلانية تنزل بنصّها العربي بلا ترجمة (خاصية __raw)');
 
-    const cfgSrc = fs.readFileSync(path.join(__dirname, 'src', 'config.js'), 'utf8');
+    const cfgSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'config.js'), 'utf8');
     assert.ok(cfgSrc.includes(`'${CHANNEL}'`), 'روم الأوامر ما انضبط في الإعدادات الافتراضية');
     ok('الروم المطلوب مضبوط في إعدادات المشروع');
   }

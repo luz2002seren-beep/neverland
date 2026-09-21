@@ -27,14 +27,14 @@ const path = require('node:path');
 
 const seedDb = (dir) => {
   process.env.DATABASE_PATH = path.join(dir, 'tc.db');
-  return require('./src/database');
+  return require('../src/database');
 };
 
 async function run() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-tc-'));
   const db = seedDb(tmp);
-  const text = require('./src/systems/textCommands');
-  const catalog = require('./src/data/commandCatalog');
+  const text = require('../src/systems/textCommands');
+  const catalog = require('../src/data/commandCatalog');
   const { SlashCommandBuilder } = require('discord.js');
 
   const GUILD = '100000000000000777';
@@ -425,8 +425,8 @@ async function run() {
   console.log('٧) الكولداون مشيل: ٣ استدعاءات ورا بعض كلهم تنفّذوا بلا انتظار ✅');
 
   /* ----------------------- ٨) الكتالوج يغطي كل الأوامر ----------------------- */
-  const { walk } = require('./src/handlers/commands');
-  const files = walk(path.join(__dirname, 'src', 'commands'));
+  const { walk } = require('../src/handlers/commands');
+  const files = walk(path.join(__dirname, '..', 'src', 'commands'));
   const realNames = files.map((f) => require(f).data.toJSON().name).sort();
   assert.deepStrictEqual(realNames, Object.keys(catalog.COMMANDS).sort(), 'الكتالوج ما يطابق الأوامر الحقيقية (زيادة أو نقص)');
   for (const [name, meta] of Object.entries(catalog.COMMANDS)) {

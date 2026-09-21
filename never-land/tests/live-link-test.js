@@ -20,7 +20,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 async function run() {
@@ -30,10 +30,10 @@ async function run() {
      المجموعة — tests/smoke.js يشغّل هذه الملفات ببيئة منزوعة المفاتيح. */
   process.env.PUBLIC_ACCESS = 'true';
   process.env.LOGIN_REQUIRED = 'false';
-  const db = require('./src/database');
-  const live = require('./src/lib/live');
-  const suggestions = require('./src/systems/suggestions');
-  const textCommands = require('./src/systems/textCommands');
+  const db = require('../src/database');
+  const live = require('../src/lib/live');
+  const suggestions = require('../src/systems/suggestions');
+  const textCommands = require('../src/systems/textCommands');
   const { SlashCommandBuilder } = require('discord.js');
 
   /* ==================== ١) الربط الحيّ (موقع ↔ بوت) ==================== */
@@ -61,7 +61,7 @@ async function run() {
 
   /* البثّ يوصل للصفحات عبر SSE */
   const http = require('node:http');
-  const web = require('./src/web/server');
+  const web = require('../src/web/server');
   const server = await new Promise((resolve) => {
     const srv = http.createServer(web.createApp()).listen(0, '127.0.0.1', () => resolve(srv));
   });
@@ -269,9 +269,9 @@ async function run() {
   assert.ok(/ban @العضو/.test(replies.find((r) => /منشن العضو/.test(r)) || ''), 'المثال في التنبيه غير مفيد');
 
   /* ==================== ٤) رابط الموقع: «نيفر» + المسجّلين فقط ==================== */
-  const siteLink = require('./src/systems/siteLink');
-  const siteUsers = require('./src/web/siteUsers');
-  const roleId = String(require('./src/config').web.requiredRoleId || '');
+  const siteLink = require('../src/systems/siteLink');
+  const siteUsers = require('../src/web/siteUsers');
+  const roleId = String(require('../src/config').web.requiredRoleId || '');
   const out4 = [];
   const linkMsg = (content, member) => ({
     guild: { id: GUILD },

@@ -38,7 +38,7 @@ async function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-dom-'));
   process.env.DATABASE_PATH = path.join(tmpDir, 'dom.db');
 
-  const web = require('./src/web/server');
+  const web = require('../src/web/server');
   const app = web.createApp();
 
   const server = await new Promise((resolve) => {

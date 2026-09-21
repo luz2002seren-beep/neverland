@@ -23,11 +23,11 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-mod-'));
 process.env.DATABASE_PATH = path.join(tmp, 'moderation.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const actions = require('./src/lib/modActions');
-const textCommands = require('./src/systems/textCommands');
-const interactionCreate = require('./src/events/interactionCreate');
-const { migrateSettings } = require('./src/database/migrate');
+const db = require('../src/database');
+const actions = require('../src/lib/modActions');
+const textCommands = require('../src/systems/textCommands');
+const interactionCreate = require('../src/events/interactionCreate');
+const { migrateSettings } = require('../src/database/migrate');
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 
 let checks = 0;
@@ -163,7 +163,7 @@ async function main() {
 
   console.log('\n═══ ٢) الطرد: عضو برّا السيرفر ⇒ رسالة واضحة ═══');
   {
-    const kick = require('./src/commands/moderation/kick');
+    const kick = require('../src/commands/moderation/kick');
     const guild = fakeGuild();
     const outsider = fakeUser('940000000000000013', 'outsider');
     const interaction = fakeInteraction({ user: outsider });
@@ -181,8 +181,8 @@ async function main() {
 
   console.log('\n═══ ٢ب) خيار «آيدي» في الأمرين (بدون منشن) ═══');
   {
-    const ban = require('./src/commands/moderation/ban');
-    const kick = require('./src/commands/moderation/kick');
+    const ban = require('../src/commands/moderation/ban');
+    const kick = require('../src/commands/moderation/kick');
     const outsideId = '961000000000000021';
 
     /* /ban بالآيدي فقط ⇒ حظر خارجي (bans.create) */
@@ -245,7 +245,7 @@ async function main() {
 
   console.log('\n═══ ٣) فك الحظر: آيدي · منشن · اسم ═══');
   {
-    const unban = require('./src/commands/moderation/unban');
+    const unban = require('../src/commands/moderation/unban');
     const bannedId = '950000000000000014';
 
     for (const [label, input] of [
@@ -287,7 +287,7 @@ async function main() {
         else if (entry.name.endsWith('.js')) files.push(full);
       }
     };
-    walkDir(path.join(__dirname, 'src/commands'));
+    walkDir(path.join(__dirname, '..', 'src/commands'));
 
     const withCooldown = files.filter((f) => /^\s{2}cooldown:\s*\d+/m.test(fsx.readFileSync(f, 'utf8')));
     assert.strictEqual(withCooldown.length, 0, `أوامر بعدها فيها كولداون: ${withCooldown.join(', ')}`);

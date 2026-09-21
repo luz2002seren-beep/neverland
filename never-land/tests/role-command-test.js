@@ -23,7 +23,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { PermissionFlagsBits, SlashCommandBuilder } = require('discord.js');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 process.env.DATABASE_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nl-role-')), 'role.db');
 process.env.DEMO_MODE = 'true';
 
@@ -149,7 +149,7 @@ function makeWorld({ botPosition = 50, botPermissions = [PermissionFlagsBits.Man
   });
 
   const run = async (args) => {
-    const command = require('./src/commands/moderation/role.js');
+    const command = require('../src/commands/moderation/role.js');
     const interaction = mkInteraction(args);
     await command.run({ guilds: { cache: new Map() } }, interaction, 'ar');
     const reply = global.__calls.replies.at(-1);
@@ -161,11 +161,11 @@ function makeWorld({ botPosition = 50, botPermissions = [PermissionFlagsBits.Man
 }
 
 (async () => {
-  const db = require('./src/database');
-  const catalog = require('./src/data/commandCatalog');
-  const logging = require('./src/systems/logging');
-  const command = require('./src/commands/moderation/role.js');
-  const text = require('./src/systems/textCommands');
+  const db = require('../src/database');
+  const catalog = require('../src/data/commandCatalog');
+  const logging = require('../src/systems/logging');
+  const command = require('../src/commands/moderation/role.js');
+  const text = require('../src/systems/textCommands');
 
   /* تسجيل اللوقات بدون ديسكورد حقيقي */
   const realLog = logging.logModAction;
@@ -209,7 +209,7 @@ function makeWorld({ botPosition = 50, botPermissions = [PermissionFlagsBits.Man
     for (const word of ['رول', 'رتبة', 'رتب']) {
       assert.strictEqual(text.resolveCommand(GUILD, word), 'role', `اختصار «${word}» ما انعرف`);
     }
-    const replyFormat = require('./src/lib/replyFormat');
+    const replyFormat = require('../src/lib/replyFormat');
     assert.strictEqual(replyFormat.defaultMode('role'), 'text', 'الرد الافتراضي لازم رسالة نصية (زي باقي العقوبات)');
     ok('الكتالوج فيه الأمر + الجمهور إدارة + اختصارات «رول · رتبة · رتب» + الرد نص افتراضيًا');
   }
@@ -345,7 +345,7 @@ function makeWorld({ botPosition = 50, botPermissions = [PermissionFlagsBits.Man
   {
     /* نركّب عميل وهمي فيه الأمر الحقيقي ونمرّر رسالة شات */
     const w = makeWorld();
-    const client = { commands: new Map([['role', require('./src/commands/moderation/role.js')]]), user: { id: BOT_ID } };
+    const client = { commands: new Map([['role', require('../src/commands/moderation/role.js')]]), user: { id: BOT_ID } };
     text.setOptions(GUILD, { enabled: true, cooldownSeconds: 0 });
 
     const channel = { id: '900000000000000200', name: 'اوامر', permissionsFor: () => ({ has: () => true }) };

@@ -9,10 +9,10 @@ const assert = require('node:assert');
 const ROLE = '1549364852433354792';
 process.env.REQUIRED_ROLE_ID = ROLE;
 
-const config = require('./src/config');
-const access = require('./src/web/access');
+const config = require('../src/config');
+const access = require('../src/web/access');
 
-const CLIENT_PATH = require.resolve('./src/client.js');
+const CLIENT_PATH = require.resolve('../src/client.js');
 
 /** عميل وهمي */
 function fakeMember(m) {

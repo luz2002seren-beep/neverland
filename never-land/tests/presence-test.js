@@ -22,7 +22,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { ActivityType } = require('discord.js');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..');
 process.env.DATABASE_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nl-pres-')), 'presence.db');
 process.env.DEMO_MODE = 'true';
 
@@ -54,9 +54,9 @@ function fakeClient({ fail = false } = {}) {
 }
 
 (async () => {
-  const db = require('./src/database');
-  const config = require('./src/config');
-  const presence = require('./src/systems/presence');
+  const db = require('../src/database');
+  const config = require('../src/config');
+  const presence = require('../src/systems/presence');
 
   console.log('\n═══ ١) القيم الافتراضية: الاسم والنوع واللون ═══');
   {

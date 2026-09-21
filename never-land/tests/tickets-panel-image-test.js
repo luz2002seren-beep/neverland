@@ -27,8 +27,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-panel-'));
 process.env.DATABASE_PATH = path.join(tmp, 'panel.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const tickets = require('./src/systems/tickets');
+const db = require('../src/database');
+const tickets = require('../src/systems/tickets');
 
 let checks = 0;
 const ok = (label) => {
@@ -97,7 +97,7 @@ const resetTickets = (patch = {}) => {
 async function main() {
   console.log('\n═══ ١) صورة اللوحة: صورة بخلفية شفافة فعلًا ═══');
   {
-    const full = path.join(__dirname, HERO);
+    const full = path.join(__dirname, '..', HERO);
     assert.ok(fs.existsSync(full), `الصورة ناقصة: ${HERO}`);
     const buffer = fs.readFileSync(full);
 
@@ -132,10 +132,10 @@ async function main() {
 
     /* ما بقيت أي نسخة قديمة (سوداء/خط زخرفي/PNG ما قبل WebP) داخل المشروع */
     for (const old of ['tickets-panel.webp', 'tickets-panel-footer.webp', 'tickets-panel.png']) {
-      assert.ok(!fs.existsSync(path.join(__dirname, 'src', 'web', 'public', 'assets', old)), `نسخة قديمة لسا موجودة: ${old}`);
+      assert.ok(!fs.existsSync(path.join(__dirname, '..', 'src', 'web', 'public', 'assets', old)), `نسخة قديمة لسا موجودة: ${old}`);
     }
     assert.strictEqual(tickets.DEFAULT_PANEL_IMAGE, HERO, 'مسار صورة اللوحة الافتراضية خطأ');
-    assert.strictEqual(require(path.join(__dirname, 'src', 'config')).defaults.tickets.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي');
+    assert.strictEqual(require(path.join(__dirname, '..', 'src', 'config')).defaults.tickets.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي');
     const names = tickets.panelImageNames({ panelImage: HERO, panelFooterImage: '' });
     assert.ok(names.includes('tickets-panel-v5.webp'), 'اسم الصورة الجديدة ناقص');
     assert.ok(
@@ -351,22 +351,22 @@ async function main() {
 
   console.log('\n═══ ٨) ربط التحديث التلقائي (تشغيل البوت + الموقع + التشخيص) ═══');
   {
-    const readySrc = fs.readFileSync(path.join(__dirname, 'src', 'events', 'ready.js'), 'utf8');
+    const readySrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'events', 'ready.js'), 'utf8');
     assert.ok(/systems\/tickets['"]\)\s*\.ensureAll|ensureAll\(client\)/.test(readySrc), 'التشغيل التلقائي للوحة التذاكر غير مربوط عند إقلاع البوت');
 
-    const apiSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'routes', 'api.js'), 'utf8');
+    const apiSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'routes', 'api.js'), 'utf8');
     assert.ok(/scheduleEnsure/.test(apiSrc), 'حفظ الإعدادات ما يحدّث اللوحة تلقائيًا');
     assert.ok(/tickets\/panel'/.test(apiSrc), 'مسار تشخيص لوحة التذاكر ناقص');
     assert.ok(/ticketsPanel/.test(apiSrc), 'حالة لوحة التذاكر ناقصة من /api/status');
     assert.ok(/panelFooterImage/.test(apiSrc), 'الخط تحت القائمة ناقص من مسار التشخيص');
     assert.ok(apiSrc.includes('storedPanelImage') && apiSrc.includes('effectiveImages'), 'التشخيص ما يبيّن الصورة الفعّالة');
     assert.ok(/kind: m.embeds\?\.length \? 'embed' : 'attachment'/.test(apiSrc), 'التشخيص ما يفرّق بين المرفق والإمبد');
-    assert.ok(!/imageEmbed/.test(fs.readFileSync(path.join(__dirname, 'src', 'systems', 'tickets.js'), 'utf8')), 'خلّفت دالة إمبد الصورة — لازم صورة عادية بلا إمبد');
+    assert.ok(!/imageEmbed/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'systems', 'tickets.js'), 'utf8')), 'خلّفت دالة إمبد الصورة — لازم صورة عادية بلا إمبد');
 
-    const cmdSrc = fs.readFileSync(path.join(__dirname, 'src', 'commands', 'config', 'tickets.js'), 'utf8');
+    const cmdSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'commands', 'config', 'tickets.js'), 'utf8');
     assert.ok(/ensurePanel/.test(cmdSrc), 'أمر /tickets panel ما صار يستخدم مسار الصورة');
 
-    const appSrc = fs.readFileSync(path.join(__dirname, 'src', 'web', 'public', 'app.js'), 'utf8');
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8');
     for (const key of ['tickets.panelImage', 'tickets.panelImageOnly', 'tickets.panelFooterImage', 'tickets.panelPlaceholder', 'tickets.panelChannelId', 'tickets.panelAutoPost', 'tickets.openImage', 'tickets.openImageOnly']) {
       assert.ok(appSrc.includes(key), `حقل ${key} ناقص من الموقع`);
     }

@@ -85,12 +85,12 @@ async function run() {
   process.env.OWNER_USER_ID = OWNER_ID;
   process.env.SESSION_SECRET = 'test-secret-not-real';
 
-  const config = require('./src/config');
+  const config = require('../src/config');
   config.web.ownerUserId = OWNER_ID;
   config.web.demoMode = false;
   config.web.requiredRoleId = ''; // بلا شرط رول في الاختبار
 
-  const web = require('./src/web/server');
+  const web = require('../src/web/server');
   const app = web.createApp();
   const server = await new Promise((resolve) => {
     const s = http.createServer(app).listen(0, '127.0.0.1', () => resolve(s));
@@ -134,7 +134,7 @@ async function run() {
     [sidOther, makeSession({ id: OTHER_ID, username: 'other', globalName: 'عضو عادي' })],
   ]);
 
-  const siteUsers = require('./src/web/siteUsers');
+  const siteUsers = require('../src/web/siteUsers');
   const owner = client(live.base, sidOwner);
   const other = client(live.base, sidOther);
 
@@ -182,9 +182,9 @@ async function run() {
   assert.strictEqual(viewMe.json.roleOk, true, 'المشاهدة فقط يجب أن يُسمح له بالقراءة');
 
   // القراءة مسموحة والكتابة ممنوعة
-  const guildsRead = await other.get(`/api/guilds/${require('./src/web/demo').DEMO_GUILD_ID}`);
+  const guildsRead = await other.get(`/api/guilds/${require('../src/web/demo').DEMO_GUILD_ID}`);
   assert.ok([200, 403].includes(guildsRead.status), 'طلبات القراءة تتعطّل للمشاهدة فقط');
-  const writeTry = await other.post(`/api/guilds/${require('./src/web/demo').DEMO_GUILD_ID}/settings`, { leveling: { enabled: false } });
+  const writeTry = await other.post(`/api/guilds/${require('../src/web/demo').DEMO_GUILD_ID}/settings`, { leveling: { enabled: false } });
   assert.strictEqual(writeTry.status, 403, `المشاهدة فقط قدر يعدّل (${writeTry.status})`);
   assert.strictEqual(writeTry.json.error, 'readonly');
   console.log('٣) المشاهدة فقط: يفتح كل شي ويقرأ، والتعديل/الحفظ ممنوعان ✅');
@@ -227,9 +227,9 @@ async function run() {
   console.log('٦) الرجوع طبيعيًا · قطع الجلسة · حذف الحساب من السجل ✅');
 
   /* ───────── ٧) صفحة اللوحة نفسها: تنسيقها مربوط دائمًا ───────── */
-  const demoGuild = require('./src/web/demo').DEMO_GUILD_ID;
+  const demoGuild = require('../src/web/demo').DEMO_GUILD_ID;
   /* في الاختبار ما في سيرفرات حقيقية في القاعدة — نسمح بالوصول للسيرفر التجريبي */
-  const webGuilds = require('./src/web/guilds');
+  const webGuilds = require('../src/web/guilds');
   const prevAccess = webGuilds.canAccessGuild;
   webGuilds.canAccessGuild = async () => true;
 

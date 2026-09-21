@@ -60,15 +60,15 @@ async function run({ quiet = false } = {}) {
   process.env.OWNER_USER_ID = OWNER_ID;
   process.env.SESSION_SECRET = 'layout-test-secret';
 
-  const config = require('./src/config');
+  const config = require('../src/config');
   config.web.ownerUserId = OWNER_ID;
   config.web.demoMode = false;
   config.web.requiredRoleId = '';
   config.web.publicAccess = true;
   config.web.loginRequired = false;
 
-  const web = require('./src/web/server');
-  const webGuilds = require('./src/web/guilds');
+  const web = require('../src/web/server');
+  const webGuilds = require('../src/web/guilds');
   const prevAccess = webGuilds.canAccessGuild;
   webGuilds.canAccessGuild = async () => true; // ما في سيرفرات حقيقية في قاعدة الاختبار
 
@@ -104,7 +104,7 @@ async function run({ quiet = false } = {}) {
     const s = http.createServer(app).listen(0, '127.0.0.1', () => resolve(s));
   });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const demoGuild = require('./src/web/demo').DEMO_GUILD_ID;
+  const demoGuild = require('../src/web/demo').DEMO_GUILD_ID;
 
   let browser;
   try {
@@ -124,7 +124,7 @@ async function run({ quiet = false } = {}) {
 
   try {
     /* ── الحالات الثلاث: مالك · مشاهدة فقط · زائر ── */
-    const siteUsers = require('./src/web/siteUsers');
+    const siteUsers = require('../src/web/siteUsers');
     siteUsers.recordLogin({ id: VIEW_ID, username: 'viewer', globalName: 'مشاهدة فقط' }, { guilds: 1 });
     const st = siteUsers.setStatus(VIEW_ID, 'viewonly', { reason: 'اختبار التخطيط' });
     assert.ok(st.ok, `تعيين «مشاهدة فقط» فشل: ${st.error}`);

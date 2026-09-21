@@ -21,9 +21,9 @@
 
 const assert = require('node:assert');
 
-const periods = require('./src/lib/periods');
-const { levelFromXp } = require('./src/lib/levels');
-const config = require('./src/config');
+const periods = require('../src/lib/periods');
+const { levelFromXp } = require('../src/lib/levels');
+const config = require('../src/config');
 
 /* ------------------------- قاعدة بيانات وهمية بالذاكرة ------------------------- */
 
@@ -108,9 +108,9 @@ const mockDb = {
 };
 
 /* نحقن قاعدة البيانات الوهمية *قبل* تحميل نظام الخبرة */
-const dbPath = require.resolve('./src/database');
+const dbPath = require.resolve('../src/database');
 require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: mockDb };
-const leveling = require('./src/systems/leveling');
+const leveling = require('../src/systems/leveling');
 
 /* --------------------------------- أدوات --------------------------------- */
 

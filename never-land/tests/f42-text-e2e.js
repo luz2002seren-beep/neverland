@@ -13,8 +13,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-txt-'));
 process.env.DATABASE_PATH = path.join(tmp, 'text.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const textCommands = require('./src/systems/textCommands');
+const db = require('../src/database');
+const textCommands = require('../src/systems/textCommands');
 
 const G = '950000000000000009';
 const BOT = '100000000000000002';
@@ -125,7 +125,7 @@ const walk = (dir) => {
     }
   }
 };
-walk(path.join(__dirname, 'src', 'commands'));
+walk(path.join(__dirname, '..', 'src', 'commands'));
 
 const client = { user: { id: BOT, tag: 'Never Land#5095' }, commands, users: { fetch: async (id) => user(id, 'outside'), cache: new Map() }, channels: { cache: new Map() } };
 

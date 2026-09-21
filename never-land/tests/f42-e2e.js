@@ -12,9 +12,9 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nl-e2e-'));
 process.env.DATABASE_PATH = path.join(tmp, 'e2e.db');
 process.env.DEMO_MODE = 'true';
 
-const db = require('./src/database');
-const periods = require('./src/lib/periods');
-const replies = require('./src/lib/replies');
+const db = require('../src/database');
+const periods = require('../src/lib/periods');
+const replies = require('../src/lib/replies');
 
 const G = '900000000000000009';
 const BOT = '100000000000000002';
@@ -114,26 +114,26 @@ function show(label, captured) {
   console.log('\n════ حمولة الإرسال الحقيقية (بعد الشكل + الترجمة) ════');
 
   /* التوب */
-  const top = require('./src/commands/general/top');
+  const top = require('../src/commands/general/top');
   const i1 = makeInteraction('top', { strings: { الفترة: 'day', النوع: 'all' } });
   await top.run(i1.client, i1, 'ar');
   show('/top day', i1.__captured);
 
   /* العقوبات */
-  const group = require('./src/commands/moderation/ban');
+  const group = require('../src/commands/moderation/ban');
   const i2 = makeInteraction('ban', { strings: { السبب: 'سبام' }, user: user(TARGET, 'Ahmed') });
   i2.options.getUser = (n) => (n === 'العضو' ? user(TARGET, 'Ahmed') : null);
   i2.options.getMember = () => member(TARGET, 'Ahmed');
   await group.run(i2.client, i2, 'ar');
   show('/ban', i2.__captured);
 
-  const kick = require('./src/commands/moderation/kick');
+  const kick = require('../src/commands/moderation/kick');
   const i3 = makeInteraction('kick', { strings: { السبب: 'إزعاج' }, user: user(TARGET, 'Ahmed') });
   i3.options.getMember = () => member(TARGET, 'Ahmed');
   await kick.run(i3.client, i3, 'ar');
   show('/kick', i3.__captured);
 
-  const warn = require('./src/commands/moderation/warn');
+  const warn = require('../src/commands/moderation/warn');
   const i4 = makeInteraction('warn', { strings: { السبب: 'تجاوز', 'الأمر': 'add' } });
   i4.options.getSubcommand = () => 'add';
   i4.options.getMember = () => member(TARGET, 'Ahmed');
@@ -141,14 +141,14 @@ function show(label, captured) {
   await warn.run(i4.client, i4, 'ar');
   show('/warn', i4.__captured);
 
-  const purge = require('./src/commands/moderation/purge');
+  const purge = require('../src/commands/moderation/purge');
   const i5 = makeInteraction('purge', { strings: { العدد: '25' } });
   i5.options.getSubcommand = () => 'messages';
   i5.options.getInteger = (n) => (n === 'العدد' ? 25 : null);
   await purge.run(i5.client, i5, 'ar');
   show('/purge', i5.__captured);
 
-  const lock = require('./src/commands/moderation/lock');
+  const lock = require('../src/commands/moderation/lock');
   const i6 = makeInteraction('lock');
   i6.options.getSubcommand = () => 'channel';
   await lock.run(i6.client, i6, 'ar');

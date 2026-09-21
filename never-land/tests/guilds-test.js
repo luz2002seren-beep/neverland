@@ -17,8 +17,8 @@ const path = require('node:path');
 const ROLE = '1549364852433354792';
 process.env.REQUIRED_ROLE_ID = ROLE;
 
-const config = require('./src/config');
-const CLIENT_PATH = require.resolve('./src/client.js');
+const config = require('../src/config');
+const CLIENT_PATH = require.resolve('../src/client.js');
 
 /** عضو وهمي (مع صلاحيات) */
 function fakeMember({ id, roles = [], perms = [] }) {
@@ -71,7 +71,7 @@ function install(client) {
 const reqFor = ({ user = null, guilds = [] } = {}) => ({ session: { user, guilds }, method: 'GET' });
 
 (async () => {
-  const webGuilds = require('./src/web/guilds');
+  const webGuilds = require('../src/web/guilds');
   const GUILD = '1542345715949506630';
 
   console.log('\n[اختبار] مصدر سيرفرات المستخدم في الموقع\n');

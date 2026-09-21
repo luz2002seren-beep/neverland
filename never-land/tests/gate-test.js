@@ -9,14 +9,14 @@ const express = require('express');
 
 const ROLE = '1549364852433354792';
 process.env.REQUIRED_ROLE_ID = ROLE;
-const config = require('./src/config');
+const config = require('../src/config');
 config.web.demoMode = false;          // نُطفئ وضع التطوير لاختبار البوابة الحقيقية
 config.web.loginRequired = true;
 config.web.requiredRoleId = ROLE;
 
 // نحقن وحدة access وهمية للتحكم بنتيجة فحص الرول
-const ACCESS_PATH = require.resolve('./src/web/access');
-const realAccess = require('./src/web/access');
+const ACCESS_PATH = require.resolve('../src/web/access');
+const realAccess = require('../src/web/access');
 let nextResult = { ok: true, reason: 'ok', checked: true, guild: 'سيرفر الاختبار' };
 require.cache[ACCESS_PATH] = {
   id: ACCESS_PATH,
@@ -29,8 +29,8 @@ require.cache[ACCESS_PATH] = {
   },
 };
 
-const pages = require('./src/web/routes/pages');
-const api = require('./src/web/routes/api');
+const pages = require('../src/web/routes/pages');
+const api = require('../src/web/routes/api');
 
 const state = { user: null };   // نبدّله بين الحالات
 function app() {
