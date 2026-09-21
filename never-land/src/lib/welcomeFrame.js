@@ -80,7 +80,8 @@ async function loadAvatar(url) {
  * @param {string} [opts.frame] مسار الإطار (افتراضي: assets/welcome-frame.png)
  * @param {{cx:number,cy:number,r:number}} [opts.roi] مكان الدائرة (نسب)
  * @param {'webp'|'png'} [opts.format] صيغة الإخراج (افتراضي webp شفاف وخفيف)
- * @param {number} [opts.scale] تصغير/تكبير الإخراج (افتراضي 1 = نفس مقاس الإطار)
+ * @param {number} [opts.scale] تكبير/تصغير الإخراج والإطار معه (افتراضي 1 = نفس مقاس الإطار)
+ *   ملاحظة: التكبير يكبّر الإطار والأفتار والدائرة بنفس النسبة — بلا أي قص للحواف.
  * @returns {Promise<{buffer:Buffer, name:string}|null>}
  */
 async function generate({ avatarUrl = null, frame = DEFAULT_FRAME, roi = null, format = 'webp', scale = 1 } = {}) {
@@ -97,8 +98,10 @@ async function generate({ avatarUrl = null, frame = DEFAULT_FRAME, roi = null, f
   const canvas = CanvasLib.createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
-  /* ١) الإطار كامل (بشفافيته) */
+  /* ١) الإطار كامل (بشفافيته) — بجودة عالية عند التكبير/التصغير */
   ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(base.image, 0, 0, W, H);
 
   /* ٢) أفتار العضو داخل الدائرة */

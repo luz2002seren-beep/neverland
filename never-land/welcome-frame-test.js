@@ -389,6 +389,20 @@ async function main() {
     assert.ok(Math.abs(rPx - 210) < 6, `نصف قطر الدائرة بالبكسل خطأ (${rPx.toFixed(1)} — المطلوب ≈ ٢١٠)`);
     assert.ok(rPx > 0.15 * py && rPx < 0.3 * py, 'نصف القطر خارج النطاق المعقول');
 
+    /* 🔍 تكبير الصورة كاملة: الدائرة ترجع بنفس حجم صورة الترحيب السابقة (≈٢٥٦ بكسل) */
+    const big = conf.defaults.welcome.frameScale;
+    assert.ok(big > 1 && big < 2, 'معامل تكبير الإطار لازم يكون معقولًا (١ – ٢)');
+    {
+      const CanvasLib3 = require('@napi-rs/canvas');
+      const made = await frameLib.generate({ frame: FRAME, roi: meta, format: 'png', scale: big });
+      const img = await CanvasLib3.loadImage(made.buffer);
+      assert.strictEqual(img.width, Math.round(px * big), 'عرض المخرج المكبّر خطأ');
+      assert.strictEqual(img.height, Math.round(py * big), 'ارتفاع المخرج المكبّر خطأ');
+      const rBig = meta.r * img.height;
+      assert.ok(Math.abs(rBig - 256) < 8, `دائرة الأفتار بالمخرج المكبّر لازم تكون ≈٢٥٦ بكسل (طلع ${rBig.toFixed(1)})`);
+      assert.ok(rBig > 209, 'الدائرة أصغر من دائرة الصورة السابقة');
+    }
+
     /* فحص بكسلات يمنع الغلطة نفسها: أفتار أحمر لازم يغطّي الدائرة كاملة وما يطلع برّاها */
     {
       const CanvasLib2 = require('@napi-rs/canvas');
@@ -400,7 +414,7 @@ async function main() {
       const redFile = path.join(redPath, 'red.png');
       fs.writeFileSync(redFile, red.toBuffer('image/png'));
 
-      const made = await frameLib.generate({ avatarUrl: redFile, format: 'png' });
+      const made = await frameLib.generate({ avatarUrl: redFile, frame: FRAME, roi: meta, format: 'png', scale: big });
       const img = await CanvasLib2.loadImage(made.buffer);
       const probe = CanvasLib2.createCanvas(img.width, img.height);
       const pctx = probe.getContext('2d');
@@ -430,7 +444,7 @@ async function main() {
     assert.deepStrictEqual(db.getGuildSettings(customGuild).welcome.frameCircle, { cx: 0.5, cy: 0.5, r: 0.2 }, 'الدائرة المخصّصة تغيّرت — ممنوع');
 
     assert.ok(/ensureFrameLayout/.test(fs.readFileSync(require('node:path').join(__dirname, 'src', 'events', 'ready.js'), 'utf8')), 'الإقلاع لازم يرقّي مكان الدائرة');
-    ok('الإطار الجديد 1536×1024 ودائرته (558,565 · نصف قطر 210) مضبوطة + فحص بكسلات يمنع صغر/كبر الأفتار');
+    ok('الإطار الجديد 1536×1024 ودائرته (558,565 · نصف قطر 210) مضبوطة · ومكبّر ×' + big + ' فيرجع بنفس حجم الصورة السابقة (≈٢٥٦ بكسل) + فحص بكسلات');
   }
 
   console.log(`\n🎉 ترحيب إطار Never Land جاهز (${checks} فحصًا)\n`);

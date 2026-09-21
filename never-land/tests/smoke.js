@@ -2435,6 +2435,10 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(out54.includes('صورة الإطار الجديدة'), 'مجموعة فحص الإطار الجديد ناقصة');
     assert.ok(Math.abs(cfg54.frameCircle.cx - 0.36322) < 0.0005 && Math.abs(cfg54.frameCircle.cy - 0.55215) < 0.0005, 'مركز دائرة الإطار الجديد خطأ');
     assert.ok(Math.abs(cfg54.frameCircle.r - 0.20469) < 0.0005, 'نصف قطر دائرة الإطار الجديد خطأ (نسبة من الارتفاع)');
+    /* تكبير الصورة كاملة (الإطار + الدائرة) بلا قص للحواف */
+    assert.ok(cfg54.frameScale > 1.1 && cfg54.frameScale < 1.4, 'معامل تكبير صورة الترحيب خارج النطاق');
+    assert.ok(read54('src/systems/welcome.js').includes('scale: Number(cfg.frameScale)'), 'التكبير ما انمرّر لصورة الترحيب');
+    assert.ok(read54('src/web/routes/api.js').includes('welcomeCfg.frameScale'), 'التكبير ما انمرّر لمعاينة اللوحة');
     assert.ok(typeof welcome54.ensureFrameLayout === 'function', 'ترقية مكان الدائرة ناقصة');
     assert.ok(read54('src/events/ready.js').includes('ensureFrameLayout'), 'الإقلاع لازم يرقّي مكان الدائرة');
     console.log('  [تم] الإطار + الأفتار داخل الدائرة + الرسالة (Member · Inv By) + الاختبار التجريبي');

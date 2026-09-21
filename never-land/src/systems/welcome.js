@@ -236,6 +236,7 @@ async function buildWelcomeImage(client, member, settings, opts = {}) {
       frame: cfg.frameImage,
       roi: cfg.frameCircle || null,
       format: 'webp',
+      scale: Number(cfg.frameScale) > 0 ? Number(cfg.frameScale) : 1,
     });
     if (made) {
       result.files.push(new AttachmentBuilder(made.buffer, { name: made.name }));
@@ -413,6 +414,7 @@ async function previewCard(client, member) {
       frame: cfg.frameImage,
       roi: cfg.frameCircle || null,
       format: 'png',
+      scale: Number(cfg.frameScale) > 0 ? Number(cfg.frameScale) : 1,
     });
     if (made) return made.buffer;
   }

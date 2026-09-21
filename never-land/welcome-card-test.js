@@ -112,17 +112,37 @@ async function run() {
     /* ---------- ١-ب) الوضع الافتراضي الجديد: إطار Never Land (الأفتار داخل الدائرة) ---------- */
     const frameLib = require('./src/lib/welcomeFrame');
     assert.ok(frameLib.available(), 'إطار الترحيب غير متاح (المكتبة أو الصورة ناقصة)');
-    const frameReady = await frameLib.generate({ avatarUrl: imgUrl, format: 'webp' });
+    /* الصورة الحقيقية تُبنى بنفس إعدادات السيرفر الافتراضية (الإطار + مكان الدائرة + التكبير) */
+    const frameDefaults = config.defaults.welcome;
+    const frameReady = await frameLib.generate({
+      avatarUrl: imgUrl,
+      frame: frameDefaults.frameImage,
+      roi: frameDefaults.frameCircle,
+      format: 'webp',
+      scale: frameDefaults.frameScale,
+    });
     assert.ok(frameReady && frameReady.buffer.length > 20000, 'توليد صورة الإطار فشل');
     assert.strictEqual(frameReady.name, 'welcome.webp', 'اسم ملف الإطار خطأ');
-    const frameShot = await frameLib.generate({ avatarUrl: imgUrl, format: 'png' });
+    const frameShot = await frameLib.generate({
+      avatarUrl: imgUrl,
+      frame: frameDefaults.frameImage,
+      roi: frameDefaults.frameCircle,
+      format: 'png',
+      scale: frameDefaults.frameScale,
+    });
     assert.ok(frameShot.buffer.slice(1, 4).toString() === 'PNG', 'إخراج PNG للإطار غير صالح');
     /* الإطار + الأفتار = صورة واحدة مقاسها نفس مقاس الإطار */
     const frameImg = require('@napi-rs/canvas').loadImage(frameReady.buffer);
     const baseImg = await require('@napi-rs/canvas').loadImage(path.join(__dirname, 'assets', 'welcome-frame.png'));
-    assert.strictEqual((await frameImg).width, baseImg.width, 'عرض صورة الترحيب ما يطابق الإطار');
-    assert.strictEqual((await frameImg).height, baseImg.height, 'ارتفاع صورة الترحيب ما يطابق الإطار');
-    console.log(`١-ب) إطار Never Land: أفتار العضو داخل الدائرة · ${(frameReady.buffer.length / 1024).toFixed(0)}KB · مقاس ${baseImg.width}×${baseImg.height} ✅`);
+    const frameScale = config.defaults.welcome.frameScale || 1;
+    const expectedWidth = Math.round(baseImg.width * frameScale);
+    const expectedHeight = Math.round(baseImg.height * frameScale);
+    assert.strictEqual((await frameImg).width, expectedWidth, 'عرض صورة الترحيب ما يطابق الإطار المكبّر');
+    assert.strictEqual((await frameImg).height, expectedHeight, 'ارتفاع صورة الترحيب ما يطابق الإطار المكبّر');
+    /* دائرة الأفتار بالمخرج لازم تكون بنفس حجم صورة الترحيب السابقة (≈٢٥٦ بكسل) */
+    const circlePx = config.defaults.welcome.frameCircle.r * expectedHeight;
+    assert.ok(Math.abs(circlePx - 256) < 8, `دائرة الأفتار بالمخرج المكبّر لازم ≈٢٥٦ بكسل (طلع ${circlePx.toFixed(1)})`);
+    console.log(`١-ب) إطار Never Land: أفتار العضو داخل الدائرة · ${(frameReady.buffer.length / 1024).toFixed(0)}KB · مقاس ${expectedWidth}×${expectedHeight} (تكبير ×${frameScale}) ✅`);
 
     /* ---------- ٢) الوضع الافتراضي: صورة الإطار + رسالة عادية بلا إطار ---------- */
     const plain = await welcome.buildWelcomePayload(null, member, settings);
@@ -203,7 +223,7 @@ async function run() {
     assert.ok(previewBuf.slice(1, 4).toString() === 'PNG' && previewBuf.length > 8000, 'المعاينة صورة غير صالحة');
     fs.writeFileSync('/tmp/welcome-preview-test.png', previewBuf);
     server.close();
-    assert.strictEqual(previewBuf.readUInt32BE(16), baseImg.width, 'معاينة اللوحة ما طابقت مقاس الإطار');
+    assert.strictEqual(previewBuf.readUInt32BE(16), Math.round(baseImg.width * (config.defaults.welcome.frameScale || 1)), 'معاينة اللوحة ما طابقت مقاس الإطار المكبّر');
     console.log(`٦) معاينة اللوحة (/api/guilds/:id/welcome/card) ترجّع صورة الإطار بالأفتار ${Math.round(previewBuf.length / 1024)}KB ✅`);
 
     console.log('\n🎉 الترحيب: صورة بالأفتار + رسالة عادية بلا إطار — يعمل كما هو مطلوب\n');

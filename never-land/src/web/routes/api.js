@@ -440,6 +440,7 @@ router.get('/guilds/:guildId/welcome/card', async (req, res, next) => {
         avatarUrl: avatarSeed,
         frame: welcomeCfg.frameImage,
         roi: welcomeCfg.frameCircle || null,
+        scale: Number(welcomeCfg.frameScale) > 0 ? Number(welcomeCfg.frameScale) : 1,
         format: 'png',
       })
       .catch(() => null);
