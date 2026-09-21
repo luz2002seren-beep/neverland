@@ -245,6 +245,12 @@ function createApp() {
 
 function startServer() {
   if (server) return server;
+
+  /* بوابة أمان قبل أي شيء: في الإنتاج نرفض الإقلاع بسر جلسات معلوم/قصير.
+     موضوعة هنا (لا في index.js) لأنّ هذا هو المكان الوحيد الذي تُنشأ فيه
+     الجلسات فعلًا، فلا يمكن لأي مسار إقلاع آخر أن يتجاوزها. */
+  config.assertSessionSecretSafe();
+
   const app = createApp();
   const { port } = config.web;
 

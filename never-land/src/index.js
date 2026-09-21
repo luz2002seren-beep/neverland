@@ -108,7 +108,12 @@ function startWeb() {
     const { startServer } = require('./web/server');
     return startServer();
   } catch (err) {
-  console.error('[تنبيه] فشل تشغيل لوحة التحكم:', err.message);
+    /* رفض أمني صريح: لا نكمل بواجهة غير محمية — الخروج أفضل من انتحال حسابات */
+    if (err.code === 'INSECURE_SESSION_SECRET') {
+      console.error(err.message);
+      process.exit(1);
+    }
+    console.error('[تنبيه] فشل تشغيل لوحة التحكم:', err.message);
     return null;
   }
 }
