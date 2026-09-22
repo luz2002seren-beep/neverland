@@ -240,7 +240,7 @@ module.exports = {
 
           const settings = db.getGuildSettings(interaction.guildId);
           const isStaff =
-            (settings.tickets?.supportRoleIds || []).some((r) => interaction.member?.roles?.cache?.has(r)) ||
+            tickets.ticketStaffRoleIds(settings.tickets, ticket.type).some((r) => interaction.member?.roles?.cache?.has(r)) ||
             interaction.member?.permissions?.has('ManageChannels');
           if (!isStaff) {
             return safeReply(interaction, { content: '❌ فقط الإدارة يمكنها قبول أو رفض الطلبات.', flags: MessageFlags.Ephemeral });
@@ -283,7 +283,7 @@ module.exports = {
           if (action === 'claim') {
             const settings = db.getGuildSettings(interaction.guildId);
             const isSupport =
-              (settings.tickets.supportRoleIds || []).some((r) => interaction.member?.roles?.cache?.has(r)) ||
+              tickets.ticketStaffRoleIds(settings.tickets, ticket.type).some((r) => interaction.member?.roles?.cache?.has(r)) ||
               interaction.member?.permissions?.has('ManageChannels');
             if (!isSupport) {
               return safeReply(interaction, { content: '❌ فقط فريق الدعم يمكنه استلام التذاكر.', flags: MessageFlags.Ephemeral });
@@ -298,7 +298,7 @@ module.exports = {
             const settings = db.getGuildSettings(interaction.guildId);
             const isOwner = ticket.user_id === interaction.user.id;
             const isSupport =
-              (settings.tickets.supportRoleIds || []).some((r) => interaction.member?.roles?.cache?.has(r)) ||
+              tickets.ticketStaffRoleIds(settings.tickets, ticket.type).some((r) => interaction.member?.roles?.cache?.has(r)) ||
               interaction.member?.permissions?.has('ManageChannels');
             if (!isOwner && !isSupport) {
               return safeReply(interaction, { content: '❌ ما عندك صلاحية إغلاق هذه التذكرة.', flags: MessageFlags.Ephemeral });
@@ -376,7 +376,7 @@ module.exports = {
 
           const settings = db.getGuildSettings(interaction.guildId);
           const isStaff =
-            (settings.tickets?.supportRoleIds || []).some((r) => interaction.member?.roles?.cache?.has(r)) ||
+            tickets.ticketStaffRoleIds(settings.tickets, ticket.type).some((r) => interaction.member?.roles?.cache?.has(r)) ||
             interaction.member?.permissions?.has('ManageChannels');
           if (!isStaff) return safeReply(interaction, { content: '❌ فقط الإدارة يمكنها رفض الطلبات.', flags: MessageFlags.Ephemeral });
 

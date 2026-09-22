@@ -450,7 +450,8 @@ const config = {
     tickets: {
       enabled: false,
       categoryId: null,
-      supportRoleIds: [],
+      /* رتب الدعم الافتراضية لسيرفر Never Land: تشوف التذاكر وتتحكم فيها + منشن عند الفتح */
+      supportRoleIds: ['1549364974093344859'],
       logChannelId: null,
       panelTitle: 'مركز الدعم',
       panelDescription: 'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.',
@@ -514,6 +515,8 @@ const config = {
           description: 'تقديم طلب للانضمام لفريق الإدارة',
           intro: 'اضغط زر «تعبئة النموذج» أدناه، ثم املأ الخانات، وسيصل طلبك إلى الإدارة تلقائيًا.',
           buttonStyle: 'Danger',
+          /* رتبة دعم خاصة بتقديم الإدارة: منشن + صلاحيات على تذاكر هذا النوع */
+          supportRoleIds: ['1549364972532928624'],
         },
       ],
       maxOpenPerUser: 3,

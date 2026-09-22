@@ -68,7 +68,7 @@ const LEGACY_IMAGE_NAMES = [
 const STATE = { guilds: {} };
 
 /** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (5 = WebP بدل PNG، نفس الرسم بحجم أقل 74%) */
-const PANEL_VERSION = 6; /* 6: سطر التعليمات صار داخل القائمة (placeholder) والصورة بلا أي نص */
+const PANEL_VERSION = 7; /* 7: أنواع عربية + رتب دعم بمنشن خاص بعد الهجرة */
 
 /**
  * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
@@ -480,7 +480,9 @@ async function createTicket(client, guild, user, typeId) {
 
   const ticket = db.createTicket({ guildId: guild.id, channelId: channel.id, userId: user.id, type: typeId });
 
-  const mentions = [...supportRoles.map((r) => `<@&${r}>`), `<@${user.id}>`].join(' ');
+  /* المنشن: رتب النوع الخاصة (تقديم إدارة ← رتبته) وإلا رتب الدعم العامة */
+  const mentionRoles = type.supportRoleIds?.length ? type.supportRoleIds : (cfg.supportRoleIds || []);
+  const mentions = [...mentionRoles.map((r) => `<@&${r}>`), `<@${user.id}>`].join(' ');
 
   /* رسالة فتح التذكرة — كل شي فيها قابل للكتابة من الموقع (config → لوحة التحكم → التذاكر) */
   const openVars = {
@@ -685,26 +687,37 @@ function upgradePanelLook(guildId) {
 
 /**
  * توحيد لوحة التذاكر (مرة واحدة لكل سيرفر): قائمة منسدلة + الأنواع الأربعة
- * بالعربي + سطر العنوان فوق الصورة — حتى لو كانت الإعدادات المحفوظة قديمة
- * (أزرار و/أو أنواع بالإنجليزي). تُحفظ بعلامة arabicSelectUpgraded حتى لا
- * تتعارض مع أي تخصيص يختاره المدير بعدها من الموقع أو الأوامر.
+ * بالعربي + سطر التعليمات داخل القائمة + لغة عربية + رتب الدعم الافتراضية —
+ * حتى لو كانت الإعدادات المحفوظة قديمة (أزرار/إنجليزي).
+ * تشتغل إذا ما انعملت بعد (علامة V2) أو إذا رجعت الأنواع للإنجليزي (كشف بالحالة).
+ * بعدها أي تخصيص من المدير يبقى محفوظًا (ما لم ترجع الأنواع إنجليزي).
  */
 function enforceArabicSelectPanel(guildId) {
   try {
     const raw = db.getGuildSettings(guildId)?.tickets || {};
-    if (raw.arabicSelectUpgraded === true) return;
     const defaults = config.defaults.tickets;
+    const englishish = (raw.types || []).some((t0) => /technical support|verification|giveaways|staff application/i.test(String(t0?.label || '')));
+    if (raw.arabicSelectUpgradedV2 === true && !englishish) return;
     db.updateGuildSettings(guildId, {
+      language: 'ar',
       tickets: {
         arabicSelectUpgraded: true,
+        arabicSelectUpgradedV2: true,
         panelMode: 'select',
         types: defaults.types,
         panelPlaceholder: defaults.panelPlaceholder,
+        supportRoleIds: defaults.supportRoleIds,
       },
     });
   } catch {
     /* نتجاهل بهدوء */
   }
+}
+
+/** كل الرتب اللي لها صلاحية على تذكرة نوع معيّن: رتب السيرفر + رتب النوع الخاصة */
+function ticketStaffRoleIds(cfg = {}, typeId = null) {
+  const type = (cfg.types || []).find((t0) => t0.id === typeId);
+  return [...new Set([...(cfg.supportRoleIds || []), ...(type?.supportRoleIds || [])])];
 }
 
 /**
@@ -854,6 +867,7 @@ module.exports = {
   DEFAULT_PANEL_IMAGE,
   buildTypeButtons,
   buildTypeSelect,
+  ticketStaffRoleIds,
   ticketControls,
   cleanupOldPanels,
   remind,
