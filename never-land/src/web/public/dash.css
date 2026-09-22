@@ -10,7 +10,7 @@ body.dashboard .container { padding: 0; width: 100%; }
 /* ============================ الهيكل ============================ */
 .d-shell {
   display: grid;
-  grid-template-columns: 268px 1fr;
+  grid-template-columns: 260px 1fr;
   min-height: 100vh;
   background: var(--shell);
 }
@@ -38,17 +38,49 @@ body.dashboard .container { padding: 0; width: 100%; }
   color: var(--text);
   padding: 4px 6px 12px;
 }
-.d-side-brand .logo { font-size: 1.5rem; }
-.d-side-brand .back {
+.d-side-brand .logo { display: inline-flex; }
+.d-side-brand .name { letter-spacing: -.2px; }
+.d-side-brand .accent { color: var(--primary); }
+.d-side-close {
+  display: none;
   margin-inline-start: auto;
-  font-size: .75rem;
+  border: 0;
+  background: transparent;
   color: var(--muted);
-  text-decoration: none;
-  border: 1px solid var(--border);
-  padding: 4px 8px;
+  cursor: pointer;
+  padding: 4px;
   border-radius: 8px;
 }
-.d-side-brand .back:hover { color: var(--text); border-color: var(--primary); }
+.d-server {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  margin: 2px 0 6px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--border-soft);
+}
+.d-server:hover { border-color: var(--primary); }
+.d-server img,
+.d-server .guild-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.d-server-info { min-width: 0; flex: 1; }
+.d-server-info b {
+  display: block;
+  font-size: .86rem;
+  line-height: 1.35;
+  white-space: normal;
+}
+.d-server-info span { color: var(--muted); font-size: .75rem; }
+.d-server .chev { color: var(--muted); display: inline-flex; }
 
 .d-search { position: relative; margin-bottom: 8px; }
 .d-search input {
@@ -64,15 +96,26 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(88,101,242,.18); }
 .d-search .ico { position: absolute; inset-inline-start: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .9rem; }
 
-.d-group { margin-top: 10px; }
+.d-group { margin-top: 12px; }
+.d-group.collapsed .d-nav-item { display: none; }
 .d-group-title {
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
   color: var(--muted);
   padding: 6px 8px;
-  text-transform: uppercase;
+  cursor: pointer;
+  text-align: start;
 }
+.d-group-title .chev { display: inline-flex; transition: transform .15s ease; }
+.d-group:not(.collapsed) .d-group-title .chev { transform: rotate(90deg); }
 
 .d-nav-item {
   display: flex;
@@ -99,14 +142,25 @@ body.dashboard .container { padding: 0; width: 100%; }
   text-overflow: ellipsis;
 }
 .d-nav-item .dot { flex: 0 0 auto; }
-.d-nav-item.active { background: var(--chip); color: var(--text); border-color: var(--primary); }
+.d-nav-item.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+}
+.d-nav-item.active .ico { color: #fff; }
 .d-nav-item .ico { width: 20px; text-align: center; }
 .d-nav-item .dot {
   margin-inline-start: auto;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--success);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #23a55a;
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
 }
-.d-nav-item .dot.off { background: var(--track); }
+.d-nav-item .dot svg { width: 11px; height: 11px; stroke-width: 2.6; }
+.d-nav-item .dot.off { display: none; }
 
 .d-side-foot {
   margin-top: auto;
@@ -142,7 +196,23 @@ body.dashboard .container { padding: 0; width: 100%; }
 
 .d-content { padding: 22px 26px 120px; max-width: 1080px; width: 100%; }
 
-.d-page-title { margin: 0 0 4px; font-size: 1.5rem; color: var(--text); display: flex; align-items: center; gap: 10px; }
+.d-module-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 4px;
+}
+.d-module-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.d-page-title { margin: 0; font-size: 1.5rem; color: var(--text); display: flex; align-items: center; gap: 10px; }
 .d-page-title svg { flex: 0 0 auto; color: var(--primary); }
 .d-page-desc { margin: 0 0 20px; color: var(--muted); font-size: .92rem; line-height: 1.7; }
 
@@ -372,6 +442,7 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-loading { display: grid; place-items: center; min-height: 60vh; color: var(--muted); gap: 12px; }
 .d-spinner {
   width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--primary); animaidth: 34px; height: 34px; border-radius: 50%;
   border: 3px solid var(--border); border-top-color: var(--primary); animation: d-spin .8s linear infinite;
 }
 @keyframes d-spin { to { transform: rotate(360deg); } }
@@ -386,16 +457,43 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-kbd { background: var(--chip); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: .78rem; }
 
 /* ============================ استجابة الشاشات ============================ */
+.d-side-toggle { display: none; }
+.d-side-backdrop { display: none; }
+
 @media (max-width: 900px) {
   .d-shell { grid-template-columns: 1fr; }
-  .d-side { position: static; height: auto; border-inline-start: none; border-bottom: 1px solid var(--border-soft); }
-  .d-side-brand { flex-wrap: wrap; gap: 6px; color: var(--text); }
+  .d-side-toggle { display: inline-flex; }
+  .d-side-close { display: inline-flex; }
+  /* الشريط يطلع من الجانب كلوحة بروبوت، مش شريط أفقي فوق المحتوى */
+  .d-side {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: min(86vw, 300px);
+    height: 100vh;
+    height: 100dvh;
+    z-index: 40;
+    transform: translateX(110%);
+    transition: transform .2s ease;
+    box-shadow: -12px 0 40px rgba(0, 0, 0, .35);
+  }
+  html[dir="ltr"] .d-side { transform: translateX(-110%); box-shadow: 12px 0 40px rgba(0, 0, 0, .35); }
+  body.side-open .d-side { transform: translateX(0); }
+  body.side-open .d-side-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+    z-index: 35;
+  }
+  .d-side-brand { color: var(--text); }
+  .d-side nav { display: block; overflow: visible; }
+  .d-group { display: block; min-width: 0; }
+  .d-group-title { display: flex; }
+  .d-nav-item { white-space: normal; }
+  .d-nav-item .d-nav-label, .d-nav-item .dot { display: revert; }
   /* عمود: flex-basis الـ260px بيصير ارتفاع ويفتح فراغات ضخمة — نصفّره */
   .d-field-label { flex: 0 0 auto; min-width: 0; }
-  .d-side nav { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 6px; }
-  .d-group { margin-top: 4px; min-width: max-content; }
-  .d-group-title { display: none; }
-  .d-nav-item { white-space: nowrap; }
   .d-content, .d-head { padding-inline: 16px; }
   .d-savebar { padding-inline: 16px; }
   .d-field { flex-direction: column; align-items: stretch; gap: 8px; }
@@ -485,26 +583,6 @@ body.dashboard .container { padding: 0; width: 100%; }
 
 /* جوال/تابلت: الشريط الجانبي يتكيّف */
 @media (max-width: 1000px) {
-  .d-side {
-    width: 100%;
-    max-width: none;
-    border-inline-end: none;
-    border-bottom: 1px solid var(--border);
-  }
-  .d-side .d-nav {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-  .d-side .d-nav::-webkit-scrollbar { display: none; }
-  /* المجموعات تذوب داخل الشريط الأفقي وعناوينها تختفي */
-  .d-side .d-group { display: contents; }
-  .d-group-title { display: none; }
-  .d-side .d-nav-item { white-space: nowrap; flex: 0 0 auto; }
-  .d-side .d-dots { display: none; }
   .d-main { padding-inline: 14px; }
   .d-head { flex-wrap: wrap; }
   .d-head-actions { width: 100%; }
@@ -535,10 +613,6 @@ body.dashboard .container { padding: 0; width: 100%; }
 
 @media (max-width: 420px) {
   .d-stats { grid-template-columns: 1fr; }
-  /* نخفي النص فقط — الأيقونة لازم تبقى ظاهرة */
-  .d-side .d-nav-item .d-nav-label { display: none; }
-  .d-side .d-nav-item .dot { display: none; }
-  .d-side .d-nav-item { padding: 10px; }
 }
 
 /* لمس: أهداف أكبر + بلا تحويم عالق */
@@ -648,9 +722,10 @@ img.guild-icon { background: var(--panel); border: 1px solid var(--border-soft);
   opacity: .85;
 }
 .d-nav-item .ico svg { display: block; }
-.d-nav-item.active .ico, .d-nav-item:hover .ico { color: var(--primary); }
+.d-nav-item:hover .ico { color: var(--primary); }
+.d-nav-item.active .ico, .d-nav-item.active:hover .ico { color: #fff; }
 .d-nav-item { transition: background .15s ease, color .15s ease, border-color .15s ease; }
-.d-nav-item.active { border-color: rgba(88, 101, 242, .45); }
+.d-nav-item.active { background: var(--primary); color: #fff; border-color: transparent; }
 
 /* ملاحظة القراءة فقط: تأخذ صفًا كاملًا فوق القائمة والمحتوى — بدونها تنكسر شبكة اللوحة
    (كان الشريط يأخذ خانة من الشبكة فينزل المحتوى تحت الشاشة) */
@@ -1065,6 +1140,10 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 }
 
 /* أنيميشن أعمدة مخطط النشاط (تكبر من الأسفل) */
+.d-chart rect{transform-box:fill-box;transform-origin:bottom;animation:nlBarGrow .5s ease-out both}
+.d-chart rect.bar-join{animation-delay:.12s}
+@keyframes nlBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+فل) */
 .d-chart rect{transform-box:fill-box;transform-origin:bottom;animation:nlBarGrow .5s ease-out both}
 .d-chart rect.bar-join{animation-delay:.12s}
 @keyframes nlBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}

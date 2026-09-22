@@ -1185,54 +1185,124 @@ async function loadSiteMembers(note, box) {
   }
 }
 
-/* ============================ الهيكل العام ============================ */
-const GROUP_ORDER = ['عام', 'الأعضاء', 'الأوامر', 'الحماية', 'التذاكر', 'السجلات', 'البيانات', 'إدارة الموقع'];
+/* ============================ الهيكل العام (هيكل بروبوت) ============================ */
+/* عام ثم إعدادات الوحدات — نفس ترتيب لوحة ProBot، بأسماء أقسامنا */
+const NAV_GROUPS = [
+  { title: 'عام', ids: ['overview', 'general', 'commandGuide'] },
+  {
+    title: 'إعدادات الوحدات',
+    ids: [
+      'moderation', 'automod', 'welcome', 'autoReply', 'leveling', 'logs',
+      'autorole', 'autoreact', 'autoline', 'tickets', 'staffapp', 'top',
+      'commandRoom', 'commandAliases', 'commandReplies',
+    ],
+  },
+  { title: 'البيانات', ids: ['audit', 'data'] },
+  { title: 'إدارة الموقع', ids: ['security', 'siteMembers'], ownerOnly: true },
+];
+
+/** مفتاح التفعيل لكل وحدة — النقطة الخضراء ومفتاح أعلى الصفحة */
+const MODULE_TOGGLE = {
+  welcome: 'welcome.enabled',
+  autorole: 'autorole.enabled',
+  leveling: 'leveling.enabled',
+  automod: 'automod.enabled',
+  autoline: 'autoline.enabled',
+  autoreact: 'autoreact.enabled',
+  tickets: 'tickets.enabled',
+  staffapp: 'staffApplication.enabled',
+  logs: 'logs.enabled',
+  autoReply: 'autoReply.enabled',
+  commandRoom: 'commandRoom.enabled',
+};
+
+function closeSide() {
+  document.body.classList.remove('side-open');
+}
+
+function toggleSide() {
+  document.body.classList.toggle('side-open');
+}
 
 function buildSidebar() {
   const side = el('aside', { class: 'd-side' });
 
   const brand = el('div', { class: 'd-side-brand' });
-  brand.appendChild(el('span', { class: 'logo', html: logoMark(30) }));
-  brand.appendChild(el('span', { html: 'Never<span class="accent">Land</span>' }));
-  brand.appendChild(el('a', { class: 'back', href: '/dashboard', html: `${ic('chevronRight', 13)} السيرفرات` }));
+  brand.appendChild(el('span', { class: 'logo', html: logoMark(22) }));
+  brand.appendChild(el('span', { class: 'name', html: 'Never<span class="accent">Land</span>' }));
+  const closeBtn = el('button', { class: 'd-side-close', type: 'button', title: 'إغلاق', html: ic('close', 16) });
+  closeBtn.addEventListener('click', closeSide);
+  brand.appendChild(closeBtn);
   side.appendChild(brand);
+
+  const server = el('a', { class: 'd-server', href: '/dashboard', title: 'كل السيرفرات' });
+  const headIcon = guildIconUrl(state.guild?.id, state.guild?.icon, 64);
+  if (headIcon) {
+    const img = el('img', { src: headIcon, alt: '' });
+    img.addEventListener('error', () => img.replaceWith(iconFallback(state.guild?.name)));
+    server.appendChild(img);
+  } else {
+    server.appendChild(iconFallback(state.guild?.name));
+  }
+  const serverInfo = el('div', { class: 'd-server-info' });
+  serverInfo.appendChild(el('b', { text: state.guild?.name || 'السيرفر' }));
+  serverInfo.appendChild(el('span', { text: `${(state.guild?.memberCount || 0).toLocaleString('ar-EG')} عضو` }));
+  server.appendChild(serverInfo);
+  server.appendChild(el('span', { class: 'chev', html: ic('chevronRight', 14) }));
+  side.appendChild(server);
 
   const search = el('div', { class: 'd-search' });
   search.appendChild(el('span', { class: 'ico', html: ic('search', 16) }));
-  const searchInput = el('input', { type: 'text', placeholder: 'ابحث عن إعداد...' });
+  const searchInput = el('input', { type: 'text', placeholder: 'ابحث عن وحدة...' });
   search.appendChild(searchInput);
   side.appendChild(search);
 
-  const nav = el('nav');
+  const nav = el('nav', { class: 'd-nav' });
   const items = [];
+  const used = new Set();
 
-  GROUP_ORDER.forEach((group) => {
-    const entries = Object.entries(SECTIONS).filter(([, s]) => {
-      if (s.group !== group) return false;
-      if (s.ownerOnly && !state.isOwner) return false; // أقسام المالك لا تظهر لغيره
-      return true;
-    });
+  const paintGroup = (title, entries) => {
     if (!entries.length) return;
     const groupWrap = el('div', { class: 'd-group' });
-    groupWrap.appendChild(el('div', { class: 'd-group-title', text: group }));
+    const titleBtn = el('button', { class: 'd-group-title', type: 'button' });
+    titleBtn.appendChild(el('span', { class: 'chev', html: ic('chevronRight', 12) }));
+    titleBtn.appendChild(el('span', { text: title }));
+    titleBtn.addEventListener('click', () => groupWrap.classList.toggle('collapsed'));
+    groupWrap.appendChild(titleBtn);
     entries.forEach(([id, section]) => {
       const item = el('div', { class: 'd-nav-item', 'data-id': id, title: section.label });
       item.appendChild(el('span', { class: 'ico', html: ic(SECTION_ICONS[id] || 'circle', 18) }));
       item.appendChild(el('span', { class: 'd-nav-label', text: section.label }));
-      const dot = el('span', { class: 'dot' });
-      item.appendChild(dot);
+      item.appendChild(el('span', { class: 'dot', html: ic('check', 11) }));
       item.addEventListener('click', () => {
         state.section = id;
         renderSection(id);
-        /* الرابط يتحدّث (#اسم-القسم) — يسمح بفتح قسم معيّن مباشرة من رابط البوت */
         if (window.history?.replaceState) window.history.replaceState(null, '', `#${id}`);
-        if (window.innerWidth <= 900) item.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+        if (window.innerWidth <= 900) closeSide();
       });
       groupWrap.appendChild(item);
-      items.push({ item, id, label: section.label, group, dot });
+      items.push({ item, id, label: section.label, group: title });
     });
     nav.appendChild(groupWrap);
+  };
+
+  NAV_GROUPS.forEach((group) => {
+    if (group.ownerOnly && !state.isOwner) return;
+    const entries = group.ids
+      .filter((id) => {
+        const s = SECTIONS[id];
+        if (!s) return false;
+        if (s.ownerOnly && !state.isOwner) return false;
+        return true;
+      })
+      .map((id) => {
+        used.add(id);
+        return [id, SECTIONS[id]];
+      });
+    paintGroup(group.title, entries);
   });
+  const rest = Object.entries(SECTIONS).filter(([id, section]) => !used.has(id) && !(section.ownerOnly && !state.isOwner));
+  paintGroup('أخرى', rest);
 
   side.appendChild(nav);
 
@@ -1248,18 +1318,14 @@ function buildSidebar() {
     });
   });
 
-  side.appendChild(
-    el('div', {
-      class: 'd-side-foot',
-      html: `كل الإعدادات متاحة هنا، ولكل إعداد أمر سلاش مكافئ في ديسكورد.`,
-    }),
-  );
-
   return { side, items };
 }
 
 function buildHeader() {
   const head = el('div', { class: 'd-head' });
+  const menuBtn = el('button', { class: 'd-btn ghost sm d-side-toggle', type: 'button', title: 'الأقسام', html: `${ic('lines', 16)} الأقسام` });
+  menuBtn.addEventListener('click', toggleSide);
+  head.appendChild(menuBtn);
   const headIcon = guildIconUrl(state.guild.id, state.guild.icon);
   if (headIcon) {
     const img = el('img', { class: 'guild-icon', src: headIcon, alt: '' });
@@ -1335,7 +1401,20 @@ function renderSection(id) {
   const content = document.getElementById('d-content');
   content.innerHTML = '';
   const iconName = SECTION_ICONS[id] || 'circle';
-  content.appendChild(el('h2', { class: 'd-page-title', html: `${ic(iconName, 22)} <span>${esc(section.title)}</span>` }));
+  const moduleHead = el('div', { class: 'd-module-head' });
+  moduleHead.appendChild(el('h2', { class: 'd-page-title', html: `${ic(iconName, 22)} <span>${esc(section.title)}</span>` }));
+  const toggleKey = MODULE_TOGGLE[id];
+  if (toggleKey && state.canEdit) {
+    const toggleBox = el('div', { class: 'd-module-switch' });
+    const toggleLabel = el('span', { text: getPath(toggleKey) ? 'مفعّل' : 'متوقف' });
+    toggleBox.appendChild(toggleLabel);
+    toggleBox.appendChild(dSwitch(toggleKey, (on) => {
+      toggleLabel.textContent = on ? 'مفعّل' : 'متوقف';
+      updateDots(window.__dashItems || []);
+    }));
+    moduleHead.appendChild(toggleBox);
+  }
+  content.appendChild(moduleHead);
   /* الوصف يقدر يكون نصًا ثابتًا أو دالة (لعدّادات تتغيّر مثل عدد الأحداث) */
   content.appendChild(el('p', { class: 'd-page-desc', html: typeof section.desc === 'function' ? section.desc() : section.desc }));
 
@@ -1346,27 +1425,17 @@ function renderSection(id) {
 }
 
 function updateDots(items) {
-  const map = {
-    overview: null,
-    general: null,
-    welcome: 'welcome.enabled',
-    autorole: 'autorole.enabled',
-    leveling: 'leveling.enabled',
-    automod: 'automod.enabled',
-    moderation: null,
-    autoline: 'autoline.enabled',
-    autoreact: 'autoreact.enabled',
-    tickets: 'tickets.enabled',
-    staffapp: 'staffApplication.enabled',
-    logs: 'logs.enabled',
-    data: null,
-  };
   items.forEach(({ item, id }) => {
     const dot = item.querySelector('.dot');
-    const key = map[id];
-    dot.classList.toggle('off', key ? !getPath(key) : true);
-    if (!key) dot.style.display = 'none';
-    else dot.style.display = '';
+    if (!dot) return;
+    const key = MODULE_TOGGLE[id];
+    if (!key) {
+      dot.style.display = 'none';
+      return;
+    }
+    const on = Boolean(getPath(key));
+    dot.style.display = on ? '' : 'none';
+    dot.classList.toggle('off', !on);
   });
 }
 
@@ -1580,6 +1649,9 @@ async function boot() {
     main.appendChild(content);
     shell.appendChild(main);
     root.appendChild(shell);
+    const backdrop = el('div', { class: 'd-side-backdrop' });
+    backdrop.addEventListener('click', closeSide);
+    root.appendChild(backdrop);
 
     /* شريط الحفظ (للمسجّلين فقط) */
     if (state.canEdit) {

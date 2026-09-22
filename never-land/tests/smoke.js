@@ -461,7 +461,8 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     for (const id of expectedSections) {
       assert.ok(new RegExp(`^\\s{2}${id}: \\{`, 'm').test(appSource), `قسم ${id} غير موجود في اللوحة`);
     }
-    assert.ok(appSource.includes('GROUP_ORDER'), 'مجموعات الشريط الجانبي ناقصة');
+    assert.ok(appSource.includes('NAV_GROUPS'), 'مجموعات الشريط الجانبي ناقصة');
+    assert.ok(appSource.includes('إعدادات الوحدات'), 'هيكل الوحدات (بروبوت) ناقص');
     assert.ok(appSource.includes('d-savebar'), 'شريط الحفظ ناقص');
     assert.ok(appSource.includes('loadDataView'), 'جداول البيانات ناقصة');
 
