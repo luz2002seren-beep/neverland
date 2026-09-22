@@ -41,8 +41,8 @@ const BUTTON_STYLES = {
 
 const ROOT = path.join(__dirname, '..', '..');
 
-/** صورة اللوحة الافتراضية (PNG بخلفية شفافة — تنزل كما هي) */
-const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel-v5.webp';
+/** صورة اللوحة الافتراضية — نفس بانر روم الأوامر (commands-room.webp) */
+const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/commands-room.webp';
 
 /**
  * أسماء صور قديمة تُنظَّف تلقائيًا من الروم.
@@ -53,11 +53,15 @@ const DEFAULT_PANEL_IMAGE = 'src/web/public/assets/tickets-panel-v5.webp';
  *
  * - tickets-panel.webp / tickets-panel-footer.webp: نسختان بخلفية سوداء وخط زخرفي
  * - tickets-panel.png: النسخة التي سبقت التحويل إلى WebP (نفس الرسم، 2.5 م.ب)
+ * - tickets-panel-v5.webp: صورة اللوحة القديمة — صارت منقرضة بعدما صارت اللوحة
+ *   تستخدم بانر روم الأوامر (commands-room.webp). أي قيمة محفوظة منها ترجع
+ *   تلقائيًا للصورة الجديدة.
  */
 const LEGACY_IMAGE_NAMES = [
   'tickets-panel.webp',
   'tickets-panel-footer.webp',
   'tickets-panel.png',
+  'tickets-panel-v5.webp',
 ];
 
 /** الحالة الحيّة (تظهر في /api/status وللتشخيص) */

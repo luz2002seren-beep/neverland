@@ -219,7 +219,7 @@ function seed() {
       categoryId: '100000000000000030',
       supportRoleIds: ['100000000000000031', '100000000000000032'],
       logChannelId: '100000000000000013',
-      panelMode: 'buttons',
+      panelMode: 'select',
 
       types: require('../config').defaults.tickets.types,
     },

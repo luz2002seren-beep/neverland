@@ -425,7 +425,7 @@ async function main() {
       tickets: {
         ...db.getGuildSettings(GUILD).tickets,
         openImageOnly: true,
-        openImage: 'src/web/public/assets/tickets-panel-v5.webp',
+        openImage: 'src/web/public/assets/commands-room.webp',
       },
     });
     sentRooms.length = 0;
@@ -434,7 +434,7 @@ async function main() {
     const payload3 = sentRooms[0];
     assert.strictEqual(payload3.embeds, undefined, 'رسالة الفتح لازم تكون صورة عادية بلا إمبد');
     assert.strictEqual((payload3.files || []).length, 1, 'ملف الصورة ما انرفق برسالة الفتح');
-    assert.deepStrictEqual(payload3.files.map((f) => f.name), ['tickets-panel-v5.webp'], 'ملف صورة رسالة الفتح خطأ');
+    assert.deepStrictEqual(payload3.files.map((f) => f.name), ['commands-room.webp'], 'ملف صورة رسالة الفتح خطأ');
     assert.ok(String(payload3.content).includes('<@200000000000000077>'), 'منشن صاحب التذكرة انشال');
     const openButtons = payload3.components?.[0]?.components || [];
     assert.strictEqual(openButtons.length, 4, 'أزرار التحكّم ناقصة من رسالة الفتح');

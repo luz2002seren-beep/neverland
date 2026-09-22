@@ -1947,7 +1947,7 @@ const SECTIONS = {
         panelPreview.textContent = '';
         const hero = getPath('tickets.panelImage');
         const foot = getPath('tickets.panelFooterImage');
-        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'tickets-panel-v5.webp'));
+        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'commands-room.webp'));
         if (foot) imageBox(panelPreview, 'الخط/الصورة أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
         if (!hero && !foot) panelPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صور محفوظة — اللوحة تنزل نصية.' }));
       };

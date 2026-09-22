@@ -2404,7 +2404,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     /* الإعدادات الافتراضية */
     const cfg53 = require(path53.join(root53, 'src', 'config'));
     const t53 = cfg53.defaults.tickets;
-    assert.strictEqual(t53.panelImage, 'src/web/public/assets/tickets-panel-v5.webp', 'صورة اللوحة الافتراضية خطأ');
+    assert.strictEqual(t53.panelImage, 'src/web/public/assets/commands-room.webp', 'صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
     assert.strictEqual(t53.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي (بلا خط تحت القائمة)');
     assert.strictEqual(t53.panelPlaceholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
@@ -2414,7 +2414,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(t53.openImageOnly, true, 'رسالة فتح التذكرة لازم تكون صورة');
 
     /* ملف الصورة: WebP بخلفية شفافة فعلًا + ما بقيت نسخة قديمة */
-    const img53 = path53.join(root53, 'src', 'web', 'public', 'assets', 'tickets-panel-v5.webp');
+    const img53 = path53.join(root53, t53.panelImage);
     assert.ok(fs53.existsSync(img53), 'صورة اللوحة ناقصة');
     const imgBuf53 = fs53.readFileSync(img53);
     assert.strictEqual(imgBuf53.subarray(0, 4).toString('ascii'), 'RIFF', 'صورة اللوحة ليست WebP');

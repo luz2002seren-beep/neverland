@@ -468,8 +468,8 @@ const config = {
        *   panelChannelId   : قناة نشر اللوحة (تُحفظ تلقائيًا أول ما تنشر)
        *   panelAutoPost    : نشر/تحديث اللوحة تلقائيًا لما تتغيّر الصورة أو الأنواع
        */
-      /* صورة PNG بخلفية شفافة — تنزل كما هي بلا سواد (نفس الملف اللي أرسله المالك) */
-      panelImage: 'src/web/public/assets/tickets-panel-v5.webp',
+      /* صورة اللوحة = نفس بانر روم الأوامر (commands-room.webp) — تنزل كما هي */
+      panelImage: 'src/web/public/assets/commands-room.webp',
       panelImageOnly: true,
       /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
       panelFooterImage: '',
@@ -535,7 +535,7 @@ const config = {
        *   openImage     : الصورة اللي تنزل داخل غرفة التذكرة (فاضية '' = ترجع الرسالة النصية)
        *   openImageOnly : true = صورة فقط · false = الصورة تُتجاهل ويطلع النص
        */
-      openImage: 'src/web/public/assets/tickets-panel-v5.webp',
+      openImage: 'src/web/public/assets/commands-room.webp',
       openImageOnly: true,
       /**
        * أزرار التذكرة داخل الروم — تحكّم كامل: النص (label) + الإيموجي + اللون (style).

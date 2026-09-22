@@ -332,7 +332,8 @@ module.exports = {
       const resetDefault = interaction.options.getBoolean('الافتراضية');
       if (resetDefault) {
         const defaults = require('../../config').defaults.tickets.types;
-        db.updateGuildSettings(interaction.guildId, { tickets: { types: defaults, panelMode: 'buttons', enabled: true } });
+        /* الأنواع الأربعة الافتراضية (عربية) + قائمة منسدلة (select) بدل الأزرار */
+        db.updateGuildSettings(interaction.guildId, { tickets: { types: defaults, panelMode: 'select', enabled: true } });
       }
       const types = db.getGuildSettings(interaction.guildId).tickets.types || [];
       return interaction.reply({
