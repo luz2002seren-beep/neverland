@@ -171,6 +171,25 @@ async function main() {
     assert.strictEqual(withFooter.length, 2, 'الخط/الصورة الاختيارية تحت القائمة ما اشتغلت');
     /* الصورة نفسها للوحة والخط ⇒ البادئة footer- تمنع تصادم اسم المرفق عند ديسكورد */
     assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['footer-commands-room.webp'], 'ملف الخط الاختياري خطأ');
+    /* التعريب الآلي: أنواع محفوظة بالإنجليزي (ترجمة حرفية) ترجع عربي باللوحة */
+    const enPanel = tickets.buildPanelPayloads(
+      {
+        tickets: {
+          ...settings.tickets,
+          types: [
+            { id: 'support', label: 'Technical support', description: 'A technical issue or a question about the bot and server', emoji: '🛠️' },
+            { id: 'verify', label: 'Verification', description: 'Request verification for an account or a verified role', emoji: '✅' },
+            { id: 'gift', label: 'Giveaways', description: 'Claim a prize or report a giveaway issue', emoji: '🎁' },
+            { id: 'staff', label: 'Staff application', description: 'Apply to join the staff team', emoji: '📋' },
+          ],
+        },
+      },
+      { id: GUILD, iconURL: () => null },
+    );
+    const enOptions = enPanel[0].components[0].components[0].options;
+    assert.deepStrictEqual(enOptions.map((o) => o.data.label), ['الدعم الفني', 'التوثيق', 'الهدايا', 'تقديم إدارة'], 'التعريب الآلي ما اشتغل');
+    assert.ok(enOptions.every((o) => /[؀-ۿ]/.test(o.data.description || '')), 'أوصاف الخيارات لازم تصير عربي');
+
     ok('اللوحة: صورة شفافة بلا أي نص + قائمة منسدلة بـ4 أنواع بوصف وسطر التعليمات داخلها — وبلا خط تحتها');
   }
 

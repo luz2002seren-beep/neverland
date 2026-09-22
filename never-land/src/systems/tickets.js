@@ -30,6 +30,7 @@ const db = require('../database');
 const config = require('../config');
 const { base } = require('../lib/embeds');
 const { t } = require('../lib/i18n');
+const enDict = require('../lib/en');
 const { parseEmoji, customEmojiUrl } = require('../lib/emojis');
 
 const BUTTON_STYLES = {
@@ -195,7 +196,7 @@ function buildTypeSelect(types, cfg = null) {
  */
 function buildPanelPayloads(settings, guild, client = null) {
   const cfg = settings.tickets;
-  const types = cfg.types || [];
+  const types = arabicizeTypes(cfg.types || []);
 
   const components = cfg.panelMode === 'select' ? [buildTypeSelect(types, cfg)] : buildTypeButtons(types);
   const payloads = [];
@@ -413,7 +414,7 @@ async function createTicket(client, guild, user, typeId) {
   if (!cfg?.enabled) return { ok: false, reason: 'disabled' };
   if (!cfg.categoryId) return { ok: false, reason: 'noCategory' };
 
-  const type = (cfg.types || []).find((ty) => ty.id === typeId) || { id: typeId, label: typeId, emoji: '🎫' };
+  const type = arabicizeTypes(cfg.types || []).find((ty) => ty.id === typeId) || { id: typeId, label: typeId, emoji: '🎫' };
 
   const { items: open } = db.listTickets({ guildId: guild.id, userId: user.id, status: 'open', limit: 10 });
   const maxOpen = Math.max(1, cfg.maxOpenPerUser || 3);
@@ -721,6 +722,40 @@ function ticketStaffRoleIds(cfg = {}, typeId = null) {
 }
 
 /**
+ * 🈺 تعريب تلقائي: أي نوع محفوظ بترجمة إنجليزية معروفة (من القاموس) يرجع
+ * للاسم والوصف العربي الافتراضي — حتى لو انكتب بالإنجليزي من قبل.
+ * الأنواع المخصّصة بنص مختلف عن الترجمة الحرفية ما تنلمس.
+ */
+let EN_REVERSE = null;
+function englishReverseMaps() {
+  if (EN_REVERSE) return EN_REVERSE;
+  const labels = {};
+  const descs = {};
+  const defaults = config.defaults.tickets.types;
+  for (const def of defaults) {
+    for (const bucket of [enDict.exact, enDict.words]) {
+      for (const [ar, eng] of Object.entries(bucket || {})) {
+        if (typeof eng !== 'string') continue;
+        if (ar === def.label) labels[eng.toLowerCase()] = def.label;
+        if (ar === def.description) descs[eng.toLowerCase()] = def.description;
+      }
+    }
+  }
+  EN_REVERSE = { labels, descs };
+  return EN_REVERSE;
+}
+function arabicizeTypes(types) {
+  const { labels, descs } = englishReverseMaps();
+  return (types || []).map((t0) => {
+    if (!t0 || typeof t0 !== 'object') return t0;
+    const label = labels[String(t0.label || '').toLowerCase()];
+    const description = descs[String(t0.description || '').toLowerCase()];
+    if (!label && !description) return t0;
+    return { ...t0, ...(label ? { label } : {}), ...(description ? { description } : {}) };
+  });
+}
+
+/**
  * 🖼️ يتأكد إن لوحة التذاكر منشورة وحديثة (نفس الصور والأنواع والوضع).
  * إذا تغيّر أي شي أو ما كانت منشورة ⇒ ينظّف النسخة القديمة وينشر الجديدة.
  * @returns {Promise<{ok:boolean, reason:string, channelId?:string, sent?:number, cleaned?:number}>}
@@ -732,6 +767,13 @@ async function ensurePanel(client, guild, { force = false } = {}) {
   enforceArabicSelectPanel(guild.id);
   const settings = upgraded ? db.getGuildSettings(guild.id) : db.getGuildSettings(guild.id);
   const cfg = settings.tickets || {};
+
+  /* أي أنواع انحفظت بالإنجليزية ترجع عربي وتنحفظ لحالها */
+  const arabicized = arabicizeTypes(cfg.types);
+  if (JSON.stringify(arabicized) !== JSON.stringify(cfg.types || [])) {
+    db.updateGuildSettings(guild.id, { tickets: { types: arabicized } });
+    cfg.types = arabicized;
+  }
 
   if (!cfg.enabled) return { ok: false, reason: 'disabled' };
   if (cfg.panelAutoPost === false && !force) return { ok: false, reason: 'autoOff' };
