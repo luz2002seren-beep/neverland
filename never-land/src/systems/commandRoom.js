@@ -20,6 +20,10 @@ const config = require('../config');
 
 const ROOT = path.join(__dirname, '..', '..');
 const BANNER_FILE = 'bannerId';
+/* البانر الافتراضي (بالصيغة الحالية). نرجع له احتياطيًا إذا كان المسار المحفوظ
+   من نسخة أقدم (مثل .png قبل تحويل WebP) غير موجود — حتى ما تختفي صورة الترحيب
+   بصمت ويظنّ المالك أن «روم الأوامر بطل يبعت صورة». */
+const DEFAULT_BANNER = 'src/web/public/assets/commands-room.webp';
 
 /* الحالة الحيّة (تظهر في /api/status للتشخيص) */
 const STATE = {
@@ -32,7 +36,7 @@ const DEFAULTS = () => ({
   channelId: config.commandRoom?.channelId || null,
   text: config.commandRoom?.text || 'مرحبا بكم بسيرفر Never Land — هذا روم مخصص لاستخدام الأوامر وسيتم تنظيفه كل 60 ثانية.',
   intervalSeconds: Math.max(15, Number(config.commandRoom?.intervalSeconds) || 60),
-  image: config.commandRoom?.image || 'src/web/public/assets/commands-room.webp',
+  image: config.commandRoom?.image || DEFAULT_BANNER,
   pin: config.commandRoom?.pin === true,
   /* إعادة النشر: نحذف الرسالة ونبعت وحدة جديدة كل دورة (بلا «تم التعديل») */
   repost: config.commandRoom?.repost !== false,
@@ -69,12 +73,21 @@ function saveBanner(guildId, messageId) {
   } catch { /* الحفظ فشل؟ نكمل — الرسالة نفسها انبعتت */ }
 }
 
-/** مسار ملف الصورة (يتحمّل رابط خارجي كذلك) */
+/**
+ * مسار ملف الصورة (يتحمّل رابط خارجي كذلك).
+ * إذا كان المسار المضبوط غير موجود (مثلًا مسار .png قديم محفوظ من قبل تحويل WebP)
+ * نرجع احتياطيًا للبانر الافتراضي الحالي — حتى ما تختفي الصورة بصمت.
+ */
 function imagePath(cfg) {
-  if (!cfg.image) return null;
-  if (/^https?:\/\//i.test(cfg.image)) return cfg.image;
-  const full = path.isAbsolute(cfg.image) ? cfg.image : path.join(ROOT, cfg.image);
-  return fs.existsSync(full) ? full : null;
+  const img = cfg && cfg.image;
+  /* رابط خارجي: يُستخدم كما هو (ديسكورد يتكفّل بجلبه) */
+  if (img && /^https?:\/\//i.test(img)) return img;
+  const resolveLocal = (p) => {
+    if (!p) return null;
+    const full = path.isAbsolute(p) ? p : path.join(ROOT, p);
+    return fs.existsSync(full) ? full : null;
+  };
+  return resolveLocal(img) || resolveLocal(DEFAULT_BANNER);
 }
 
 /**

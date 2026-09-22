@@ -124,6 +124,15 @@ async function main() {
     const size = fs.statSync(file).size;
     assert.ok(size > 100 * 1024, 'الصورة صغيرة بشكل غير متوقع');
     ok(`صورة السيرفر جاهزة للإرفاق (${Math.round(size / 1024)} كيلوبايت)`);
+
+    /* رجوع احتياطي: مسار .png قديم (من قبل تحويل WebP) — لازم ما يضيّع الصورة
+       بل يرجع للبانر الافتراضي الحالي. هذا بالذبط سبب «بطل يبعت صورة». */
+    const stale = room.imagePath({ image: 'src/web/public/assets/commands-room.png' });
+    assert.ok(stale && fs.existsSync(stale), 'المسار القديم ما رجع لصورة موجودة');
+    assert.ok(stale.endsWith('commands-room.webp'), 'الرجوع الاحتياطي لازم يكون للبانر الحالي (.webp)');
+    const external = room.imagePath({ image: 'https://example.com/x.png' });
+    assert.strictEqual(external, 'https://example.com/x.png', 'الرابط الخارجي لازم يُستخدم كما هو');
+    ok('المسار القديم (.png) يرجع للبانر الحالي — الصورة ما بتختفي بصمت');
   }
 
   console.log('\n═══ ٢) نشر الرسالة: نص عربي كما هو + صورة + تثبيت ═══');
