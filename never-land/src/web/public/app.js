@@ -646,7 +646,8 @@ function buildChart() {
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('viewBox', `0 0 ${daily.length * 34} 120`);
-  svg.setAttribute('style', 'width:100%;height:150px');
+  /* ارتفاع تلقائي حسب نسبة العرض حتى ما يبقى فراغ letterbox بالجوال */
+  svg.setAttribute('style', 'width:100%;height:auto;display:block');
   daily.forEach((d, i) => {
     const hm = Math.max(2, Math.round(((d.messages || 0) / max) * 100));
     const hj = Math.max(2, Math.round(((d.joins || 0) / max) * 100));
