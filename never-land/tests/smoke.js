@@ -272,7 +272,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   // القائمة المنسدلة هي الوضع الافتراضي: 4 أنواع مع وصف كل نوع ونص القائمة
   const tSelect = tPanel.components[0].components[0];
   assert.strictEqual(tSelect.options.length, 4, 'القائمة المنسدلة لا تحتوي 4 أنواع');
-  assert.strictEqual(tSelect.data.placeholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
+  assert.strictEqual(tSelect.data.placeholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة.', 'نص القائمة المنسدلة خطأ');
   assert.ok(tSelect.options.every((o) => o.data.description), 'كل نوع لازم يكون له وصف');
   assert.ok(tSelect.options[0].data.value.startsWith('support'), 'customId/قيمة الخيار خاطئة');
 
@@ -2407,7 +2407,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(t53.panelImage, 'src/web/public/assets/commands-room.webp', 'صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
     assert.strictEqual(t53.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي (بلا خط تحت القائمة)');
-    assert.strictEqual(t53.panelPlaceholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
+    assert.strictEqual(t53.panelPlaceholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة.', 'نص القائمة المنسدلة خطأ');
     assert.strictEqual(t53.panelMode, 'select', 'وضع اللوحة الافتراضي لازم قائمة منسدلة');
     assert.strictEqual(t53.panelAutoPost, true, 'التحديث التلقائي للوحة لازم مفعّل');
     assert.strictEqual(t53.openImage, t53.panelImage, 'صورة رسالة فتح التذكرة ناقصة');

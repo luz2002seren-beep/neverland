@@ -177,11 +177,11 @@ function buildTypeSelect(types, cfg = null) {
     description: type.description ? String(type.description).slice(0, 100) : undefined,
     emoji: typeEmoji(type),
   }));
-  const placeholder = String(cfg?.panelPlaceholder || 'اختر القائمة المناسبة لك').slice(0, 150);
+  const placeholder = String(cfg?.panelPlaceholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة.').slice(0, 150);
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId('ticket:open')
-      .setPlaceholder(placeholder || 'اختر القائمة المناسبة لك')
+      .setPlaceholder(placeholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة.')
       .addOptions(options.length ? options : [{ label: 'الدعم الفني', value: 'support' }]),
   );
 }

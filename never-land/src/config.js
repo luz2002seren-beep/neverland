@@ -473,7 +473,8 @@ const config = {
       panelImageOnly: true,
       /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
       panelFooterImage: '',
-      panelPlaceholder: 'اختر القائمة المناسبة لك',
+      /* سطر التعليمات بيظهر فوق خيارات القائمة لما تنفتح (زي المرجع) — عربي واضح */
+      panelPlaceholder: 'الرجاء الضغط هنا واختيار التذكرة المناسبة.',
       panelChannelId: null,
       panelAutoPost: true,
       /** بصمة آخر لوحة منشورة (داخلية — تتحدّث لحالها) */

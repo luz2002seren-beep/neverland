@@ -162,7 +162,7 @@ async function main() {
 
     const select = hero.components[0].components[0];
     assert.strictEqual(select.options.length, 4, 'القائمة لازم تحتوي 4 أنواع');
-    assert.strictEqual(select.data.placeholder, 'اختر القائمة المناسبة لك', 'نص القائمة المنسدلة خطأ');
+    assert.strictEqual(select.data.placeholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة.', 'نص القائمة المنسدلة خطأ');
     assert.ok(select.options.every((option) => option.data.description), 'كل نوع لازم يكون له وصف تحت الاسم');
     assert.deepStrictEqual(select.options.map((o) => o.data.value), ['support', 'verify', 'gift', 'staff'], 'ترتيب الأنواع خطأ');
 
@@ -171,7 +171,7 @@ async function main() {
     assert.strictEqual(withFooter.length, 2, 'الخط/الصورة الاختيارية تحت القائمة ما اشتغلت');
     /* الصورة نفسها للوحة والخط ⇒ البادئة footer- تمنع تصادم اسم المرفق عند ديسكورد */
     assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['footer-commands-room.webp'], 'ملف الخط الاختياري خطأ');
-    ok('اللوحة صورة شفافة واحدة (بلا عنوان/وصف/تذييل) + قائمة «اختر القائمة المناسبة لك» بـ4 أنواع بوصف — وبلا خط تحتها');
+    ok('اللوحة صورة شفافة واحدة (بلا عنوان/وصف/تذييل) + قائمة بسطر تعليمات عربي و4 أنواع بوصف — وبلا خط تحتها');
   }
 
   console.log('\n═══ ٣) إطفاء الصورة يرجّع اللوحة النصية (بلا كسر) ═══');
