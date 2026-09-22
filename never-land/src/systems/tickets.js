@@ -68,7 +68,7 @@ const LEGACY_IMAGE_NAMES = [
 const STATE = { guilds: {} };
 
 /** نسخة اللوحة — تغييرها يعيد نشر كل اللوحات تلقائيًا (5 = WebP بدل PNG، نفس الرسم بحجم أقل 74%) */
-const PANEL_VERSION = 5;
+const PANEL_VERSION = 6; /* 6: سطر التعليمات صار داخل القائمة (placeholder) والصورة بلا أي نص */
 
 /**
  * يرجّع مسار الصورة (محلي داخل المشروع أو رابط https) — أو null إذا غير موجودة.
@@ -204,9 +204,8 @@ function buildPanelPayloads(settings, guild, client = null) {
   const images = effectiveImages(cfg);
   const hero = imageAttachment(images.panelImage);
   if (hero && cfg.panelImageOnly !== false) {
-    /* 🖼️ سطر العنوان فوق + صورة عادية بلا إمبد + القائمة تحتها */
-    const title = String(cfg.panelTitle || '').trim();
-    payloads.push({ ...(title ? { content: title } : {}), files: [hero], components });
+    /* 🖼️ صورة عادية بلا أي نص معها + القائمة تحتها (سطر التعليمات داخل القائمة نفسها) */
+    payloads.push({ files: [hero], components });
   } else {
     /* اللوحة النصية (الوضع القديم — تُستخدم إذا ما في صورة) */
     const embed = base({
@@ -700,7 +699,6 @@ function enforceArabicSelectPanel(guildId) {
         arabicSelectUpgraded: true,
         panelMode: 'select',
         types: defaults.types,
-        panelTitle: defaults.panelTitle,
         panelPlaceholder: defaults.panelPlaceholder,
       },
     });

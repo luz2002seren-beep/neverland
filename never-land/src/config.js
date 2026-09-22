@@ -452,7 +452,7 @@ const config = {
       categoryId: null,
       supportRoleIds: [],
       logChannelId: null,
-      panelTitle: 'الرجاء الضغط هنا واختيار التذكرة المناسبة',
+      panelTitle: 'مركز الدعم',
       panelDescription: 'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.',
       responseTime: '24 ساعة',
       /** select = قائمة منسدلة • buttons = أزرار (حتى 5 أنواع) */

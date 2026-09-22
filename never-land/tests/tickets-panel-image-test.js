@@ -158,7 +158,7 @@ async function main() {
     /* 🖼️ صورة عادية: مرفق مباشر — بلا أي إمبد (ولا عنوان ولا وصف ولا تذييل) */
     assert.strictEqual(hero.embeds, undefined, 'اللوحة لازم تكون صورة عادية بلا إمبد');
     assert.strictEqual(hero.files.length, 1, 'ملف الصورة ناقص');
-    assert.strictEqual(hero.content, 'الرجاء الضغط هنا واختيار التذكرة المناسبة', 'عنوان رسالة اللوحة خطأ');
+    assert.ok(!hero.content, 'اللوحة بلا أي نص معها — التعليمات داخل القائمة');
 
     const select = hero.components[0].components[0];
     assert.strictEqual(select.options.length, 4, 'القائمة لازم تحتوي 4 أنواع');
@@ -171,7 +171,7 @@ async function main() {
     assert.strictEqual(withFooter.length, 2, 'الخط/الصورة الاختيارية تحت القائمة ما اشتغلت');
     /* الصورة نفسها للوحة والخط ⇒ البادئة footer- تمنع تصادم اسم المرفق عند ديسكورد */
     assert.deepStrictEqual(withFooter[1].files.map((f) => f.name), ['footer-commands-room.webp'], 'ملف الخط الاختياري خطأ');
-    ok('اللوحة: سطر العنوان العربي + صورة شفافة بلا إمبد + قائمة بـ4 أنواع بوصف — وبلا خط تحتها');
+    ok('اللوحة: صورة شفافة بلا أي نص + قائمة منسدلة بـ4 أنواع بوصف وسطر التعليمات داخلها — وبلا خط تحتها');
   }
 
   console.log('\n═══ ٣) إطفاء الصورة يرجّع اللوحة النصية (بلا كسر) ═══');
