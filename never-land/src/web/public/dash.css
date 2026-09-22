@@ -35,7 +35,7 @@ body.dashboard .container { padding: 0; width: 100%; }
   gap: 10px;
   font-weight: 800;
   font-size: 1.15rem;
-  color: #fff;
+  color: var(--text);
   padding: 4px 6px 12px;
 }
 .d-side-brand .logo { font-size: 1.5rem; }
