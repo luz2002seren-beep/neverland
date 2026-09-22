@@ -452,7 +452,7 @@ const config = {
       categoryId: null,
       supportRoleIds: [],
       logChannelId: null,
-      panelTitle: 'مركز الدعم',
+      panelTitle: 'الرجاء الضغط هنا واختيار التذكرة المناسبة',
       panelDescription: 'اختر نوع التذكرة من القائمة بالأسفل وسيتم فتح غرفة خاصة لك.',
       responseTime: '24 ساعة',
       /** select = قائمة منسدلة • buttons = أزرار (حتى 5 أنواع) */
@@ -474,7 +474,7 @@ const config = {
       /* بلا خط زخرفي — فاضية = ما ينزل أي شي تحت القائمة */
       panelFooterImage: '',
       /* سطر التعليمات بيظهر فوق خيارات القائمة لما تنفتح (زي المرجع) — عربي واضح */
-      panelPlaceholder: 'الرجاء الضغط هنا واختيار التذكرة المناسبة.',
+      panelPlaceholder: 'الرجاء الضغط هنا واختيار التذكرة المناسبة',
       panelChannelId: null,
       panelAutoPost: true,
       /** بصمة آخر لوحة منشورة (داخلية — تتحدّث لحالها) */

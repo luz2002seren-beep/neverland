@@ -177,11 +177,11 @@ function buildTypeSelect(types, cfg = null) {
     description: type.description ? String(type.description).slice(0, 100) : undefined,
     emoji: typeEmoji(type),
   }));
-  const placeholder = String(cfg?.panelPlaceholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة.').slice(0, 150);
+  const placeholder = String(cfg?.panelPlaceholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة').slice(0, 150);
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId('ticket:open')
-      .setPlaceholder(placeholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة.')
+      .setPlaceholder(placeholder || 'الرجاء الضغط هنا واختيار التذكرة المناسبة')
       .addOptions(options.length ? options : [{ label: 'الدعم الفني', value: 'support' }]),
   );
 }
@@ -204,8 +204,9 @@ function buildPanelPayloads(settings, guild, client = null) {
   const images = effectiveImages(cfg);
   const hero = imageAttachment(images.panelImage);
   if (hero && cfg.panelImageOnly !== false) {
-    /* 🖼️ صورة عادية: مرفق مباشر بلا أي إمبد (ولا نص) + القائمة تحتها */
-    payloads.push({ files: [hero], components });
+    /* 🖼️ سطر العنوان فوق + صورة عادية بلا إمبد + القائمة تحتها */
+    const title = String(cfg.panelTitle || '').trim();
+    payloads.push({ ...(title ? { content: title } : {}), files: [hero], components });
   } else {
     /* اللوحة النصية (الوضع القديم — تُستخدم إذا ما في صورة) */
     const embed = base({
@@ -684,6 +685,31 @@ function upgradePanelLook(guildId) {
 }
 
 /**
+ * توحيد لوحة التذاكر (مرة واحدة لكل سيرفر): قائمة منسدلة + الأنواع الأربعة
+ * بالعربي + سطر العنوان فوق الصورة — حتى لو كانت الإعدادات المحفوظة قديمة
+ * (أزرار و/أو أنواع بالإنجليزي). تُحفظ بعلامة arabicSelectUpgraded حتى لا
+ * تتعارض مع أي تخصيص يختاره المدير بعدها من الموقع أو الأوامر.
+ */
+function enforceArabicSelectPanel(guildId) {
+  try {
+    const raw = db.getGuildSettings(guildId)?.tickets || {};
+    if (raw.arabicSelectUpgraded === true) return;
+    const defaults = config.defaults.tickets;
+    db.updateGuildSettings(guildId, {
+      tickets: {
+        arabicSelectUpgraded: true,
+        panelMode: 'select',
+        types: defaults.types,
+        panelTitle: defaults.panelTitle,
+        panelPlaceholder: defaults.panelPlaceholder,
+      },
+    });
+  } catch {
+    /* نتجاهل بهدوء */
+  }
+}
+
+/**
  * 🖼️ يتأكد إن لوحة التذاكر منشورة وحديثة (نفس الصور والأنواع والوضع).
  * إذا تغيّر أي شي أو ما كانت منشورة ⇒ ينظّف النسخة القديمة وينشر الجديدة.
  * @returns {Promise<{ok:boolean, reason:string, channelId?:string, sent?:number, cleaned?:number}>}
@@ -692,6 +718,7 @@ async function ensurePanel(client, guild, { force = false } = {}) {
   if (!guild?.channels) return { ok: false, reason: 'noGuild' };
 
   const upgraded = upgradePanelLook(guild.id);
+  enforceArabicSelectPanel(guild.id);
   const settings = upgraded ? db.getGuildSettings(guild.id) : db.getGuildSettings(guild.id);
   const cfg = settings.tickets || {};
 

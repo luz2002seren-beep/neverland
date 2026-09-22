@@ -262,7 +262,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   assert.ok(payloads.length <= 2, 'اللوحة لازم تكون رسالة الصورة + صورة زخرفية كحد أقصى');
   const tPanel = payloads[0];
   assert.strictEqual(tPanel.embeds, undefined, 'اللوحة لازم تنزل صورة عادية بلا أي إمبد');
-  assert.ok(!tPanel.content, 'اللوحة ما لازم يكون فيها أي نص');
+  assert.strictEqual(tPanel.content, 'الرجاء الضغط هنا واختيار التذكرة المناسبة', 'عنوان رسالة اللوحة خطأ');
   assert.strictEqual(tPanel.files.length, 1, 'اللوحة لازم ترسل ملف الصورة');
   assert.ok(typeof ticketsSystem.cleanupOldPanels === 'function', 'تنظيف اللوحات القديمة ناقص');
   const tTypes = tSettings.tickets.types;
@@ -272,7 +272,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
   // القائمة المنسدلة هي الوضع الافتراضي: 4 أنواع مع وصف كل نوع ونص القائمة
   const tSelect = tPanel.components[0].components[0];
   assert.strictEqual(tSelect.options.length, 4, 'القائمة المنسدلة لا تحتوي 4 أنواع');
-  assert.strictEqual(tSelect.data.placeholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة.', 'نص القائمة المنسدلة خطأ');
+  assert.strictEqual(tSelect.data.placeholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة', 'نص القائمة المنسدلة خطأ');
   assert.ok(tSelect.options.every((o) => o.data.description), 'كل نوع لازم يكون له وصف');
   assert.ok(tSelect.options[0].data.value.startsWith('support'), 'customId/قيمة الخيار خاطئة');
 
@@ -2110,7 +2110,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       "(async()=>{const n=await t.cleanupOldPanels(channel,{user:{id:'bot-1'}},[]);",
       "if(n!==2||deleted.sort().join(',')!=='m1,m2') throw new Error('التنظيف ما اشتغل صح: '+n+' '+deleted.join(','));",
       "const p=t.buildPanelPayloads(require('./src/config').defaults,{id:'g',iconURL:()=>null});",
-      "if(p.length!==1||p[0].content||p[0].embeds) throw new Error('اللوحة مش نظيفة');",
+      "if(p.length!==1||p[0].content!=='الرجاء الضغط هنا واختيار التذكرة المناسبة'||p[0].embeds) throw new Error('عنوان اللوحة مش مظبوط');",
       /* اللوحة لازم تنزل صورة مرفقة (WebP حاليًا، ونقبل PNG لو رجع أحدهم إليها) */
       "if(p[0].files.length!==1||!/\\.(webp|png)$/.test(p[0].files[0].name)) throw new Error('اللوحة لازم تنزل صورة مرفقة (webp/png)');",
       "console.log('OK');})().catch(e=>{console.error(e.message);process.exit(1)});",
@@ -2407,7 +2407,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.strictEqual(t53.panelImage, 'src/web/public/assets/commands-room.webp', 'صورة اللوحة الافتراضية خطأ');
     assert.strictEqual(t53.panelImageOnly, true, '«صورة فقط» لازم تكون مفعّلة');
     assert.strictEqual(t53.panelFooterImage, '', 'الخط الزخرفي لازم يكون مطفّي (بلا خط تحت القائمة)');
-    assert.strictEqual(t53.panelPlaceholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة.', 'نص القائمة المنسدلة خطأ');
+    assert.strictEqual(t53.panelPlaceholder, 'الرجاء الضغط هنا واختيار التذكرة المناسبة', 'نص القائمة المنسدلة خطأ');
     assert.strictEqual(t53.panelMode, 'select', 'وضع اللوحة الافتراضي لازم قائمة منسدلة');
     assert.strictEqual(t53.panelAutoPost, true, 'التحديث التلقائي للوحة لازم مفعّل');
     assert.strictEqual(t53.openImage, t53.panelImage, 'صورة رسالة فتح التذكرة ناقصة');
@@ -2428,7 +2428,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     /* البوت + الموقع + الـ API */
     assert.ok(read53('src/systems/tickets.js').includes('async function ensurePanel'), 'التحديث التلقائي للوحة ناقص');
     assert.ok(!read53('src/systems/tickets.js').includes('imageEmbed'), 'لازم صورة عادية بلا إمبد (بلا دالة إمبد صور)');
-    assert.ok(/payloads\.push\(\{ files: \[hero\], components \}\)/.test(read53('src/systems/tickets.js')), 'اللوحة ما تنزل كمرفق عادي');
+    assert.ok(read53('src/systems/tickets.js').includes('...(title ? { content: title } : {}), files: [hero], components'), 'اللوحة ما تنزل كمرفق عادي مع سطر العنوان');
     assert.ok(read53('src/systems/tickets.js').includes('LEGACY_IMAGE_NAMES'), 'تنظيف نسخ الصور القديمة ناقص');
     assert.ok(read53('src/events/ready.js').includes('ensureAll(client)'), 'الفحص التلقائي للوحة غير مربوط بالإقلاع');
     assert.ok(read53('src/web/routes/api.js').includes('scheduleEnsure'), 'تحديث اللوحة بعد الحفظ ناقص');
