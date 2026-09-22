@@ -1227,16 +1227,12 @@ function toggleSide() {
 function buildSidebar() {
   const side = el('aside', { class: 'd-side' });
 
-  const brand = el('div', { class: 'd-side-brand' });
-  brand.appendChild(el('span', { class: 'logo', html: logoMark(22) }));
-  brand.appendChild(el('span', { class: 'name', html: 'Never<span class="accent">Land</span>' }));
   const closeBtn = el('button', { class: 'd-side-close', type: 'button', title: 'إغلاق', html: ic('close', 16) });
   closeBtn.addEventListener('click', closeSide);
-  brand.appendChild(closeBtn);
-  side.appendChild(brand);
+  side.appendChild(closeBtn);
 
   const server = el('a', { class: 'd-server', href: '/dashboard', title: 'كل السيرفرات' });
-  const headIcon = guildIconUrl(state.guild?.id, state.guild?.icon, 64);
+  const headIcon = guildIconUrl(state.guild.id, state.guild.icon, 64);
   if (headIcon) {
     const img = el('img', { src: headIcon, alt: '' });
     img.addEventListener('error', () => img.replaceWith(iconFallback(state.guild?.name)));
@@ -1322,27 +1318,17 @@ function buildSidebar() {
 }
 
 function buildHeader() {
-  const head = el('div', { class: 'd-head' });
+  const head = el('div', { class: 'd-head d-topbar' });
   const menuBtn = el('button', { class: 'd-btn ghost sm d-side-toggle', type: 'button', title: 'الأقسام', html: `${ic('lines', 16)} الأقسام` });
   menuBtn.addEventListener('click', toggleSide);
   head.appendChild(menuBtn);
-  const headIcon = guildIconUrl(state.guild.id, state.guild.icon);
-  if (headIcon) {
-    const img = el('img', { class: 'guild-icon', src: headIcon, alt: '' });
-    img.addEventListener('error', () => img.replaceWith(iconFallback(state.guild.name)));
-    head.appendChild(img);
-  } else {
-    head.appendChild(iconFallback(state.guild.name));
-  }
-  const info = el('div');
-  info.appendChild(el('h1', { text: state.guild.name }));
-  info.appendChild(
-    el('div', {
-      class: 'sub',
-      html: `${(state.guild.memberCount || 0).toLocaleString('ar-EG')} عضو · <span class="${state.guild.botOnline ? 'state-on' : 'state-off'}">${state.guild.botOnline ? 'البوت متصل' : 'البوت غير متصل'}</span> · آخر تحديث ${new Date().toLocaleTimeString('ar-EG')}`,
-    }),
-  );
-  head.appendChild(info);
+  const brand = el('a', { class: 'd-top-brand', href: '/', html: `${logoMark(22)} <span>Never<span class="accent">Land</span></span>` });
+  head.appendChild(brand);
+  const status = el('span', {
+    class: `d-top-status ${state.guild.botOnline ? 'state-on' : 'state-off'}`,
+    text: state.guild.botOnline ? 'البوت متصل' : 'البوت غير متصل',
+  });
+  head.appendChild(status);
 
   const actions = el('div', { class: 'd-head-actions' });
   const themeBtn = el('button', { class: 'd-btn ghost sm' });
@@ -1640,10 +1626,10 @@ async function boot() {
     }
     const { side, items } = buildSidebar();
     window.__dashItems = items;
+    shell.appendChild(buildHeader());
     shell.appendChild(side);
 
     const main = el('div', { class: 'd-main' });
-    main.appendChild(buildHeader());
     main.appendChild(buildSyncBar());
     const content = el('div', { class: 'd-content', id: 'd-content' });
     main.appendChild(content);

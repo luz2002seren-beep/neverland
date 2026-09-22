@@ -123,9 +123,9 @@ ${extraHead}
     <span class="brand-text">Never<span class="accent">Land</span></span>
   </a>
   <nav class="nav">
-    <a href="/">الرئيسية</a>
-    <a href="/dashboard">${config.web.publicAccess ? 'السيرفرات' : 'لوحة التحكم'}</a>
-    <a href="/api/status" target="_blank" rel="noopener">حالة الخدمة</a>
+    <a href="/#features">الميزات</a>
+    <a href="/dashboard">لوحة التحكم</a>
+    <a href="/#commands">الأوامر</a>
   </nav>
   <div class="auth">
     <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي والنهاري" aria-label="تبديل الوضع">${icon('moon', { size: 17 })}</button>
@@ -399,10 +399,10 @@ router.get('/', requireAuth, (req, res) => {
   ];
 
   const steps = [
-    { t: 'تأكيد الدخول', d: 'ادخل بحساب ديسكورد، ولا بد أن يملك حسابك الرول المطلوب.' },
-    { t: 'اختيار السيرفر', d: 'اختر السيرفر من القائمة وستفتح لوحة إعداداته مباشرة.' },
-    { t: 'تفعيل الأنظمة', d: 'فعّل ما تحتاجه: الترحيب، الحماية، التذاكر، السجلات، المستويات.' },
-    { t: 'الحفظ', d: 'اضغط حفظ التغييرات لتُطبَّق فورًا على البوت.' },
+    { t: 'ادخل للوحة', d: 'سجّل الدخول بحساب ديسكورد الذي يملك الرول المطلوب.' },
+    { t: 'اختر السيرفر', d: 'من قائمة السيرفرات اختر سيرفرك. اسمه يظهر أعلى الشريط الجانبي.' },
+    { t: 'اختر الوحدة', d: 'من «إعدادات الوحدات» افتح الترحيب أو الحماية أو السجلات أو التذاكر.' },
+    { t: 'فعّل واحفظ', d: 'شغّل مفتاح «مفعّل» أعلى الصفحة، ثم احفظ. البوت يطبّقها فورًا.' },
   ];
 
   const commands = [
@@ -414,70 +414,54 @@ router.get('/', requireAuth, (req, res) => {
     ['/automod word', 'العملية:إضافة', 'الكلمة:كلمة_ممنوعة'],
   ];
 
+  const rows = [
+    { i: 'userPlus', k: 'الترحيب', t: 'رحّب بالأعضاء بشكل احترافي', d: 'صورة ترحيب بالأفتار، رسالة وداع، وشكر الدعم. تُضبط من وحدة «الترحيب والوداع».' },
+    { i: 'shield', k: 'الحماية', t: 'خلّ البوت يراقب السيرفر', d: 'منع السبام والروابط والكلمات، مع الحظر والطرد والإسكات من وحدة الإشراف.' },
+    { i: 'scroll', k: 'السجلات', t: 'سجّل كل حدث في رومه', d: 'حذف الرسائل، الرتب، الدخول والخروج، والحظر. كل مجموعة أحداث لها قناة.' },
+    { i: 'chart', k: 'المستويات', t: 'كافئ الأعضاء النشطين', d: 'خبرة على الرسائل والصوت، رتب عند الوصول لمستوى، ولوحة متصدرين.' },
+    { i: 'ticket', k: 'التذاكر', t: 'استقبل الطلبات بتذاكر واضحة', d: 'أربعة أنواع، استلام، وأرشيف عند الإغلاق، مع نموذج تقديم الإدارة.' },
+  ];
+
   const body = `
   <section class="site-hero">
-    <div>
-      <span class="pill">${icon('bolt', { size: 15 })} الإصدار 1.0 — مجاني بالكامل — واجهة عربية</span>
-      <h1>بوت إدارة سيرفرات ديسكورد <span class="grad">متكامل وواضح</span></h1>
+    <div class="site-hero-copy">
+      <span class="pill">${icon('bolt', { size: 15 })} لوحة عربية — نفس طريقة الاستخدام</span>
+      <h1>خلّ سيرفرك <span class="grad">احترافي</span></h1>
       <p class="lead">
-        يجمع الحماية التلقائية، السجلات، التذاكر، تقديم الإدارة، الترحيب بالصورة، والمستويات في نظام واحد،
-        ويُدار بالكامل من لوحة تحكم عربية بسيطة بدون أوامر إجبارية.
+        ترحيب بالصورة، سجلات، إشراف، تذاكر، ومستويات.
+        من الموقع: ادخل، اختر السيرفر، فعّل الوحدة.
       </p>
       <div class="site-cta">
         <a class="btn btn-primary btn-lg" href="${loggedIn ? '/dashboard' : '/auth/login'}">
           ${icon(loggedIn ? 'dashboard' : 'login', { size: 18 })} ${loggedIn ? 'لوحة التحكم' : 'تسجيل الدخول'}
         </a>
-        <a class="btn btn-ghost btn-lg" href="/api/status" target="_blank" rel="noopener">
-          ${icon('activity', { size: 18 })} حالة الخدمة
-        </a>
+        <a class="btn btn-ghost btn-lg" href="#features">تصفح الميزات</a>
       </div>
-      <div class="stat-row" style="justify-content:flex-start;margin-top:26px">
-        ${stats
-          .map(
-            (st) =>
-              `<div class="stat">${icon(st.i, { size: 18, cls: 'stat-ico' })}<b>${st.n}</b><span>${st.l}</span></div>`,
-          )
-          .join('')}
-      </div>
-    </div>
-
-    <div class="site-hero-art" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i></div>
-      <div class="mock-title">${icon('sliders', { size: 17 })} لوحة التحكم — مركز التحكم</div>
-      ${[
-        ['userPlus', 'الترحيب بالصورة', 'مُفعّل', 'ok'],
-        ['shield', 'الحماية التلقائية', 'مُفعّل', 'ok'],
-        ['ticket', 'التذاكر بأربعة أنواع', 'مُفعّل', 'ok'],
-        ['scroll', 'السجلات', '31 / 38', 'val'],
-        ['clipboard', 'تقديم الإدارة', 'مُفعّل', 'ok'],
-        ['lines', 'الخط الفاصل', 'قناتان', 'val'],
-      ]
-        .map(
-          ([i, label, badge, kind]) => `
-        <div class="mock-row">
-          ${icon(i, { size: 17, cls: 'mock-ico' })}
-          <span class="lbl">${label}</span>
-          ${kind === 'ok' ? `<span class="badge badge-ok">${badge}</span>` : `<span class="val">${badge}</span>`}
-        </div>`,
-        )
-        .join('')}
     </div>
   </section>
 
-  <div class="section-title"><h2>الأنظمة</h2><span class="hr"></span></div>
-  <div class="site-features">
-    ${features
+  <div id="features" class="site-features">
+    ${rows
       .map(
-        (f) => `<div class="site-feature">
-          <span class="fi">${icon(f.i, { size: 20 })}</span>
-          <b>${f.t}</b>
-          <p>${f.d}</p>
-        </div>`,
+        (f, idx) => `<article class="site-feature pb-row${idx % 2 ? ' alt' : ''}">
+          <div>
+            <span class="fi">${icon(f.i, { size: 18 })} ${f.k}</span>
+            <b>${f.t}</b>
+            <p>${f.d}</p>
+            <a class="pb-more" href="${loggedIn ? '/dashboard' : '/auth/login'}">افتح الوحدة من اللوحة</a>
+          </div>
+          <div class="site-hero-art" aria-hidden="true">
+            <div class="mock-bar"><i></i><i></i><i></i></div>
+            <div class="mock-title">${icon(f.i, { size: 16 })} ${f.k}</div>
+            <div class="mock-row"><span class="lbl">الوحدة</span><span class="badge badge-ok">مفعّلة</span></div>
+            <div class="mock-row"><span class="lbl">${f.t}</span><span class="val">من اللوحة</span></div>
+          </div>
+        </article>`,
       )
       .join('')}
   </div>
 
-  <div class="section-title"><h2>البدء في أربع خطوات</h2><span class="hr"></span></div>
+  <div class="section-title"><h2>طريقة الاستخدام</h2><span class="hr"></span></div>
   <div class="site-steps">
     ${steps
       .map(
@@ -490,15 +474,16 @@ router.get('/', requireAuth, (req, res) => {
       .join('')}
   </div>
 
-  <div class="section-title"><h2>أمثلة على الأوامر</h2><span class="hr"></span></div>
+  <div class="section-title" id="commands"><h2>الأوامر</h2><span class="hr"></span></div>
+  <p class="muted pb-note">الأوامر اختيارية. الإعداد الأساسي من اللوحة، والأمر المكافئ يبقى في ديسكورد.</p>
   <pre class="cmd-preview">${commands
     .map((parts) => `<b>${escapeHtml(parts[0])}</b>  ${parts.slice(1).map((x) => escapeHtml(x)).join('  ')}`)
     .join('\n')}</pre>
 
-  <div class="cta" style="margin-top:30px">
+  <div class="pb-cta">
+    <h2>خلّ البوت يدير السيرفر</h2>
+    <p>ادخل للوحة، اختر السيرفر، ثم فعّل الوحدة من الشريط الجانبي.</p>
     <a class="btn btn-primary btn-lg" href="/dashboard">${icon('dashboard', { size: 18 })} فتح لوحة التحكم</a>
-    ${supportUrl ? `<a class="btn btn-ghost btn-lg" href="${supportUrl}" target="_blank" rel="noopener">${icon('lifeBuoy', { size: 18 })} الدعم</a>` : ''}
-    <a class="btn btn-ghost btn-lg" href="/api/status" target="_blank" rel="noopener">${icon('activity', { size: 18 })} حالة الخدمة</a>
   </div>`;
 
   res.send(layout({ title: 'بوت إدارة سيرفرات ديسكورد', body, user: req.user, req }));
@@ -526,8 +511,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
           const thumb = iconUrl
             ? `<img class="guild-icon" src="${escapeHtml(iconUrl)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'guild-icon placeholder',textContent:this.dataset.initials}))" data-initials="${escapeHtml(initials(g.name))}">`
             : `<div class="guild-icon placeholder">${escapeHtml(initials(g.name))}</div>`;
-          return `
-      <div class="guild-card${g.botPresent ? '' : ' disabled'}" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="${g.botPresent ? '1' : '0'}">
+          const cardInner = `
         ${thumb}
         <div class="guild-info">
           <b>${escapeHtml(g.name)}</b>
@@ -540,11 +524,13 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         <div class="guild-actions">
           ${
             g.botPresent
-              ? `<a class="btn btn-primary btn-sm" href="/dashboard/${g.id}">${icon('settings', { size: 16 })} ${isGuest ? 'عرض' : 'إعداد'}</a>`
+              ? `<span class="btn btn-primary btn-sm">${icon('settings', { size: 16 })} ${isGuest ? 'عرض' : 'إعداد'}</span>`
               : `<span class="badge badge-warn">${icon('warning', { size: 15 })} البوت غير مضاف</span>`
           }
-        </div>
-      </div>`;
+        </div>`;
+          return g.botPresent
+            ? `<a class="guild-card" href="/dashboard/${g.id}" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="1">${cardInner}</a>`
+            : `<div class="guild-card disabled" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="0">${cardInner}</div>`;
         })
         .join('')
     : `<div class="empty">
@@ -559,8 +545,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   const body = `
   <div class="page-head">
     <div>
-      <h1>اختيار السيرفر</h1>
-      <p class="muted">${guilds.length} سيرفر · البوت مضاف إلى ${withBot} منها${isGuest ? ' · عرض عام للقراءة فقط' : ''}</p>
+      <h1>اختر السيرفر</h1>
+      <p class="muted">${guilds.length} سيرفر · البوت مضاف إلى ${withBot} منها. بعد الاختيار، فعّل الوحدة من الشريط الجانبي.${isGuest ? ' · عرض عام للقراءة فقط' : ''}</p>
     </div>
     <div class="head-actions">
       ${

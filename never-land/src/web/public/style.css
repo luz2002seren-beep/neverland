@@ -231,6 +231,7 @@ code {
   color: var(--text);
 }
 .guild-card:hover { border-color: var(--primary); }
+a.guild-card { color: inherit; text-decoration: none; }
 .guild-card.disabled { opacity: .6; cursor: not-allowed; }
 .guild-icon { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
 .guild-icon.placeholder {
@@ -371,15 +372,40 @@ code {
 
 /* ----------------------------- الصفحة الرئيسية ----------------------------- */
 .site-hero {
-  display: grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: 34px;
-  align-items: center;
-  padding: 34px 0 18px;
+  display: block;
+  text-align: center;
+  padding: 54px 0 28px;
 }
-.site-hero h1 { font-size: clamp(1.9rem, 4.2vw, 3.1rem); line-height: 1.35; margin: 14px 0; }
-.site-hero .lead { margin: 0 0 22px; color: var(--muted); font-size: 1.06rem; max-width: 560px; }
-.site-cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.site-hero-copy { max-width: 720px; margin: 0 auto; }
+.site-hero h1 { font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.25; margin: 14px 0; }
+.site-hero .lead { margin: 0 auto 22px; color: var(--muted); font-size: 1.08rem; max-width: 640px; }
+.site-cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.pb-row {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.pb-row.alt { direction: ltr; }
+.pb-row.alt > * { direction: rtl; }
+.pb-row b { display: block; font-size: 1.45rem; margin: 8px 0; }
+.pb-more { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-weight: 700; }
+.pb-note { margin: -6px 0 12px; }
+.pb-cta {
+  margin-top: 36px;
+  text-align: center;
+  padding: 36px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.pb-cta h2 { margin: 0 0 8px; }
+.pb-cta p { color: var(--muted); margin: 0 0 16px; }
+.footer { align-items: flex-start; }
+.footer-links { flex-direction: column; align-items: flex-start; }
+.footer-links b { color: var(--text); font-size: .8rem; letter-spacing: .04em; }
 .site-hero-art {
   background: var(--bg-soft);
   border: 1px solid var(--border);
@@ -397,10 +423,10 @@ code {
 .site-hero-art .mock-row .lbl { flex: 1; color: var(--text); }
 .site-hero-art .mock-row .val { color: var(--muted); font-size: .82rem; }
 
-.site-features { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(255px, 100%), 1fr)); gap: 14px; margin: 20px 0 10px; }
+.site-features { display: flex; flex-direction: column; gap: 8px; margin: 28px 0 10px; }
 .site-feature {
-  background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 16px 16px 14px;
+  background: transparent; border: 0; border-radius: 0;
+  padding: 8px 0;
 }
 .site-feature .fi { font-size: 1.5rem; }
 .site-feature b { display: block; margin: 8px 0 5px; color: var(--text); font-size: 1rem; }

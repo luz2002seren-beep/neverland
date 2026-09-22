@@ -14,6 +14,7 @@ body.dashboard .container { padding: 0; width: 100%; }
   min-height: 100vh;
   background: var(--shell);
 }
+.d-shell > .d-topbar { grid-column: 1 / -1; }
 
 /* ============================ الشريط الجانبي ============================ */
 .d-side {
@@ -43,7 +44,7 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-side-brand .accent { color: var(--primary); }
 .d-side-close {
   display: none;
-  margin-inline-start: auto;
+  align-self: flex-end;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -193,6 +194,20 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-head h1 { margin: 0; font-size: 1.12rem; color: var(--text); }
 .d-head .sub { font-size: .8rem; color: var(--muted); margin-top: 2px; }
 .d-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.d-topbar { position: relative; justify-content: space-between; }
+.d-top-brand {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+.d-top-brand .accent { color: var(--primary); }
+.d-top-status { font-size: .8rem; font-weight: 700; }
 
 .d-content { padding: 22px 26px 120px; max-width: 1080px; width: 100%; }
 
