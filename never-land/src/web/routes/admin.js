@@ -301,7 +301,7 @@ router.get('/security', (req, res) => {
       { key: 'audit', label: 'سجل نشاط كامل', ok: true, detail: `آخر ${db.countAudit?.() ?? 0} حدث محفوظ` },
       { key: 'cookie', label: 'كوكي الجلسة محمي', ok: true, detail: 'httpOnly + SameSite=Lax + Secure على https' },
       { key: 'secrets', label: 'بلا أسرار في الواجهة', ok: true, detail: 'التوكن والمفاتيح لا تُرسل للمتصفح أبدًا' },
-      { key: 'private', label: 'إخفاء الأشخاص والدومين عن الزائر', ok: true, detail: 'آيدي المالك والقنوات والإعدادات ما تنعرض إلا لحساب مسموح له' },
+      { key: 'private', label: 'إخفاء بيانات السيرفر عن الزائر', ok: true, detail: 'الإعدادات والقنوات والحسابات ما تنعرض إلا لحساب مسموح له' },
       { key: 'probes', label: 'حجب مسارات الفحص', ok: true, detail: 'طلبات .env و wp-admin و .git ترجع 404 بلا أي رد خبيث' },
     ],
     counts: {

@@ -120,12 +120,7 @@ async function handleMessage(client, message) {
   const embed = embeds.base({
     color: 0x5865f2,
     title: 'موقع Never Land',
-    description: [
-      `**الرابط:** ${base}`,
-      `**لوحة التحكم:** ${base}/dashboard`,
-      '',
-      '> دخولك بحساب ديسكورد، وبعدها تظهر لك لوحات سيرفراتك حسب صلاحياتك.',
-    ].join('\n'),
+    description: 'ادخل من الزر. العنوان ما ينكتب في الرسالة.',
   });
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setLabel('افتح الموقع').setStyle(ButtonStyle.Link).setURL(base),

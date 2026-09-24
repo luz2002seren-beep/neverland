@@ -971,7 +971,7 @@ async function loadSecurity(note, box) {
   note.innerHTML = '';
   note.appendChild(el('div', {
     class: 'd-readonly-note',
-    html: `${ic('shield', 15)} <span>الزائر ما يشوف آيدي المالك ولا القنوات ولا الدومين الداخلي. اللي يحاول يفحص مسارات معروفة ينحجب، وما في أي ملف خبيث ينرسل له.</span>`,
+    html: `${ic('shield', 15)} <span>الزائر ما يشوف بيانات السيرفر ولا الحسابات. مسارات الفحص المعروفة تنحجب، وما في أي ملف خبيث ينرسل له.</span>`,
   }));
   try {
     const data = await api('/admin/security');

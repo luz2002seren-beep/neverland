@@ -57,7 +57,6 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
   const SITE_NAME = config.web.siteName;
   /* صفحة اللوحة تُعرف بأي صنف يحتوي كلمة dashboard (dashboard · dashboard-readonly · dashboard-owner) */
   const isDashboardPage = String(bodyClass).split(/\s+/).includes('dashboard');
-  const siteUrl = config.web.url;
   const userBox = user
     ? `<div class="user-box">
          <span class="user-name">${escapeHtml(user.globalName || user.username || 'مستخدم')}</span>
@@ -83,10 +82,8 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
 <meta property="og:site_name" content="${SITE_NAME}">
 <meta property="og:title" content="${escapeHtml(title)} | ${SITE_NAME}">
 <meta property="og:description" content="نظام إدارة سيرفرات ديسكورد متكامل مع لوحة تحكم عربية.">
-<meta property="og:url" content="${escapeHtml(siteUrl)}/">
-<meta property="og:image" content="${escapeHtml(siteUrl)}/icon.svg">
+<meta property="og:image" content="/icon.svg">
 <meta name="twitter:card" content="summary">
-<link rel="canonical" href="${escapeHtml(siteUrl)}/">
 <title>${escapeHtml(title)} | ${SITE_NAME}</title>
 <link rel="icon" href="/icon.svg">
 <link rel="apple-touch-icon" href="/icon.svg">
@@ -360,16 +357,12 @@ router.get('/manifest.webmanifest', (_req, res) => {
 });
 
 router.get('/robots.txt', (_req, res) => {
-  res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\n\nSitemap: ${config.web.url}/sitemap.xml\n`);
+  res.type('text/plain').send('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /auth/\n');
 });
 
 router.get('/sitemap.xml', (_req, res) => {
-  const url = config.web.url;
   res.type('application/xml').send(
-    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-      `  <url><loc>${url}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n` +
-      `  <url><loc>${url}/dashboard</loc><changefreq>daily</changefreq><priority>0.7</priority></url>\n` +
-      `</urlset>\n`,
+    '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n</urlset>\n',
   );
 });
 

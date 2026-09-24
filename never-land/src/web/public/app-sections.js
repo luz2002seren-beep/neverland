@@ -582,7 +582,7 @@ const SECTIONS = {
     ownerOnly: true,
     label: 'حماية الموقع',
     title: 'حماية الموقع',
-    desc: 'الدفاعات المفعّلة. آيدي الأشخاص والدومين ما ينعرضون للزائر.',
+    desc: 'الدفاعات المفعّلة. الزائر ما يشوف بيانات السيرفر.',
     render() {
       const wrap = el('div');
       const note = el('div');
