@@ -73,7 +73,15 @@ async function listUserGuilds(req) {
 
   // زائر (بلا تسجيل دخول) مع الوصول العام → قائمة السيرفرات العامة للقراءة
   if (!user && config.web.publicAccess) {
-    return sync.listGuildMeta().map((g) => ({ ...g, owner: false, public: true }));
+    return sync.listGuildMeta().map((g) => ({
+      id: g.id,
+      name: g.name,
+      icon: g.icon,
+      memberCount: g.memberCount,
+      botPresent: true,
+      owner: false,
+      public: true,
+    }));
   }
 
   const client = botClient();

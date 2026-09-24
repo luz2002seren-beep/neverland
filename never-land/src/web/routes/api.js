@@ -134,16 +134,33 @@ router.use(async (req, res, next) => {
 });
 
 /* ------------------------------------ بيانات المستخدم ------------------------------------ */
+function canSeePrivate(req) {
+  if (config.web.demoData) return true;
+  const id = req.session?.user?.id;
+  if (!id) return false;
+  return siteUsers.isAllowed(id) || Boolean(req.roleOk);
+}
+
+function publicSync(status) {
+  return {
+    ok: Boolean(status?.ok),
+    botOnline: Boolean(status?.botOnline),
+    at: status?.at || null,
+  };
+}
+
 router.get('/me', async (req, res) => {
+  const trusted = canSeePrivate(req);
+  const status = sync.getStatus();
   res.json({
     user: currentUser(req),
     guilds: await availableGuilds(req),
     loginRequired: config.web.loginRequired,
-    requiredRoleId: config.web.requiredRoleId || null,
+    requiredRoleId: trusted ? (config.web.requiredRoleId || null) : null,
     roleOk: config.web.demoData ? true : Boolean(req.roleOk),
     isOwner: Boolean(req.session?.user && siteUsers.isOwner(req.session.user.id)),
     viewOnly: Boolean(req.session?.user && siteUsers.isViewOnly(req.session.user.id)),
-    sync: sync.getStatus(),
+    sync: trusted ? status : publicSync(status),
   });
 });
 
@@ -179,18 +196,19 @@ router.get('/guilds/:guildId', async (req, res) => {
 
   const loggingSystem = require('../../systems/logging');
 
-  return res.json({
+  const trusted = canSeePrivate(req);
+  const payload = {
     guild: {
       id: guildId,
       name: discordGuild?.name ?? snapshot?.name ?? guildId,
       icon: guildIconUrl(guildId, discordGuild?.iconURL?.({ size: 128, extension: 'png' }) || discordGuild?.icon) || guildIconUrl(guildId, snapshot?.icon) || null,
       memberCount: discordGuild?.memberCount ?? snapshot?.memberCount ?? null,
-      ownerId: discordGuild?.ownerId ?? snapshot?.ownerId ?? null,
+      ownerId: trusted ? (discordGuild?.ownerId ?? snapshot?.ownerId ?? null) : null,
       botPresent: Boolean(discordGuild) || Boolean(snapshot),
       botOnline: Boolean(client?.isReady?.()),
-      createdAt: discordGuild?.createdTimestamp ?? snapshot?.createdAt ?? null,
-      syncedAt: snapshot?.syncedAt ?? null,
-      syncSource: snapshot?.source ?? null,
+      createdAt: trusted ? (discordGuild?.createdTimestamp ?? snapshot?.createdAt ?? null) : null,
+      syncedAt: trusted ? (snapshot?.syncedAt ?? null) : null,
+      syncSource: trusted ? (snapshot?.source ?? null) : null,
     },
     sync: sync.getStatus(),
     settings: guild.settings,
@@ -234,11 +252,38 @@ router.get('/guilds/:guildId', async (req, res) => {
       demo: config.web.demoData,
       publicAccess: config.web.publicAccess,
       loginRequired: config.web.loginRequired,
-      requiredRoleId: config.web.requiredRoleId || null,
-      roleReason: req.roleResult?.reason || null,
-      roleMessage: req.roleResult && !req.roleResult.ok ? access.explain(req.roleResult) : null,
+      requiredRoleId: trusted ? (config.web.requiredRoleId || null) : null,
+      roleReason: trusted ? (req.roleResult?.reason || null) : null,
+      roleMessage: trusted && req.roleResult && !req.roleResult.ok ? access.explain(req.roleResult) : null,
+      locked: !trusted,
     },
-  });
+  };
+  if (!trusted) {
+    payload.settings = {};
+    payload.stats = {};
+    payload.daily = [];
+    payload.meta = {
+      channels: [],
+      roles: [],
+      members: 0,
+      emojis: [],
+      logGroups: payload.meta.logGroups,
+      logEvents: payload.meta.logEvents,
+      cardAvailable: false,
+      frameCardAvailable: false,
+      autolineStyles: [],
+    };
+    payload.sync = publicSync(payload.sync);
+  }
+  return res.json(payload);
+});
+
+/* بيانات السيرفر الداخلية (قنوات، رتب، سجل، أعضاء) ما تنعرض لزائر */
+router.use((req, res, next) => {
+  if (!['GET', 'HEAD'].includes(req.method)) return next();
+  if (!/^\/guilds\/[^/]+\/.+/.test(req.path || '')) return next();
+  if (canSeePrivate(req)) return next();
+  return res.status(403).json({ error: 'login_required', message: 'سجّل الدخول لعرض بيانات السيرفر.' });
 });
 
 /* ---------------------------------- شكل الردود ---------------------------------- */
@@ -1146,8 +1191,9 @@ router.post('/guilds/:guildId/presence', async (req, res) => {
 /* ---------------------------- المزامنة الحقيقية ---------------------------- */
 
 /** حالة المزامنة: آخر مزامنة، عدد السيرفرات، مصدرها، حالة البوت */
-router.get('/sync/status', (_req, res) => {
-  res.json(sync.getStatus());
+router.get('/sync/status', (req, res) => {
+  const status = sync.getStatus();
+  res.json(canSeePrivate(req) ? status : publicSync(status));
 });
 
 /** مزامنة فورية لكل السيرفرات (يحتاج صلاحية تعديل) */
@@ -1179,6 +1225,7 @@ router.post('/guilds/:guildId/sync', async (req, res) => {
  * يُستخدم في اللوحة ليعرض «آخر مزامنة» والقوائم الحقيقية بدون تحديث الصفحة.
  */
 router.get('/events', (req, res) => {
+  const trusted = canSeePrivate(req);
   res.set({
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
@@ -1186,11 +1233,13 @@ router.get('/events', (req, res) => {
     'X-Accel-Buffering': 'no',
   });
   res.flushHeaders?.();
-  res.write(`event: hello\ndata: ${JSON.stringify(sync.getStatus())}\n\n`);
+  const hello = trusted ? sync.getStatus() : publicSync(sync.getStatus());
+  res.write(`event: hello\ndata: ${JSON.stringify(hello)}\n\n`);
 
   const off = sync.onEvent((event, payload) => {
     try {
-      res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
+      const body = trusted ? payload : publicSync(payload);
+      res.write(`event: ${event}\ndata: ${JSON.stringify(body)}\n\n`);
     } catch { /* انقطع الاتصال */ }
   });
 
@@ -1198,7 +1247,10 @@ router.get('/events', (req, res) => {
   const live = require('../../lib/live');
   const offSettings = live.onSettings((payload) => {
     try {
-      res.write(`event: settings\ndata: ${JSON.stringify(payload)}\n\n`);
+      const body = trusted
+        ? payload
+        : { guildId: payload?.guildId || null, source: payload?.source || null, at: payload?.at || null };
+      res.write(`event: settings\ndata: ${JSON.stringify(body)}\n\n`);
     } catch { /* انقطع الاتصال */ }
   });
 
@@ -1217,6 +1269,9 @@ router.get('/events', (req, res) => {
 
 router.get('/status', (req, res) => {
   const client = safeClient();
+  if (!canSeePrivate(req)) {
+    return res.json({ ok: true, botReady: Boolean(client?.isReady?.()) });
+  }
   res.json({
     botReady: Boolean(client?.isReady?.()),
     botsTag: client?.user?.tag ?? null,

@@ -968,9 +968,13 @@ function guideCard(item) {
 /* ============================ حماية الموقع (للمالك) ============================ */
 
 async function loadSecurity(note, box) {
+  note.innerHTML = '';
+  note.appendChild(el('div', {
+    class: 'd-readonly-note',
+    html: `${ic('shield', 15)} <span>الزائر ما يشوف آيدي المالك ولا القنوات ولا الدومين الداخلي. اللي يحاول يفحص مسارات معروفة ينحجب، وما في أي ملف خبيث ينرسل له.</span>`,
+  }));
   try {
     const data = await api('/admin/security');
-    note.innerHTML = '';
 
     const cards = el('div', { class: 'd-stats' });
     [
@@ -1011,13 +1015,12 @@ async function loadSecurity(note, box) {
     const site = await api('/admin/audit?limit=12&scope=site');
     if (site.items?.length) {
       const table = el('table', { class: 'd-table' });
-      table.appendChild(el('thead', {}, '<tr><th>الحدث</th><th>من</th><th>التفاصيل</th><th>الوقت</th></tr>'));
+      table.appendChild(el('thead', {}, '<tr><th>الحدث</th><th>ماذا صار</th><th>الوقت</th></tr>'));
       const body = el('tbody');
       site.items.forEach((row) => {
         const tr = el('tr', { class: row.severity === 'danger' ? 'au-danger' : row.severity === 'warn' ? 'au-warn' : '' });
         tr.appendChild(el('td', { html: `<span class="au-badge ${row.severity}">${esc(row.label)}</span>` }));
-        tr.appendChild(el('td', { html: `<span class="au-actor">${esc(row.actorName || row.actorId || 'النظام')}</span>` }));
-        tr.appendChild(el('td', { html: `<span class="au-detail">${esc(row.detail || row.target || '—')}</span>` }));
+        tr.appendChild(el('td', { html: `<span class="au-detail">${esc(row.detail || '—')}</span>` }));
         tr.appendChild(el('td', { html: `<span class="au-time">${esc(sinceArabic(row.at))}</span>` }));
         body.appendChild(tr);
       });
@@ -1263,6 +1266,10 @@ const MODULE_TOGGLE = {
   commandRoom: 'commandRoom.enabled',
 };
 
+function drawerMode() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
 function closeSide() {
   document.body.classList.remove('side-open');
 }
@@ -1321,7 +1328,7 @@ function buildSidebar() {
         state.section = id;
         renderSection(id);
         if (window.history?.replaceState) window.history.replaceState(null, '', `#${id}`);
-        if (window.innerWidth <= 900) closeSide();
+        if (drawerMode()) closeSide();
       });
       groupWrap.appendChild(item);
       items.push({ item, id, label: section.label, group: title });
@@ -1447,6 +1454,9 @@ function renderSection(id) {
     }));
     moduleHead.appendChild(toggleBox);
   }
+  content.classList.remove('is-entering');
+  void content.offsetWidth;
+  content.classList.add('is-entering');
   content.appendChild(moduleHead);
   /* الوصف يقدر يكون نصًا ثابتًا أو دالة (لعدّادات تتغيّر مثل عدد الأحداث) */
   content.appendChild(el('p', { class: 'd-page-desc', html: typeof section.desc === 'function' ? section.desc() : section.desc }));
@@ -1454,7 +1464,7 @@ function renderSection(id) {
   // كل قسم يقدر يرجّع عنصرًا واحدًا أو مصفوفة عناصر أو Fragment
   const output = section.render();
   (Array.isArray(output) ? output : [output]).filter(Boolean).forEach((node) => content.appendChild(node));
-  if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
 }
 
 function updateDots(items) {
@@ -1633,6 +1643,10 @@ async function boot() {
 
   try {
     const data = await api(`/guilds/${state.guildId}`);
+    if (data.viewer?.locked) {
+      root.innerHTML = `<div class="d-loading"><div class="d-empty-ico">${ic('lock', 34)}</div><div>بيانات السيرفر والأعضاء ما تنعرض إلا بعد تسجيل الدخول.</div><a class="d-btn primary" href="/auth/login">تسجيل الدخول</a></div>`;
+      return;
+    }
     state.viewer = data.viewer || null;
     state.canEdit = data.viewer ? Boolean(data.viewer.canEdit) : root.dataset.edit !== '0';
     /* حالة المالك/المشاهدة فقط: تأتي مع بيانات السيرفر، وإن غابت نقرأها من الصفحة */
@@ -1718,6 +1732,7 @@ async function boot() {
     if (wanted && SECTIONS[wanted]) state.section = wanted;
 
     items.forEach(({ item }) => item.classList.toggle('active', item.dataset.id === state.section));
+    if (drawerMode()) closeSide();
     renderSection(state.section);
     updateDots(items);
     connectLive();

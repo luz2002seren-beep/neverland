@@ -210,6 +210,8 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-top-status { font-size: .8rem; font-weight: 700; }
 
 .d-content { padding: 22px 26px 120px; max-width: 1080px; width: 100%; }
+.d-content.is-entering { animation: dPageIn .22s ease; }
+@keyframes dPageIn { from { opacity: .45; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
 .d-module-head {
   display: flex;
@@ -457,7 +459,6 @@ body.dashboard .container { padding: 0; width: 100%; }
 .d-loading { display: grid; place-items: center; min-height: 60vh; color: var(--muted); gap: 12px; }
 .d-spinner {
   width: 34px; height: 34px; border-radius: 50%;
-  border: 3px solid var(--border); border-top-color: var(--primary); animaidth: 34px; height: 34px; border-radius: 50%;
   border: 3px solid var(--border); border-top-color: var(--primary); animation: d-spin .8s linear infinite;
 }
 @keyframes d-spin { to { transform: rotate(360deg); } }
@@ -480,26 +481,34 @@ body.dashboard .container { padding: 0; width: 100%; }
   .d-side-toggle { display: inline-flex; }
   .d-side-close { display: inline-flex; }
   /* الشريط يطلع من الجانب كلوحة بروبوت، مش شريط أفقي فوق المحتوى */
+  .d-shell { --drawer-w: min(86vw, 300px); }
   .d-side {
     position: fixed;
     inset-block: 0;
     inset-inline-start: 0;
-    width: min(86vw, 300px);
+    width: var(--drawer-w);
     height: 100vh;
     height: 100dvh;
     z-index: 40;
-    transform: translateX(110%);
-    transition: transform .2s ease;
-    box-shadow: -12px 0 40px rgba(0, 0, 0, .35);
+    transform: translate3d(110%, 0, 0);
+    transition: transform .28s cubic-bezier(.22, .8, .2, 1);
+    box-shadow: -12px 0 40px rgba(0, 0, 0, .28);
   }
-  html[dir="ltr"] .d-side { transform: translateX(-110%); box-shadow: 12px 0 40px rgba(0, 0, 0, .35); }
-  body.side-open .d-side { transform: translateX(0); }
+  html[dir="ltr"] .d-side { transform: translate3d(-110%, 0, 0); box-shadow: 12px 0 40px rgba(0, 0, 0, .28); }
+  body.side-open .d-side { transform: translate3d(0, 0, 0); }
+  /* الصفحة تتحرك بنفس مسافة الدرج ومدته، وما تغطيها طبقة سوداء */
+  .d-main, .d-topbar { transition: transform .28s cubic-bezier(.22, .8, .2, 1); }
+  body.side-open .d-main,
+  body.side-open .d-topbar { transform: translate3d(calc(var(--drawer-w) * -1), 0, 0); }
+  html[dir="ltr"] body.side-open .d-main,
+  html[dir="ltr"] body.side-open .d-topbar { transform: translate3d(var(--drawer-w), 0, 0); }
+  body.side-open { overflow-x: hidden; }
   body.side-open .d-side-backdrop {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, .5);
-    z-index: 35;
+    background: transparent;
+    z-index: 30;
   }
   .d-side-brand { color: var(--text); }
   .d-side nav { display: block; overflow: visible; }
@@ -1157,11 +1166,8 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
   gap: 8px;
 }
 
-/* أنيميشن أعمدة مخطط النشاط (تكبر من الأسفل) */
-.d-chart rect{transform-box:fill-box;transform-origin:bottom;animation:nlBarGrow .5s ease-out both}
-.d-chart rect.bar-join{animation-delay:.12s}
-@keyframes nlBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-فل) */
-.d-chart rect{transform-box:fill-box;transform-origin:bottom;animation:nlBarGrow .5s ease-out both}
-.d-chart rect.bar-join{animation-delay:.12s}
-@keyframes nlBarGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+/* أعمدة المخطط تكبر من الأسفل بدون ما تزحل الصفحة */
+.d-chart { overflow: hidden; }
+.d-chart rect { transform-box: fill-box; transform-origin: center bottom; animation: nlBarGrow .45s ease-out both; }
+.d-chart rect.bar-join { animation-delay: .12s; }
+@keyframes nlBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }

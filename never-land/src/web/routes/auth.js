@@ -68,7 +68,7 @@ router.get('/callback', async (req, res) => {
       const isRedirectIssue = token?.error === 'invalid_grant' || token?.error === 'invalid_request';
       return res.status(401).send(
         isRedirectIssue
-          ? `تعذّر إكمال الدخول. تأكد أن هذا الرابط مسجّل في بوابة ديسكورد (OAuth2 ← Redirects): ${config.web.url}/auth/callback`
+          ? 'تعذّر إكمال الدخول. تأكد أن رابط العودة مسجّل في بوابة ديسكورد، ثم حاول مرة أخرى.'
           : 'فشل تسجيل الدخول مع ديسكورد. حاول مرة أخرى.',
       );
     }

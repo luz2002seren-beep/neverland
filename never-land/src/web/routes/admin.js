@@ -49,6 +49,22 @@ function ownerOnly(req, res, next) {
   return next();
 }
 
+function withoutDevice(user) {
+  if (!user || typeof user !== 'object') return user;
+  const { lastIp, ua, ...safe } = user;
+  return safe;
+}
+
+/** يمسح الأسماء والآيديات والدومينات من نص يظهر في صفحة الحماية */
+function scrubIdentity(value) {
+  return String(value || '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\b[\w.-]+\.(?:com|net|org|app|io|gg|dev|me|xyz|online|site|cloud|railway\.app)\b/gi, '')
+    .replace(/\b\d{17,20}\b/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 /** هل أنا المالك؟ (متاحة لأي مسجّل دخول — الواجهة تسأل لتعرف هل تُظهر القسم) */
 router.get('/me', (req, res) => {
   const id = String(req.session?.user?.id || '');
@@ -56,8 +72,7 @@ router.get('/me', (req, res) => {
   return res.json({
     loggedIn: Boolean(id),
     isOwner: isAdmin,
-    me: id || null,
-    ownerId: siteUsers.ownerId(),
+    me: isAdmin ? id : null,
     demo: Boolean(config.web.demoData),
     statuses: Object.values(siteUsers.STATUS).map(({ key, label, desc }) => ({ key, label, desc })),
   });
@@ -104,13 +119,12 @@ router.get('/members', (req, res) => {
     guilds: u.guilds || 0,
     bannedAt: u.bannedAt || null,
     note: u.note || '',
-    lastIp: u.lastIp || null,
   }));
   return res.json({
     members,
     stats: siteUsers.stats(),
     statuses: Object.values(siteUsers.STATUS),
-    ownerId: siteUsers.ownerId(),
+    ownerId: null,
     canManage: !config.web.demoData,
   });
 });
@@ -152,7 +166,7 @@ router.post('/members/:id/status', async (req, res) => {
 
   return res.json({
     ok: true,
-    user: siteUsers.get(id),
+    user: withoutDevice(siteUsers.get(id)),
     status,
     killedSessions,
     sessions: await countUserSessions(id),
@@ -204,7 +218,15 @@ router.get('/audit', (req, res) => {
   const scope = String(req.query.scope || 'all'); // all | site | guild
 
   const guildId = scope === 'site' ? null : scope === 'guild' ? String(req.query.guildId || '') : undefined;
-  const result = audit.list({ guildId, action, severity, limit, offset, withIp: true });
+  const result = audit.list({ guildId, action, severity, limit, offset, withIp: false });
+  result.items = result.items.map((row) => ({
+    id: row.id,
+    action: row.action,
+    label: row.label,
+    detail: scrubIdentity(row.detail),
+    severity: row.severity,
+    at: row.at,
+  }));
 
   return res.json({
     ...result,
@@ -237,8 +259,15 @@ router.get('/backup', (req, res) => {
     site: config.web.siteName,
     driver: config.database.driver,
     guilds,
-    siteUsers: siteUsers.list(),
-    audit: audit.list({ limit: 500, withIp: true }).items,
+    siteUsers: siteUsers.list().map((user) => withoutDevice(user)),
+    audit: audit.list({ limit: 500, withIp: false }).items.map((row) => ({
+      id: row.id,
+      action: row.action,
+      label: row.label,
+      detail: scrubIdentity(row.detail),
+      severity: row.severity,
+      at: row.at,
+    })),
     counts: {
       guilds: guilds.length,
       siteUsers: siteUsers.count(),
@@ -272,6 +301,8 @@ router.get('/security', (req, res) => {
       { key: 'audit', label: 'سجل نشاط كامل', ok: true, detail: `آخر ${db.countAudit?.() ?? 0} حدث محفوظ` },
       { key: 'cookie', label: 'كوكي الجلسة محمي', ok: true, detail: 'httpOnly + SameSite=Lax + Secure على https' },
       { key: 'secrets', label: 'بلا أسرار في الواجهة', ok: true, detail: 'التوكن والمفاتيح لا تُرسل للمتصفح أبدًا' },
+      { key: 'private', label: 'إخفاء الأشخاص والدومين عن الزائر', ok: true, detail: 'آيدي المالك والقنوات والإعدادات ما تنعرض إلا لحساب مسموح له' },
+      { key: 'probes', label: 'حجب مسارات الفحص', ok: true, detail: 'طلبات .env و wp-admin و .git ترجع 404 بلا أي رد خبيث' },
     ],
     counts: {
       audit: db.countAudit?.() ?? 0,

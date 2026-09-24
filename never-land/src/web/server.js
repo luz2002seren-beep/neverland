@@ -66,6 +66,15 @@ function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
+  /* مسارات الفحص الشائعة: نرد 404 بلا أي محتوى، وما نرجّع فيروس ولا نرد على المهاجم */
+  app.use((req, res, next) => {
+    const pathName = String(req.path || '').toLowerCase();
+    if (/^\/(\.env|\.git|wp-admin|wp-login|phpmyadmin|server-status|cgi-bin|vendor\/phpunit)/.test(pathName)) {
+      return res.status(404).type('text/plain').send('Not found');
+    }
+    return next();
+  });
+
   /* ------------------------------ دفاعات الموقع ------------------------------ */
   // ١) رؤوس أمان على كل رد (CSP · منع التأطير · HSTS · nosniff…)
   app.use(security.securityHeaders(config));
