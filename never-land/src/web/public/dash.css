@@ -4,7 +4,8 @@
    ========================================================== */
 
 body.dashboard { display: block; }
-body.dashboard .topbar { display: none; }
+body.dashboard .topbar,
+body.dashboard .footer { display: none; }
 body.dashboard .container { padding: 0; width: 100%; }
 
 /* ============================ الهيكل ============================ */
@@ -23,12 +24,16 @@ body.dashboard .container { padding: 0; width: 100%; }
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px 14px;
+  padding: 16px 14px 20px;
   position: sticky;
   top: 0;
-  height: 100vh;
+  align-self: start;
+  height: auto;
+  max-height: 100vh;
+  max-height: 100dvh;
   overflow-y: auto;
 }
+.d-side > * { flex: 0 0 auto; }
 
 .d-side-brand {
   display: flex;
@@ -484,11 +489,12 @@ body.dashboard .container { padding: 0; width: 100%; }
   .d-shell { --drawer-w: min(86vw, 300px); }
   .d-side {
     position: fixed;
-    inset-block: 0;
+    top: 0;
     inset-inline-start: 0;
     width: var(--drawer-w);
-    height: 100vh;
-    height: 100dvh;
+    height: auto;
+    max-height: 100vh;
+    max-height: 100dvh;
     z-index: 40;
     transform: translate3d(110%, 0, 0);
     transition: transform .28s cubic-bezier(.22, .8, .2, 1);

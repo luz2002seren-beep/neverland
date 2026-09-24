@@ -1914,7 +1914,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
     assert.ok(read44('src/web/routes/api.js').includes('event: settings'), 'البثّ الحيّ ما يبثّ تغييرات الإعدادات');
     const app44 = read44('src/web/public/app.js') + read44('src/web/public/app-sections.js');
-    for (const needle of ['PAGE_CLIENT_ID', "addEventListener('settings'", 'refreshAfterExternalChange', 'sync-live']) {
+    for (const needle of ['PAGE_CLIENT_ID', "addEventListener('settings'", 'refreshAfterExternalChange', 'd-syncbar']) {
       assert.ok(app44.includes(needle), `اللوحة ينقصها ${needle}`);
     }
 

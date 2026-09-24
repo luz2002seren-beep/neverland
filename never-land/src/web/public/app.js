@@ -1531,13 +1531,7 @@ function buildSyncBar() {
 
   const paint = (st) => {
     const s = st || state.sync || {};
-    const parts = [`${ic('refresh', 15)} <b>آخر مزامنة مع ديسكورد:</b> <span class="sync-when">${esc(sinceText(s.at))}</span>`];
-    if (s.botOnline) parts.push('<span class="sync-ok">البوت متّصل — البيانات لحظية</span>');
-    else if (s.hasToken) parts.push('<span class="sync-warn">البوت متوقّف — نعرض آخر مزامنة محفوظة</span>');
-    else parts.push('<span class="sync-warn">لم يُربط توكن البوت بعد</span>');
-    if (s.guildsKnown) parts.push(`<span class="sync-count">${esc(String(s.guildsKnown))} سيرفر</span>`);
-    parts.push(`<span class="sync-live"><i class="live-dot"></i> تغييرات فورية: الموقع ← البوت · وديسكورد ← اللوحة</span>`);
-    info.innerHTML = parts.join(' · ');
+    info.innerHTML = `${ic('refresh', 15)} <b>آخر مزامنة مع ديسكورد:</b> <span class="sync-when">${esc(sinceText(s.at))}</span>`;
   };
   paint();
   bar.appendChild(info);
@@ -1564,10 +1558,8 @@ function buildSyncBar() {
 
   /* وميض خفيف على شارة الربط الحيّ كل ما يوصل تغيير من مكان تاني */
   window.__livePaint = () => {
-    const badge = bar.querySelector('.sync-live');
-    if (!badge) return;
-    badge.classList.add('flash');
-    setTimeout(() => badge.classList.remove('flash'), 1400);
+    bar.classList.add('flash');
+    setTimeout(() => bar.classList.remove('flash'), 1400);
   };
 
   window.__syncPaint = paint;
