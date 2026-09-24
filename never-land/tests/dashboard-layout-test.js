@@ -126,6 +126,7 @@ async function run({ quiet = false } = {}) {
     /* ── الحالات الثلاث: مالك · مشاهدة فقط · زائر ── */
     const siteUsers = require('../src/web/siteUsers');
     siteUsers.recordLogin({ id: VIEW_ID, username: 'viewer', globalName: 'مشاهدة فقط' }, { guilds: 1 });
+    siteUsers.grant(VIEW_ID, { by: OWNER_ID });
     const st = siteUsers.setStatus(VIEW_ID, 'viewonly', { reason: 'اختبار التخطيط' });
     assert.ok(st.ok, `تعيين «مشاهدة فقط» فشل: ${st.error}`);
 

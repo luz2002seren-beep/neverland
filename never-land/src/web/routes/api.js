@@ -108,24 +108,20 @@ router.use(async (req, res, next) => {
     if (!siteUsers.isOwner(req.session.user.id) && siteUsers.isBanned(req.session.user.id)) {
       return res.status(403).json({ error: 'banned', message: 'حسابك محظور من الموقع.' });
     }
-    // المشاهدة فقط: القراءة مسموحة والكتابة ممنوعة
-    if (!siteUsers.isOwner(req.session.user.id) && siteUsers.isViewOnly(req.session.user.id)) {
+    if (!siteUsers.isAllowed(req.session.user.id)) {
+      return res.status(403).json({
+        error: 'not_allowed',
+        message: 'حسابك مسجّل وبانتظار ما يسمح لك مالك الموقع بالدخول.',
+      });
+    }
+    if (siteUsers.isViewOnly(req.session.user.id)) {
       req.roleOk = !isWrite;
       req.viewOnly = true;
       req.roleResult = { ok: !isWrite, reason: 'view_only', checked: true };
       return next();
     }
-    const result = await access.checkAccess(req.session, req.session.user.id);
-    req.roleResult = result;
-    if (!result.ok) {
-      return res.status(403).json({
-        error: 'role_required',
-        message: access.explain(result),
-        requiredRoleId: config.web.requiredRoleId,
-        reason: result.reason,
-      });
-    }
     req.roleOk = true;
+    req.roleResult = { ok: true, reason: 'allowed', checked: true };
     return next();
   }
 

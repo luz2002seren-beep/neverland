@@ -1057,6 +1057,7 @@ async function loadSiteMembers(note, box) {
     const cards = el('div', { class: 'd-stats' });
     [
       ['users', (stats.total || 0).toLocaleString('ar-EG'), 'إجمالي الحسابات'],
+      ['userPlus', (stats.waiting || 0).toLocaleString('ar-EG'), 'بانتظار السماح'],
       ['activity', (stats.onlineToday || 0).toLocaleString('ar-EG'), 'نشِط آخر ٢٤ ساعة'],
       ['eye', (stats.byStatus?.viewonly || 0).toLocaleString('ar-EG'), 'مشاهدة فقط'],
       ['ban', (stats.byStatus?.banned || 0).toLocaleString('ar-EG'), 'محظور'],
@@ -1071,14 +1072,40 @@ async function loadSiteMembers(note, box) {
     note.appendChild(
       el('div', {
         class: 'd-readonly-note',
-        html: `${ic('shield', 15)} <span>هذه الصفحة تظهر لك فقط (مالك الموقع). كل من يسجّل دخول بحساب Discord يظهر هنا تلقائيًا.</span>`,
+        html: `${ic('shield', 15)} <span>هالقائمة تظهر لك فقط. اللي يحاول يدخل يتسجل هنا، وما يفتح الموقع إلا بعد ما تضيفه.</span>`,
       }),
     );
     note.appendChild(cards);
 
+    const form = el('form', { class: 'sm-add' });
+    const input = el('input', {
+      class: 'd-input',
+      type: 'text',
+      placeholder: 'آيدي ديسكورد',
+      inputmode: 'numeric',
+      autocomplete: 'off',
+    });
+    const addBtn = el('button', { class: 'd-btn', type: 'submit', html: `${ic('userPlus', 14)} إضافة للدخول` });
+    form.appendChild(input);
+    form.appendChild(addBtn);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      addBtn.disabled = true;
+      try {
+        await api('/admin/members', { method: 'POST', body: { id: input.value.trim() } });
+        toast('تمت الإضافة — يقدر يدخل الموقع');
+        renderSection('siteMembers');
+      } catch (err) {
+        toast(err.message, true);
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
+    note.appendChild(form);
+
     if (!data.members.length) {
       box.innerHTML = '';
-      box.appendChild(el('div', { class: 'd-empty', text: 'ما سجّل أحد دخول بعد.' }));
+      box.appendChild(el('div', { class: 'd-empty', text: 'ما في طلبات بعد. أضف آيدي من فوق، أو خلّ الشخص يحاول يدخل ويظهر هنا.' }));
       return;
     }
 
@@ -1101,7 +1128,11 @@ async function loadSiteMembers(note, box) {
       tr.appendChild(who);
 
       /* الحالة */
-      tr.appendChild(el('td', { html: `<span class="sm-badge sm-${esc(m.status)}">${esc(SITE_STATUS_LABEL[m.status] || m.status)}</span>` }));
+      const wait = !m.isOwner && !m.allowed && m.status !== 'banned';
+      const badge = wait
+        ? '<span class="sm-badge sm-wait">بانتظار السماح</span>'
+        : `<span class="sm-badge sm-${esc(m.status)}">${esc(SITE_STATUS_LABEL[m.status] || m.status)}</span>`;
+      tr.appendChild(el('td', { html: badge }));
 
       /* آخر ظهور */
       tr.appendChild(el('td', { text: sinceArabic(m.lastSeen) }));
@@ -1134,6 +1165,22 @@ async function loadSiteMembers(note, box) {
           }
         };
 
+        if (!m.allowed) {
+          const allow = el('button', { class: 'd-btn sm', html: `${ic('check', 14)} السماح بالدخول` });
+          allow.addEventListener('click', async () => {
+            allow.disabled = true;
+            try {
+              await api('/admin/members', { method: 'POST', body: { id: m.id } });
+              toast('صار يقدر يدخل');
+              renderSection('siteMembers');
+            } catch (err) {
+              toast(err.message, true);
+            } finally {
+              allow.disabled = false;
+            }
+          });
+          group.appendChild(allow);
+        }
         if (m.status !== 'active') {
           const b = el('button', { class: 'd-btn sm', html: `${ic('check', 14)} نشِط` });
           b.addEventListener('click', () => setStatus('active', b));
@@ -1617,7 +1664,7 @@ async function boot() {
           class: 'd-readonly-note',
           html:
             state.viewer && state.viewer.loginRequired
-              ? `${ic('shield', 17)} <b>الوصول مقيّد</b> — ${esc(state.viewer.reason || 'تحتاج تسجيل دخول بحساب Discord والرول المطلوب.')}
+              ? `${ic('shield', 17)} <b>الوصول مقيّد</b> — ${esc(state.viewer.reason || 'تحتاج تسجيل دخول بحساب Discord، وموافقة مالك الموقع.')}
                  <a class="d-btn primary sm" href="/auth/login">${ic('login', 15)} تسجيل الدخول</a>`
               : `${ic('shield', 17)} <b>عرض عام</b> — تقدر تتصفّح الإعدادات بحرية، أما التعديل فيحتاج تسجيل دخول بحساب Discord.
                  <a class="d-btn primary sm" href="/auth/login">${ic('login', 15)} تسجيل الدخول</a>`,

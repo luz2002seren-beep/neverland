@@ -235,8 +235,14 @@ async function requireAuth(req, res, next) {
     return next();
   }
 
-  /* 4) مشاهدة فقط: يفتح كل الصفحات لكن بلا أي تعديل */
-  if (!req.isSiteOwner && siteUsers.isViewOnly(req.session.user.id)) {
+  /* 4) قائمة السماح: المحاولة تتسجل وتظهر للمالك فقط، والدخول بعد ما يضيفه */
+  siteUsers.touch(req.session.user.id, { user: req.session.user });
+  if (!siteUsers.isAllowed(req.session.user.id)) {
+    return res.status(403).send(layout({ title: 'بانتظار الموافقة', body: pendingBody(req.user), user: req.user, req }));
+  }
+
+  /* 5) مشاهدة فقط: يفتح كل الصفحات لكن بلا أي تعديل */
+  if (siteUsers.isViewOnly(req.session.user.id)) {
     req.canEdit = false;
     req.viewOnly = true;
     req.roleResult = { ok: true, reason: 'view_only', checked: true };
@@ -244,14 +250,9 @@ async function requireAuth(req, res, next) {
     return next();
   }
 
-  /* 4) تأكيد الرول المطلوب */
-  const result = await access.checkAccess(req.session, req.session.user.id);
-  req.roleResult = result;
-  if (!result.ok) {
-    return res.status(403).send(layout({ title: 'الوصول مقيّد', body: denialBody(req, result), user: req.user, req }));
-  }
-
   req.canEdit = true;
+  req.roleOk = true;
+  req.roleResult = { ok: true, reason: 'allowed', checked: true };
   return next();
 }
 
@@ -272,23 +273,22 @@ function bannedBody(user, entry = {}) {
   </section>`;
 }
 
-/** صفحة «الوصول مقيّد» بقالب الموقع */
-function denialBody(req, result) {
-  const who = req.user ? escapeHtml(req.user.globalName || req.user.username) : '';
+/** صفحة الانتظار: الحساب وصل للمالك، وما يدخل إلا بعد ما يضيفه */
+function pendingBody(user) {
+  const who = user ? escapeHtml(user.globalName || user.username) : '';
+  const id = user ? escapeHtml(String(user.id || '')) : '';
   return `
   <section class="site-hero" style="text-align:center;max-width:720px;margin-inline:auto">
-    <span class="pill">${icon('shield', { size: 15 })} الوصول مقيّد</span>
-    <h1>ما عندك الرول المطلوب</h1>
-    <p class="muted">${escapeHtml(access.explain(result))}</p>
+    <span class="pill">${icon('shield', { size: 15 })} بانتظار الموافقة</span>
+    <h1>طلبك وصل لمالك الموقع</h1>
+    <p class="muted">حسابك <b>${who || 'حسابك'}</b> ظاهر عند المالك فقط. ما يفتح الموقع إلا بعد ما يضيفك من لوحة التحكم.</p>
     <div class="mock-panel" style="text-align:start;margin-top:18px">
-      <div class="mock-title">${icon('list', { size: 16 })} كيف تحصل على الوصول</div>
-      <div class="mock-row"><span class="mock-ico">${icon('userPlus', { size: 16 })}</span> ادخل سيرفر البوت بحسابك: <b>${who || 'حسابك'}</b></div>
-      <div class="mock-row"><span class="mock-ico">${icon('tag', { size: 16 })}</span> اطلب من الإدارة الرول المطلوب (المعرّف: <code>${escapeHtml(String(config.web.requiredRoleId || '—'))}</code>)</div>
-      <div class="mock-row"><span class="mock-ico">${icon('refresh', { size: 16 })}</span> ارجع واضغط «إعادة الفحص»</div>
+      <div class="mock-title">${icon('userPlus', { size: 16 })} حسابك</div>
+      <div class="mock-row"><span class="mock-ico">${icon('userPlus', { size: 16 })}</span> ${who || 'بدون اسم'}</div>
+      <div class="mock-row"><span class="mock-ico">${icon('tag', { size: 16 })}</span> المعرّف: <code>${id || '—'}</code></div>
     </div>
     <div class="site-cta" style="margin-top:18px">
-      <a class="btn btn-primary" href="/dashboard">${icon('refresh', { size: 16 })} إعادة الفحص</a>
-      <a class="btn btn-ghost" href="/auth/login">${icon('login', { size: 16 })} الدخول بحساب آخر</a>
+      <a class="btn btn-primary" href="/dashboard">${icon('refresh', { size: 16 })} أعدت المحاولة</a>
       <a class="btn btn-ghost" href="/auth/logout">${icon('logout', { size: 16 })} خروج</a>
     </div>
   </section>`;
@@ -399,7 +399,7 @@ router.get('/', requireAuth, (req, res) => {
   ];
 
   const steps = [
-    { t: 'ادخل للوحة', d: 'سجّل الدخول بحساب ديسكورد الذي يملك الرول المطلوب.' },
+    { t: 'ادخل للوحة', d: 'سجّل الدخول بحساب ديسكورد. المالك يضيفك لقائمة الدخول من لوحة التحكم.' },
     { t: 'اختر السيرفر', d: 'من قائمة السيرفرات اختر سيرفرك. اسمه يظهر أعلى الشريط الجانبي.' },
     { t: 'اختر الوحدة', d: 'من «إعدادات الوحدات» افتح الترحيب أو الحماية أو السجلات أو التذاكر.' },
     { t: 'فعّل واحفظ', d: 'شغّل مفتاح «مفعّل» أعلى الصفحة، ثم احفظ. البوت يطبّقها فورًا.' },

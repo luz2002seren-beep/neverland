@@ -94,10 +94,9 @@ function linkButtons(rows) {
   console.log('٤) تفاصيل /ban → أزرار روابط:', links2.length, '(المطلوب 0)');
   assert.strictEqual(links2.length, 0, 'زر رابط باقي في تفاصيل الأمر');
 
-  // ٥) الطريقة الوحيدة لرابط الموقع: كلمة «نيفر» — وبشرطين (رول الموقع + تسجيل)
+  // ٥) الطريقة الوحيدة لرابط الموقع: كلمة «نيفر» — وبشرط قائمة السماح
   const siteLink = require('../src/systems/siteLink');
   const siteUsers = require('../src/web/siteUsers');
-  const roleId = String(config.web.requiredRoleId || '');
   const out = [];
   const fakeMsg = (content, member) => ({
     guild: { id: '100000000000000001' },
@@ -106,15 +105,18 @@ function linkButtons(rows) {
     member,
     reply: async (payload2) => { out.push(payload2); return { delete: async () => {} }; },
   });
-  const roleOnly = { id: '501', roles: { cache: new Map([[roleId, {}]]) } };
-  await siteLink.handleMessage({}, fakeMsg('نيفر', roleOnly));
-  assert.ok(!/https?:/.test(JSON.stringify(out.at(-1))), 'طلع رابط لمين ما سجّل بالموقع');
-  assert.ok(/رول دخول الموقع/.test(out.at(-1).content || ''), 'ما شرحنا شرط الرابط');
-  const fullMember2 = { id: '502', roles: { cache: new Map([[roleId, {}]]) } };
-  siteUsers.recordLogin({ id: '502', username: 'x' });
+  const visitor = { id: '501501501501501501', roles: { cache: new Map() } };
+  await siteLink.handleMessage({}, fakeMsg('نيفر', visitor));
+  assert.ok(!/https?:/.test(JSON.stringify(out.at(-1))), 'طلع رابط لمين ما أضافه المالك');
+  assert.ok(/قائمة الدخول/.test(out.at(-1).content || ''), 'ما شرحنا شرط الرابط');
+  const fullMember2 = { id: '502502502502502502', roles: { cache: new Map() } };
+  siteUsers.recordLogin({ id: '502502502502502502', username: 'x' });
+  assert.ok(!siteUsers.isAllowed('502502502502502502'), 'التسجيل وحده ما يفتح الدخول');
+  const granted = siteUsers.grant('502502502502502502', { by: '1' });
+  assert.strictEqual(granted.ok, true, granted.error || 'الإضافة فشلت');
   await siteLink.handleMessage({}, fakeMsg('نيفر', fullMember2));
-  assert.ok(JSON.stringify(out.at(-1)).includes(config.web.url), 'الرابط ما ظهر للمسجّل صاحب الرول');
-  console.log('٥) رابط الموقع: بلا تسجيل → بلا رابط ✔ · رول + تسجيل → الرابط ظهر ✔');
+  assert.ok(JSON.stringify(out.at(-1)).includes(config.web.url), 'الرابط ما ظهر لمن أضافه المالك');
+  console.log('٥) رابط الموقع: بلا سماح → بلا رابط ✔ · بعد الإضافة → الرابط ظهر ✔');
 
   // ٦) العضو العادي: أوامر الإدارة مخفية عنه تمامًا
   const plain = fakeInteraction();

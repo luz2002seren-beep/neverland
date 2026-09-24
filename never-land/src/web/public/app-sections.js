@@ -600,7 +600,7 @@ const SECTIONS = {
     ownerOnly: true,
     label: 'أعضاء الموقع',
     title: 'أعضاء الموقع',
-    desc: 'كل من سجّل دخول بحساب Discord: تتحكم به — تعطيه مشاهدة فقط أو تحظره من الموقع كامل.',
+    desc: 'تضيف من يدخل الموقع. اللي يحاول يدخل يظهر هنا لحالك، وما يفتح إلا بعد ما تسمح له.',
     render() {
       const wrap = el('div');
       const note = el('div', { class: 'd-top-note' });

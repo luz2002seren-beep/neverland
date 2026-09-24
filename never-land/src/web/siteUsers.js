@@ -71,6 +71,7 @@ function emptyUser(user = {}) {
     globalName: user.globalName || user.global_name || user.username || '',
     avatar: user.avatar || null,
     status: 'active',
+    allowed: false,
     firstSeen: now,
     lastSeen: now,
     visits: 0,
@@ -103,6 +104,7 @@ function recordLogin(user = {}, extra = {}) {
   if (extra.ip) entry.lastIp = String(extra.ip).slice(0, 45);
   if (extra.userAgent) entry.ua = String(extra.userAgent).slice(0, 180);
   entry.lastLoginAt = Date.now();
+  if (typeof entry.allowed !== 'boolean') entry.allowed = false;
 
   store.users[id] = entry;
   save(store);
@@ -143,9 +145,17 @@ function get(userId) {
 function list() {
   const store = load();
   return Object.values(store.users)
-    .map((u) => ({ ...u, status: u.status || 'active', isOwner: isOwner(u.id), isAdmin: isOwner(u.id) }))
+    .map((u) => ({
+      ...u,
+      status: u.status || 'active',
+      allowed: isOwner(u.id) || u.allowed === true,
+      isOwner: isOwner(u.id),
+      isAdmin: isOwner(u.id),
+    }))
     .sort((a, b) => {
       if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
+      const waiting = (u) => !u.allowed && u.status !== 'banned';
+      if (waiting(a) !== waiting(b)) return waiting(a) ? -1 : 1;
       if ((a.status === 'banned') !== (b.status === 'banned')) return a.status === 'banned' ? 1 : -1;
       return (b.lastSeen || 0) - (a.lastSeen || 0);
     });
@@ -165,6 +175,43 @@ function statusOf(userId) {
 
 const isBanned = (userId) => statusOf(userId) === 'banned';
 const isViewOnly = (userId) => statusOf(userId) === 'viewonly';
+
+/** هل يسمح لهذا الحساب بدخول الموقع؟ المالك دائمًا، والباقي لازم يضيفهم المالك. */
+function isAllowed(userId) {
+  const id = String(userId || '');
+  if (!id) return false;
+  if (isOwner(id)) return true;
+  if ((config.web.siteAdmins || []).map(String).includes(id)) return true;
+  const entry = get(id);
+  return Boolean(entry && entry.allowed === true && entry.status !== 'banned');
+}
+
+/**
+ * إضافة حساب لقائمة الدخول (حتى قبل ما يسجّل).
+ * المعرّف لازم يكون آيدي ديسكورد.
+ */
+function grant(userId, { by = null, user = {} } = {}) {
+  const id = String(userId || '').trim();
+  if (!/^\d{15,22}$/.test(id)) return { ok: false, error: 'bad_id' };
+  if (isOwner(id)) return { ok: false, error: 'owner_protected' };
+
+  const store = load();
+  const prev = store.users[id];
+  const entry = prev ? { ...prev } : emptyUser({ id, ...user });
+  entry.allowed = true;
+  entry.allowedAt = Date.now();
+  entry.allowedBy = by ? String(by) : null;
+  if (user.username) entry.username = user.username;
+  if (user.globalName) entry.globalName = user.globalName;
+  if (entry.status === 'banned') {
+    entry.status = 'active';
+    entry.bannedAt = null;
+    entry.bannedBy = null;
+  }
+  store.users[id] = entry;
+  save(store);
+  return { ok: true, user: entry };
+}
 
 /** هل يُسمح لهذا الحساب بالتعديل؟ (الحظر والمشاهدة فقط يمنعان) */
 function mayEdit(userId) {
@@ -246,6 +293,8 @@ module.exports = {
   statusOf,
   isBanned,
   isViewOnly,
+  isAllowed,
+  grant,
   mayEdit,
   setStatus,
   forget,

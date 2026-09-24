@@ -147,6 +147,8 @@ async function run() {
   // المالك يسجّل دخول نفسه أيضًا
   siteUsers.recordLogin({ id: OWNER_ID, username: 'owner', globalName: 'المالك' }, { guilds: 1 });
   siteUsers.recordLogin({ id: OTHER_ID, username: 'other', globalName: 'عضو عادي' }, { guilds: 0 });
+  assert.strictEqual(siteUsers.isAllowed(OTHER_ID), false, 'التسجيل وحده ما يفتح الدخول');
+  assert.strictEqual(siteUsers.grant(OTHER_ID, { by: OWNER_ID }).ok, true, 'إضافة العضو لقائمة الدخول فشلت');
 
   // واجهة المالك تعرض الجميع
   const list1 = await owner.get('/api/admin/members');

@@ -4,10 +4,14 @@
  *   node gate-test.js
  */
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('path');
 const express = require('express');
 
 const ROLE = '1549364852433354792';
+process.env.DATABASE_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nl-gate-')), 'gate.db');
+process.env.DEMO_MODE = 'false';
 process.env.REQUIRED_ROLE_ID = ROLE;
 const config = require('../src/config');
 config.web.demoMode = false;          // نُطفئ وضع التطوير لاختبار البوابة الحقيقية
@@ -52,7 +56,7 @@ async function listen(serverApp) {
 }
 
 (async () => {
-  const user = { id: '555', username: 'tester', globalName: 'المختبر' };
+  const user = { id: '555555555555555555', username: 'tester', globalName: 'المختبر' };
   const port1 = await listen(app());
   const base = `http://127.0.0.1:${port1.address().port}`;
 
@@ -72,43 +76,37 @@ async function listen(serverApp) {
   console.log('٢) زائر على الـAPI →', r2.status, '|', j2.message);
   assert.strictEqual(r2.status, 401);
 
-  // 3) مسجّل لكن بلا الرول → صفحة «الوصول مقيّد»
+  // 3) مسجّل لكن المالك ما أضافه → صفحة الانتظار
   state.user = user;
-  nextResult = { ok: false, reason: 'no_role', checked: true, guild: 'سيرفر الاختبار' };
   const r3 = await fetch(`${base}/dashboard`, { redirect: 'manual' });
   const html3 = await r3.text();
-  const hasDeny = html3.includes('الوصول مقيّد') && html3.includes(ROLE);
-  console.log('٣) مسجّل بدون الرول →', r3.status, '| صفحة الوصول مقيّد:', hasDeny ? '✅' : '❌');
+  const hasDeny = html3.includes('بانتظار الموافقة');
+  console.log('٣) مسجّل بدون سماح →', r3.status, '| بانتظار الموافقة:', hasDeny ? '✅' : '❌');
   assert.strictEqual(r3.status, 403);
-  assert.ok(hasDeny, 'صفحة المنع غير صحيحة');
+  assert.ok(hasDeny, 'صفحة الانتظار غير صحيحة');
 
   const r3b = await fetch(`${base}/api/guilds/100000000000000001`, { redirect: 'manual' });
   const j3b = await r3b.json();
-  console.log('   نفس الحالة على الـAPI →', r3b.status, '|', j3b.error, '| الرول:', j3b.requiredRoleId);
+  console.log('   نفس الحالة على الـAPI →', r3b.status, '|', j3b.error);
   assert.strictEqual(r3b.status, 403);
-  assert.strictEqual(j3b.error, 'role_required');
+  assert.strictEqual(j3b.error, 'not_allowed');
 
-  // 4) مسجّل ومعاه الرول → يفتح
-  nextResult = { ok: true, reason: 'ok', checked: true, guild: 'سيرفر الاختبار' };
+  // 4) المالك أضافه → يفتح
+  const siteUsers = require('../src/web/siteUsers');
+  const granted = siteUsers.grant(user.id, { by: '1', user: { username: user.username } });
+  assert.strictEqual(granted.ok, true, granted.error || 'الإضافة فشلت');
   const r4 = await fetch(`${base}/dashboard`, { redirect: 'manual' });
   const html4 = await r4.text();
-  console.log('٤) مسجّل معه الرول →', r4.status, '| قائمة السيرفرات:', html4.includes('اختيار السيرفر') ? '✅' : '❌');
+  console.log('٤) بعد الإضافة →', r4.status, '| قائمة السيرفرات:', html4.includes('اختيار السيرفر') ? '✅' : '❌');
   assert.strictEqual(r4.status, 200);
 
   const r4b = await fetch(`${base}/`);
   console.log('   الصفحة الرئيسية →', r4b.status);
   assert.strictEqual(r4b.status, 200);
 
-  // 5) البوت متوقف → رسالة واضحة
-  nextResult = { ok: false, reason: 'bot_offline', checked: false };
-  const r5 = await fetch(`${base}/dashboard`);
-  const html5 = await r5.text();
-  console.log('٥) البوت متوقف →', r5.status, '| الرسالة:', html5.includes('البوت غير متصل') ? '✅ واضحة' : '❌');
-  assert.strictEqual(r5.status, 403);
-
   port1.close();
   delete require.cache[ACCESS_PATH];
-  console.log('\n🎉 بوابة الدخول والرول تعمل كما هو مطلوب');
+  console.log('\n🎉 بوابة الدخول وقائمة السماح تعمل كما هو مطلوب');
 })().catch((e) => {
   console.error('❌', e.message);
   process.exit(1);

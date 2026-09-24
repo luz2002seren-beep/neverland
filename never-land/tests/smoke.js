@@ -632,7 +632,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     assert.ok(server5.includes('خطأ 404') && server5.includes('layout('), 'صفحة 404 لا تستخدم قالب الموقع');
 
     const app5 = (fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'public', 'app.js'), 'utf8') + fs5.readFileSync(path5.join(__dirname, '..', 'src', 'web', 'public', 'app-sections.js'), 'utf8'));
-    assert.ok(app5.includes("html: 'Never<span class=\"accent\">Land</span>'"), 'شعار اللوحة غير محدّث');
+    assert.ok(app5.includes('Never<span class=\"accent\">Land</span>'), 'شعار اللوحة غير محدّث');
     assert.ok(!/وضع المعاينة/.test(app5), 'نص المعاينة ظاهر في اللوحة');
 
     const pkg5 = require('../package.json');
@@ -690,7 +690,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     const outHelp = execFileSync('node', [path7.join(root7, 'tests', 'help-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outHelp.includes('نيفر'), 'ما في إشارة لطريقة طلب رابط الموقع');
     assert.ok(outHelp.includes('بلا رابط'), 'شرط الرابط (تسجيل/رول) غير مُختبر');
-    assert.ok(outHelp.includes('الرابط ظهر'), 'رابط الموقع ما ظهر للمسجّل صاحب الرول');
+    assert.ok(outHelp.includes('الرابط ظهر'), 'رابط الموقع ما ظهر لمن أضافه المالك');
 
     // ٢) منطق الرول المطلوب
     const cfg7 = require('../src/config');
@@ -704,9 +704,9 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     // ٣) بوابة الدخول على مستوى HTTP
     const outGate = execFileSync('node', [path7.join(root7, 'tests', 'gate-test.js')], { cwd: root7, encoding: 'utf8', env: childEnv() });
     assert.ok(outGate.includes('302 /auth/login'), 'الزائر لا يُحوَّل لتسجيل الدخول');
-    assert.ok(outGate.includes('role_required'), 'حماية الـAPI بالرول ناقصة');
-    assert.ok(outGate.includes('الوصول مقيّد'), 'صفحة الوصول مقيّد ناقصة');
-  console.log('  [تم] /help بزر يعمل + تأكيد دخول + رول 1549364852433354792 (صفحة منع كاملة)');
+    assert.ok(outGate.includes('not_allowed'), 'حماية الـAPI بقائمة السماح ناقصة');
+    assert.ok(outGate.includes('بانتظار الموافقة'), 'صفحة الانتظار ناقصة');
+  console.log('  [تم] /help بزر يعمل + تأكيد دخول + قائمة السماح (صفحة انتظار كاملة)');
   }
 
  console.log('[اختبار] اختبار 23: جاهزية النشر (رابط يفتح من أي جهاز)');
@@ -1924,7 +1924,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(sug44.includes(needle), `نظام الاقتراحات ينقصه ${needle}`);
     }
 
-    // ٢ب) رابط الموقع: ما يطلع في أي رد — يطلع بكلمة «نيفر» للمسجّلين اللي عندهم الرول
+    // ٢ب) رابط الموقع: ما يطلع في أي رد — يطلع بكلمة «نيفر» لمن أضافهم المالك
     const site44 = read44('src/systems/siteLink.js');
     for (const needle of ['نيفر', 'allowed', 'hasSiteRole', 'isRegistered', 'requiredRoleId']) {
       assert.ok(site44.includes(needle), `ملف رابط الموقع ينقصه ${needle}`);

@@ -5,9 +5,8 @@
  * -------------------------------------------------------------
  * رابط الموقع ما يطلع في أي رد من ردود البوت.
  *
- * الطريقة الوحيدة: عضو يكتب كلمة «نيفر» في الشات — وبشرطين:
- *   ١) عنده رول دخول الموقع (REQUIRED_ROLE_ID)
- *   ٢) مسجّل دخول بالموقع بحساب ديسكورد (سجل أعضاء الموقع)
+ * الطريقة الوحيدة: عضو يكتب كلمة «نيفر» في الشات — وبشرط:
+ *   المالك أضافه لقائمة دخول الموقع.
  *
  * غير هيك: رد قصير بلا أي رابط. ومالك الموقع يستثنى دائمًا.
  * -------------------------------------------------------------
@@ -58,13 +57,15 @@ function isRegistered(userId) {
   }
 }
 
-/** يستحق يشوف رابط الموقع؟ (مالك الموقع دائمًا) */
+/** يستحق يشوف رابط الموقع؟ المالك دائمًا، والباقي من قائمة السماح. */
 function allowed(member) {
   const id = String(member?.id || member?.user?.id || '');
   if (!id) return false;
-  const owner = String(config.web.ownerUserId || '').trim();
-  if (owner && owner === id) return true;
-  return hasSiteRole(member) && isRegistered(id);
+  try {
+    return require('../web/siteUsers').isAllowed(id);
+  } catch {
+    return false;
+  }
 }
 
 function onCooldown(guildId, userId) {
@@ -99,8 +100,8 @@ async function handleMessage(client, message) {
     await message
       .reply({
         content: [
-          'رابط الموقع ما يظهر إلا لأعضاء **Never Land** اللي عندهم **رول دخول الموقع** ومسجّلين فيه بحساب ديسكورد.',
-          'إذا عندك الرول: سجّل دخولك للموقع مرة وحدة، وبعدها اكتب **نيفر** ويظهر لك الرابط.',
+          'رابط الموقع ما يظهر إلا لمن أضافهم مالك الموقع لقائمة الدخول.',
+          'سجّل دخولك مرة، وبعد ما يسمح لك المالك اكتب **نيفر** ويظهر لك الرابط.',
         ].join('\n'),
         allowedMentions: { repliedUser: false },
       })

@@ -66,6 +66,26 @@ router.get('/me', (req, res) => {
 /* كل ما يلي: المالك فقط */
 router.use(ownerOnly);
 
+/** إضافة آيدي لقائمة الدخول، أو السماح لحساب جرّب الدخول */
+router.post('/members', (req, res) => {
+  const id = String(req.body?.id || '').trim();
+  const result = siteUsers.grant(id, {
+    by: req.session?.user?.id,
+    user: {
+      username: String(req.body?.username || '').slice(0, 40),
+      globalName: String(req.body?.globalName || '').slice(0, 40),
+    },
+  });
+  if (!result.ok) {
+    const code = result.error === 'bad_id' ? 400 : 409;
+    const message = result.error === 'bad_id'
+      ? 'حط آيدي ديسكورد صحيح (أرقام فقط).'
+      : 'المالك داخل أصلًا وما يحتاج إضافة.';
+    return res.status(code).json({ error: result.error, message });
+  }
+  return res.json({ ok: true, user: result.user });
+});
+
 /** قائمة الأعضاء + الإحصاءات */
 router.get('/members', (req, res) => {
   const me = String(req.session?.user?.id || '');

@@ -268,10 +268,9 @@ async function run() {
   /* المثال في التنبيه مأخوذ من الكتالوج */
   assert.ok(/ban @العضو/.test(replies.find((r) => /منشن العضو/.test(r)) || ''), 'المثال في التنبيه غير مفيد');
 
-  /* ==================== ٤) رابط الموقع: «نيفر» + المسجّلين فقط ==================== */
+  /* ==================== ٤) رابط الموقع: «نيفر» + قائمة السماح ==================== */
   const siteLink = require('../src/systems/siteLink');
   const siteUsers = require('../src/web/siteUsers');
-  const roleId = String(require('../src/config').web.requiredRoleId || '');
   const out4 = [];
   const linkMsg = (content, member) => ({
     guild: { id: GUILD },
@@ -280,23 +279,24 @@ async function run() {
     member,
     reply: async (payload) => { out4.push(payload); return { delete: async () => {} }; },
   });
-  const withRole = { id: '900', roles: { cache: new Map([[roleId, {}]]) } };
-  const noRole = { id: '901', roles: { cache: new Map() } };
+  const stranger = { id: '900900900900900900', roles: { cache: new Map() } };
+  const loggedOnly = { id: '901901901901901901', roles: { cache: new Map() } };
   const hasUrl = (payload) => /https?:/.test(JSON.stringify(payload));
 
-  /* ١) عنده الرول بس ما سجّل بالموقع → بلا رابط */
-  await siteLink.handleMessage(client, linkMsg('نيفر', withRole));
-  assert.ok(!hasUrl(out4.at(-1)), 'طلع رابط لمين ما سجّل بالموقع');
-  /* ٢) مسجّل بس بلا رول → بلا رابط */
-  siteUsers.recordLogin({ id: '901', username: 'sara' });
-  await siteLink.handleMessage(client, linkMsg('نيفر', noRole));
-  assert.ok(!hasUrl(out4.at(-1)), 'طلع رابط لمين ما عنده الرول');
-  /* ٣) رول + تسجيل → الرابط يطلع (عضو ثالث حتى ما يتعطّل بفترة الهدوء) */
-  const fullMember = { id: '903', roles: { cache: new Map([[roleId, {}]]) } };
-  siteUsers.recordLogin({ id: '903', username: 'ahmed' });
+  /* ١) ما سجّل وما أضافه المالك → بلا رابط */
+  await siteLink.handleMessage(client, linkMsg('نيفر', stranger));
+  assert.ok(!hasUrl(out4.at(-1)), 'طلع رابط لمين ما أضافه المالك');
+  /* ٢) سجّل بس المالك ما أضافه → بلا رابط */
+  siteUsers.recordLogin({ id: loggedOnly.id, username: 'sara' });
+  await siteLink.handleMessage(client, linkMsg('نيفر', loggedOnly));
+  assert.ok(!hasUrl(out4.at(-1)), 'طلع رابط لمين ما أضافه المالك');
+  /* ٣) المالك أضافه → الرابط يطلع (عضو ثالث حتى ما يتعطّل بفترة الهدوء) */
+  const fullMember = { id: '903903903903903903', roles: { cache: new Map() } };
+  siteUsers.recordLogin({ id: fullMember.id, username: 'ahmed' });
+  assert.strictEqual(siteUsers.grant(fullMember.id, { by: '1' }).ok, true);
   await siteLink.handleMessage(client, linkMsg('نيفر', fullMember));
-  console.log('٤) رابط الموقع: بلا تسجيل أو بلا رول → بلا رابط ✔ · رول + تسجيل →', hasUrl(out4.at(-1)) ? 'الرابط ظهر ✔' : 'ما ظهر ✘');
-  assert.ok(hasUrl(out4.at(-1)), 'الرابط ما ظهر للمسجّل صاحب الرول');
+  console.log('٤) رابط الموقع: بلا سماح → بلا رابط ✔ · بعد الإضافة →', hasUrl(out4.at(-1)) ? 'الرابط ظهر ✔' : 'ما ظهر ✘');
+  assert.ok(hasUrl(out4.at(-1)), 'الرابط ما ظهر لمن أضافه المالك');
   assert.ok((out4.at(-1).embeds?.[0]?.data?.title || '').includes('Never Land'), 'بطاقة الرابط بلا عنوان المشروع');
   /* ٤) كلمة «نيفر» لأي عضو ثاني محظور عليها فترة الهدوء — نتحقق من الشكل نفسه */
   assert.strictEqual(siteLink.isSiteWord('نيفر'), true, 'كلمة «نيفر» ما انعرفت');
