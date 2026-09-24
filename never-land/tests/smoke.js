@@ -848,7 +848,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ١) الاختبار المستقل لمصدر السيرفرات
     const outGuilds = execFileSync('node', [path11.join(root11, 'tests', 'guilds-test.js')], { cwd: root11, encoding: 'utf8', env: childEnv() });
-    for (const needle of ['عضو عنده الرول فقط', 'مالك السيرفر', 'إدارة السيرفر', 'بلا تكرار', 'فحص الوصول']) {
+    for (const needle of ['عضو عنده الرول فقط', 'عضو أضافه المالك', 'مالك السيرفر', 'إدارة السيرفر', 'بلا تكرار', 'فحص الوصول']) {
       assert.ok(outGuilds.includes(needle), `حالة «${needle}» غير مُختبرة في قائمة السيرفرات`);
     }
     assert.ok(outGuilds.includes('🎉'), 'اختبار قائمة السيرفرات لم ينجح');
@@ -866,7 +866,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
       assert.ok(guildsMod.includes(fn), `دالة ${fn} ناقصة من وحدة السيرفرات`);
     }
     assert.ok(guildsMod.includes('ManageGuild'), 'فحص صلاحية الإدارة ناقص');
-    assert.ok(guildsMod.includes('requiredRoleId'), 'فحص الرول المطلوب ناقص');
+    assert.ok(guildsMod.includes('isAllowed'), 'فحص قائمة الدخول ناقص');
 
     // ٤) رسالة الفراغ توضّح للمستخدم سبب عدم الظهور
     assert.ok(pagesSrc11.includes('كان البوت مضافًا إليها'), 'رسالة الفراغ غير موجودة');

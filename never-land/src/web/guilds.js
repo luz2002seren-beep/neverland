@@ -13,7 +13,7 @@
  *   2) سيرفرات البوت الحيّة (discord.js)   ← نفحص صلاحية المستخدم فيها فعليًا
  *   3) آخر مزامنة محفوظة                   ← عند توقّف البوت: بيانات معروفة
  *
- * شرط دخول السيرفر للقائمة: المستخدم فيه و(مالك • إدارة السيرفر • يملك الرول المطلوب)
+ * شرط ظهور السيرفر: المستخدم فيه و(مالك • إدارة السيرفر • أضافه مالك الموقع لقائمة الدخول)
  * -------------------------------------------------------------
  */
 
@@ -30,7 +30,7 @@ function botClient() {
   }
 }
 
-/** هل هذا العضو يقدر يستخدم لوحة السيرفر؟ (مالك / إدارة / الرول المطلوب) */
+/** هل هذا العضو يقدر يستخدم لوحة السيرفر؟ (مالك / إدارة / مضاف لقائمة الدخول) */
 async function memberCanUse(guild, userId) {
   if (!guild || !userId) return false;
 
@@ -45,9 +45,11 @@ async function memberCanUse(guild, userId) {
   const perms = member.permissions;
   if (perms?.has?.('ManageGuild') || perms?.has?.('Administrator')) return true;
 
-  const roleId = String(config.web.requiredRoleId || '').trim();
-  if (roleId && member.roles?.cache?.has?.(roleId)) return true;
-
+  try {
+    if (require('./siteUsers').isAllowed(userId)) return true;
+  } catch {
+    return false;
+  }
   return false;
 }
 
@@ -101,7 +103,7 @@ async function listUserGuilds(req) {
     });
   }
 
-  // 2) سيرفرات البوت الحيّة — بإذن حقيقي (مالك/إدارة/الرول المطلوب)
+  // 2) سيرفرات البوت الحيّة — بإذن حقيقي (مالك/إدارة/قائمة الدخول)
   if (user && live.size) {
     for (const guild of live.values()) {
       const id = String(guild.id);

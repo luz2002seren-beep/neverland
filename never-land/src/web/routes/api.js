@@ -57,7 +57,7 @@ function safeClient() {
   }
 }
 
-/** هل المستخدم يملك صلاحية الوصول لهذا السيرفر؟ (مالك/إدارة/الرول المطلوب) */
+/** هل المستخدم يملك صلاحية الوصول لهذا السيرفر؟ (مالك/إدارة/قائمة الدخول) */
 async function canAccess(req, guildId) {
   return webGuilds.canAccessGuild(req, guildId);
 }

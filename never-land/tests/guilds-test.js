@@ -12,10 +12,13 @@
  */
 
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const ROLE = '1549364852433354792';
 process.env.REQUIRED_ROLE_ID = ROLE;
+process.env.DATABASE_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'nl-guilds-')), 'guilds.db');
 
 const config = require('../src/config');
 const CLIENT_PATH = require.resolve('../src/client.js');
@@ -86,11 +89,19 @@ const reqFor = ({ user = null, guilds = [] } = {}) => ({ session: { user, guilds
   config.web.demoMode = false;
   config.web.demoData !== undefined;
 
-  // 1) الحالة اللي كانت مكسورة: جلسة OAuth فاضية + العضو داخل السيرفر وعنده الرول المطلوب
+  // 1) الرتبة وحدها ما تفتح السيرفر. الإضافة من المالك هي اللي تفتحه حتى بلا إدارة.
+  const siteUsers = require('../src/web/siteUsers');
   install(fakeClient([{ id: GUILD, name: 'Never Land', ownerId: '999', members: [{ id: '777', roles: [ROLE] }] }]));
   list = await webGuilds.listUserGuilds(reqFor({ user: { id: '777', username: 'loki' }, guilds: [] }));
-  console.log('١) عضو عنده الرول فقط (بلا إدارة) → عدد السيرفرات:', list.length, list[0] ? `«${list[0].name}»` : '');
-  assert.strictEqual(list.length, 1, 'لازم يشوف سيرفره حتى لو ما عنده صلاحية إدارة');
+  console.log('١) عضو عنده الرول فقط (بلا إضافة) → عدد السيرفرات:', list.length);
+  assert.strictEqual(list.length, 0, 'الرتبة وحدها ما تفتح لوحة السيرفر');
+  install(fakeClient([{ id: GUILD, name: 'Never Land', ownerId: '999', members: [{ id: '777777777777777777', roles: [] }] }]));
+  list = await webGuilds.listUserGuilds(reqFor({ user: { id: '777777777777777777' }, guilds: [] }));
+  assert.strictEqual(list.length, 0, 'عضو بلا إضافة ما يشوف السيرفر');
+  assert.strictEqual(siteUsers.grant('777777777777777777', { by: '1' }).ok, true);
+  list = await webGuilds.listUserGuilds(reqFor({ user: { id: '777777777777777777' }, guilds: [] }));
+  console.log('١ب) عضو أضافه المالك (بلا إدارة) → عدد السيرفرات:', list.length, list[0] ? `«${list[0].name}»` : '');
+  assert.strictEqual(list.length, 1, 'لازم يشوف سيرفره بعد ما يضيفه المالك حتى لو ما عنده صلاحية إدارة');
   assert.strictEqual(list[0].botPresent, true);
 
   // 2) مالك السيرفر
@@ -122,10 +133,11 @@ const reqFor = ({ user = null, guilds = [] } = {}) => ({ session: { user, guilds
   assert.strictEqual(list.length, 2, 'لازم يظهر السيرفران بلا تكرار');
   assert.strictEqual(list.find((g) => g.id === GUILD).name, 'Never Land', 'اسم ديسكورد يُستخدم بدل الاسم القديم');
 
-  // 6) canAccessGuild: العضو داخل السيرفر بلا صلاحية → ممنوع، وبالرول → مسموح
+  // 6) canAccessGuild: عضو بلا إضافة ممنوع، وبعد الإضافة مسموح
+  install(fakeClient([{ id: GUILD, name: 'Never Land', ownerId: '999', members: [{ id: '777777777777777777', roles: [] }] }]));
   assert.strictEqual(await webGuilds.canAccessGuild(reqFor({ user: { id: '555' }, guilds: [] }), GUILD), false);
-  assert.strictEqual(await webGuilds.canAccessGuild(reqFor({ user: { id: '777' }, guilds: [] }), GUILD), true);
-  console.log('٦) فحص الوصول لسيرفر معيّن → عضو عادي: ممنوع | صاحب الرول: مسموح ✅');
+  assert.strictEqual(await webGuilds.canAccessGuild(reqFor({ user: { id: '777777777777777777' }, guilds: [] }), GUILD), true);
+  console.log('٦) فحص الوصول لسيرفر معيّن → عضو عادي: ممنوع | مضاف لقائمة الدخول: مسموح ✅');
 
   // 6ب) زائر مع الوصول العام: قائمة عامة من آخر مزامنة
   config.web.publicAccess = true;
