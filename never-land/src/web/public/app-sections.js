@@ -37,8 +37,8 @@ const SECTIONS = {
         ['hammer', st.cases ?? 0, 'إجمالي العقوبات'],
         ['warning', st.warnings ?? 0, 'تحذيرات'],
         ['ticket', st.openTickets ?? 0, 'تذاكر مفتوحة'],
-        ['chart', (st.messages ?? 0).toLocaleString('ar-EG'), 'رسائل محسوبة'],
-        ['users', (state.guild.memberCount || st.trackedMembers || 0).toLocaleString('ar-EG'), 'عضو'],
+        ['chart', (st.messages ?? 0).toLocaleString(numLoc()), 'رسائل محسوبة'],
+        ['users', (state.guild.memberCount || st.trackedMembers || 0).toLocaleString(numLoc()), 'عضو'],
       ].forEach(([iconName, value, label]) => {
         const card = el('div', { class: 'd-stat' });
         card.appendChild(el('b', { text: String(value) }));
@@ -87,7 +87,7 @@ const SECTIONS = {
       /* حالة البوت */
       const statusRows = [
         dField('حالة البوت', '', [el('span', { class: 'd-chip', html: state.guild.botOnline ? `<span class="state-on">متصل</span>` : `<span class="state-off">غير متصل</span>` })]),
-        dField('عدد الأعضاء', '', [el('b', { class: 'accent', text: (state.guild.memberCount || 0).toLocaleString('ar-EG') })]),
+        dField('عدد الأعضاء', '', [el('b', { class: 'accent', text: (state.guild.memberCount || 0).toLocaleString(numLoc()) })]),
         dField('معرّف السيرفر', '', [el('code', { class: 'd-kbd', text: state.guild.id })]),
         dField('أولوية الدعم', 'مدة الرد المتوقّعة في التذاكر', [dInput('tickets.responseTime', { narrow: true })]),
       ];
@@ -1428,7 +1428,7 @@ const SECTIONS = {
           ].forEach(([icon, value, label]) => {
             const chip = el('div', { class: 'd-audit-stat' });
             chip.appendChild(el('span', { class: 'ico', html: ic(icon, 15) }));
-            chip.appendChild(el('b', { text: Number(value).toLocaleString('ar-EG') }));
+            chip.appendChild(el('b', { text: Number(value).toLocaleString(numLoc()) }));
             chip.appendChild(el('span', { text: label }));
             head.appendChild(chip);
           });
@@ -1480,7 +1480,7 @@ const SECTIONS = {
             state2.offset += state2.limit;
             load();
           });
-          pager.appendChild(el('span', { class: 'muted', text: `صفحة ${current} من ${pages} · ${Number(data.total).toLocaleString('ar-EG')} حدث` }));
+          pager.appendChild(el('span', { class: 'muted', text: `صفحة ${current} من ${pages} · ${Number(data.total).toLocaleString(numLoc())} حدث` }));
           pager.appendChild(el('span', { class: 'grow' }));
           pager.appendChild(prev);
           pager.appendChild(next);

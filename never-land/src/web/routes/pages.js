@@ -25,7 +25,7 @@ const access = require('../access');
  * بصمة الأصول (CSS/JS): تُحسب من محتوى الملفات، فيتغيّر الرابط تلقائيًا
  * مع أي تعديل ⇒ ما يبقى المتصفح يعرض نسخة قديمة (مشكلة الأيقونة الدائرة).
  */
-const ASSET_FILES = ['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js'];
+const ASSET_FILES = ['style.css', 'dash.css', 'app.js', 'app-sections.js', 'icons.js', 'lang-dict.js', 'lang.js'];
 const assetStamp = (() => {
   const crypto = require('node:crypto');
   const fs = require('node:fs');
@@ -51,25 +51,52 @@ const asset = (name) => `/${name}?v=${assetStamp}`;
  * @param {object} options
  * @param {string} [options.nonce] يُمرَّر عادة من req.res.locals.cspNonce
  */
+function pickLang(req, res) {
+  const q = String(req?.query?.lang || '').toLowerCase();
+  if (q === 'ar' || q === 'en' || q === 'fr') {
+    if (res && typeof res.append === 'function') {
+      res.append('Set-Cookie', `nl_lang=${q}; Path=/; Max-Age=31536000; SameSite=Lax`);
+    }
+    return q;
+  }
+  const m = String(req?.headers?.cookie || '').match(/(?:^|;\s*)nl_lang=(ar|en|fr)/);
+  return m ? m[1] : 'ar';
+}
+
+const SITE_META = {
+  ar: 'نظام إدارة سيرفرات ديسكورد: حماية تلقائية، سجلات، تذاكر، ترحيب، مستويات، ولوحة تحكم كاملة.',
+  en: 'Discord server management: automod, logs, tickets, welcome, levels, and a full control panel.',
+  fr: 'Gestion de serveurs Discord : automod, journaux, tickets, accueil, niveaux, et un panneau complet.',
+};
+
 function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonce = '', req = null }) {
   const resolvedNonce = nonce || req?.res?.locals?.cspNonce || '';
   const n = resolvedNonce ? ` nonce="${resolvedNonce}"` : '';
+  const lang = pickLang(req, req?.res);
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  const metaDesc = SITE_META[lang] || SITE_META.ar;
   const SITE_NAME = config.web.siteName;
   /* صفحة اللوحة تُعرف بأي صنف يحتوي كلمة dashboard (dashboard · dashboard-readonly · dashboard-owner) */
   const isDashboardPage = String(bodyClass).split(/\s+/).includes('dashboard');
   const userBox = user
     ? `<div class="user-box">
-         <span class="user-name">${escapeHtml(user.globalName || user.username || 'مستخدم')}</span>
+         <span class="user-name" data-nl-raw>${escapeHtml(user.globalName || user.username || 'مستخدم')}</span>
          <a class="btn btn-ghost" href="/auth/logout">${icon('logout', { size: 17 })} خروج</a>
        </div>`
     : `<a class="btn btn-primary" href="/auth/login">${icon('login', { size: 17 })} تسجيل الدخول بـ Discord</a>`;
 
+  const langSwitch = `<div class="lang-switch" role="group" aria-label="${lang === 'fr' ? 'Langue' : lang === 'en' ? 'Language' : 'اللغة'}">
+      <button type="button" class="lang-btn${lang === 'ar' ? ' on' : ''}" data-set-lang="ar" title="العربية" aria-label="العربية">ع</button>
+      <button type="button" class="lang-btn${lang === 'en' ? ' on' : ''}" data-set-lang="en" title="English" aria-label="English">EN</button>
+      <button type="button" class="lang-btn${lang === 'fr' ? ' on' : ''}" data-set-lang="fr" title="Français" aria-label="Français">FR</button>
+    </div>`;
+
   return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="${lang}" dir="${dir}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="${SITE_NAME} — نظام إدارة سيرفرات ديسكورد: حماية تلقائية، سجلات، تذاكر، ترحيب، مستويات، ولوحة تحكم عربية كاملة.">
+<meta name="description" content="${escapeHtml(metaDesc)}">
 <meta name="theme-color" content="#0d1017" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">
 <meta name="color-scheme" content="dark light">
@@ -81,7 +108,7 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${SITE_NAME}">
 <meta property="og:title" content="${escapeHtml(title)} | ${SITE_NAME}">
-<meta property="og:description" content="نظام إدارة سيرفرات ديسكورد متكامل مع لوحة تحكم عربية.">
+<meta property="og:description" content="${escapeHtml(metaDesc)}">
 <meta property="og:image" content="/icon.svg">
 <meta name="twitter:card" content="summary">
 <title>${escapeHtml(title)} | ${SITE_NAME}</title>
@@ -90,12 +117,22 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="stylesheet" href="${asset('style.css')}">
 ${isDashboardPage ? `<link rel="stylesheet" href="${asset('dash.css')}">` : ''}
+<script src="${asset('lang-dict.js')}"></script>
+<script src="${asset('lang.js')}"></script>
 <script${n}>
   /* السمة: المفضّل المحفوظ ← وإلا إعداد الجهاز نفسه (ليلي/نهاري/تلقائي) */
   (function () {
     var root = document.documentElement;
     var saved = null;
     try { saved = localStorage.getItem('neverland-theme'); } catch (e) {}
+    var langSaved = null;
+    try { langSaved = localStorage.getItem('neverland-lang'); } catch (e) {}
+    if (!document.cookie.match(/(?:^|; )nl_lang=(ar|en|fr)/) && (langSaved === 'en' || langSaved === 'fr' || langSaved === 'ar')) {
+      root.lang = langSaved;
+      root.dir = langSaved === 'ar' ? 'rtl' : 'ltr';
+    }
+    if (root.lang === 'en' || root.lang === 'fr') root.dataset.langPending = '1';
+    setTimeout(function () { root.removeAttribute('data-lang-pending'); }, 2500);
     function systemTheme() {
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
@@ -125,6 +162,7 @@ ${extraHead}
     <a href="/#commands">الأوامر</a>
   </nav>
   <div class="auth">
+    ${langSwitch}
     <button class="theme-toggle" id="themeToggle" title="تبديل الوضع الليلي والنهاري" aria-label="تبديل الوضع">${icon('moon', { size: 17 })}</button>
     ${userBox}
   </div>
@@ -261,7 +299,7 @@ function bannedBody(user, entry = {}) {
     <span class="pill">${icon('ban', { size: 15 })} محظور من الموقع</span>
     <h1>حسابك ممنوع من دخول الموقع</h1>
     <p class="muted">
-      ${who ? `${who} — ` : ''}تم حظر حسابك من الموقع${entry.note ? ` للسبب التالي: <b>${escapeHtml(entry.note)}</b>` : ''}.<br>
+      ${who ? `${who} — ` : ''}تم حظر حسابك من الموقع${entry.note ? ` للسبب التالي: <b data-nl-raw>${escapeHtml(entry.note)}</b>` : ''}.<br>
       لو تعتقد أن هذا خطأ، تواصل مع إدارة السيرفر.
     </p>
     <div class="site-cta">
@@ -496,6 +534,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   const isGuest = !req.canEdit;
 
   const withBot = guilds.filter((g) => g.botPresent).length;
+  const numLoc = pickLang(req) === 'fr' ? 'fr-FR' : pickLang(req) === 'en' ? 'en-US' : 'ar-EG';
 
   const cards = guilds.length
     ? guilds

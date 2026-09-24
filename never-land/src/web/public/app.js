@@ -57,16 +57,26 @@ const state = {
 };
 
 /* ============================ أدوات عامة ============================ */
+function numLoc() {
+  const lang = document.documentElement.lang;
+  return lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-EG';
+}
+function ui(s) {
+  return window.NL && typeof window.NL.t === 'function' ? window.NL.t(s) : s;
+}
+
 const el = (tag, attrs = {}, html = '') => {
   const node = document.createElement(tag);
+  const tr = (v) => (typeof v === 'string' ? ui(v) : v);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') node.className = v;
-    else if (k === 'html') node.innerHTML = v;
-    else if (k === 'text') node.textContent = v;
+    else if (k === 'html') node.innerHTML = tr(v);
+    else if (k === 'text') node.textContent = tr(v);
     else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else if (k === 'placeholder' || k === 'title' || k === 'aria-label') node.setAttribute(k, tr(v));
     else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
   }
-  if (html) node.innerHTML = html;
+  if (html) node.innerHTML = tr(html);
   return node;
 };
 
@@ -443,8 +453,8 @@ function dChips(path, options) {
 const channelOptions = (extra = []) =>
   [...state.meta.channels]
     .filter((c) => [0, 2, 4, 15].includes(c.type))
-    .sort((a, b) => a.type - b.type || String(a.name).localeCompare(String(b.name), 'ar'))
-    .map((c) => ({ value: c.id, label: `${c.type === 0 || c.type === 15 ? '#' : c.type === 4 ? '[قسم] ' : '[صوتي] '}${c.name}`, type: c.type }))
+    .sort((a, b) => a.type - b.type || String(a.name).localeCompare(String(b.name), document.documentElement.lang || 'ar'))
+    .map((c) => ({ value: c.id, label: `${c.type === 0 || c.type === 15 ? '#' : c.type === 4 ? `[${ui('قسم')}] ` : `[${ui('صوتي')}] `}${c.name}`, type: c.type }))
     .concat(extra);
 
 const roleOptions = (filterOut = []) =>
@@ -1465,6 +1475,7 @@ function renderSection(id) {
   const output = section.render();
   (Array.isArray(output) ? output : [output]).filter(Boolean).forEach((node) => content.appendChild(node));
   if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+  if (window.NL && window.NL.refresh) window.NL.refresh();
 }
 
 function updateDots(items) {
