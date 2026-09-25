@@ -1763,12 +1763,23 @@ function paintPremiumBadge() {
   const server = document.querySelector('.d-side .d-server, .d-server');
   if (!server) return;
   const on = Boolean(state.premium?.active);
+  const tier = Number(state.premium?.tier) === 1 ? 1 : 2;
   server.classList.toggle('is-premium', on);
+  server.classList.toggle('tier-1', on && tier === 1);
+  server.classList.toggle('tier-2', on && tier !== 1);
   const info = server.querySelector('.d-server-info');
   if (!info) return;
   let tag = info.querySelector('.prem-tag');
   if (on) {
-    if (!tag) info.appendChild(el('span', { class: 'prem-tag', html: `${ic('crown', 12)} بريميوم` }));
+    const label = state.premium?.tierLabel || (tier === 1 ? 'درجة أولى' : 'درجة ثانية');
+    if (!tag) {
+      tag = el('span', { class: 'prem-tag', html: `${ic('crown', 12)} ${label}` });
+      info.appendChild(tag);
+    } else {
+      tag.className = 'prem-tag';
+      tag.innerHTML = `${ic('crown', 12)} ${label}`;
+    }
+    tag.classList.toggle('tier-1', tier === 1);
   } else if (tag) {
     tag.remove();
   }
@@ -1795,7 +1806,7 @@ function paintRequestBadge(count) {
 function paintRequestBadgeFromApi() {
   if (!state.isOwner) return;
   api('/admin/premium')
-    .then((data) => paintRequestBadge((data.servers || []).filter((s) => s.requested).length))
+    .then((data) => paintRequestBadge(data.waiting ?? (data.servers || []).filter((s) => s.requested).length))
     .catch(() => {});
 }
 
@@ -1803,8 +1814,9 @@ async function loadSubscriptions(box) {
   try {
     const data = await api('/admin/premium');
     const servers = Array.isArray(data.servers) ? data.servers : [];
-    const prices = data.prices || {};
-    const waiting = servers.filter((s) => s.requested).length;
+    const orders = Array.isArray(data.orders) ? data.orders : [];
+    const payout = data.payout || {};
+    const waiting = Number(data.waiting ?? (orders.length + servers.filter((s) => s.requested).length));
     const active = servers.filter((s) => s.active).length;
     paintRequestBadge(waiting);
     box.innerHTML = '';
@@ -1812,7 +1824,7 @@ async function loadSubscriptions(box) {
     const cards = el('div', { class: 'd-stats' });
     [
       ['crown', active, 'خطط شغّالة'],
-      ['star', waiting, 'طلبات معلّقة'],
+      ['star', waiting, 'تحويلات معلّقة'],
       ['server', servers.length, 'سيرفر'],
     ].forEach(([iconName, value, label]) => {
       const card = el('div', { class: 'd-stat' });
@@ -1822,49 +1834,82 @@ async function loadSubscriptions(box) {
     });
     box.appendChild(cards);
 
-    const priceBox = el('div', { class: 'd-prem-prices' });
-    const inputs = {};
+    box.appendChild(el('div', {
+      class: 'd-readonly-note',
+      text: 'الأسعار ثابتة. درجة ٢: 4 يورو بالشهر و25 بالسنة. درجة ١: 7 يورو بالشهر و60 بالسنة، وميزاتها أقوى.',
+    }));
+    const payBox = el('div', { class: 'd-pay-box' });
+    const fields = {};
     [
-      ['month', 'سعر الشهر'],
-      ['quarter', 'سعر ٣ أشهر'],
-      ['year', 'سعر السنة'],
-      ['note', 'ملاحظة تظهر في الصفحة'],
-    ].forEach(([key, label]) => {
+      ['method', 'طريقة التحويل', '40'],
+      ['holder', 'اسم صاحب الحساب', '60'],
+      ['bank', 'اسم البنك', '40'],
+      ['account', 'رقم الحساب أو الآيبان', '64'],
+      ['payUrl', 'رابط الدفع https', '180'],
+      ['note', 'ملاحظة للزبون', '180'],
+    ].forEach(([key, label, max]) => {
       const input = el('input', {
         class: 'd-input',
         type: 'text',
-        maxlength: key === 'note' ? '180' : '40',
+        maxlength: max,
         placeholder: label,
-        value: prices[key] || '',
+        value: payout[key] || '',
       });
-      inputs[key] = input;
-      priceBox.appendChild(input);
+      fields[key] = input;
+      payBox.appendChild(input);
     });
-    const savePrices = el('button', { class: 'd-btn sm', type: 'button', text: 'حفظ الأسعار' });
-    savePrices.addEventListener('click', async () => {
-      savePrices.disabled = true;
+    const savePay = el('button', { class: 'd-btn sm primary', type: 'button', text: 'حفظ حساب التحويل' });
+    savePay.addEventListener('click', async () => {
+      savePay.disabled = true;
       try {
         const saved = await api('/admin/premium', {
           method: 'POST',
           body: {
-            action: 'prices',
-            prices: {
-              month: inputs.month.value,
-              quarter: inputs.quarter.value,
-              year: inputs.year.value,
-              note: inputs.note.value,
+            action: 'payout',
+            payout: {
+              method: fields.method.value,
+              holder: fields.holder.value,
+              bank: fields.bank.value,
+              account: fields.account.value,
+              payUrl: fields.payUrl.value,
+              note: fields.note.value,
             },
           },
         });
-        toast(saved.message || 'تم حفظ الأسعار.');
+        toast(saved.message || 'تم حفظ حساب التحويل.');
       } catch (err) {
-        toast(err.message || 'تعذّر حفظ الأسعار.', true);
+        toast(err.message || 'تعذّر حفظ حساب التحويل.', true);
       } finally {
-        savePrices.disabled = false;
+        savePay.disabled = false;
       }
     });
-    priceBox.appendChild(savePrices);
-    box.appendChild(dCard('أسعار الخطط', 'نص يظهر للسيرفر. ما في خصم من البطاقة.', 'star', [priceBox]));
+    payBox.appendChild(savePay);
+    box.appendChild(dCard('حساب التحويل', 'يظهر للسيرفر لما يختار درجة ويدفع. الأسعار ما تتغير.', 'ticket', [payBox]));
+
+    if (orders.length) {
+      const pending = el('div', { class: 'd-prem-list' });
+      orders.forEach((order) => {
+        const row = el('div', { class: 'd-prem-row is-request' });
+        const info = el('div', { class: 'd-prem-who' });
+        info.appendChild(el('b', { text: order.name || 'سيرفر', 'data-nl-raw': '1' }));
+        info.appendChild(el('span', { text: [order.label, order.price, order.statusLabel, order.createdLabel].filter(Boolean).join(' · ') }));
+        if (order.proof) {
+          const proof = el('input', { class: 'd-input', type: 'text', readonly: 'readonly', value: order.proof });
+          info.appendChild(proof);
+        }
+        row.appendChild(info);
+        const actions = el('div', { class: 'd-prem-actions' });
+        const ok = el('button', { class: 'd-btn sm primary', type: 'button', text: 'وصل المبلغ' });
+        ok.addEventListener('click', () => actPremium('', { action: 'confirm', orderId: order.id }));
+        const no = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'ما وصل' });
+        no.addEventListener('click', () => actPremium('', { action: 'reject', orderId: order.id }));
+        actions.appendChild(ok);
+        actions.appendChild(no);
+        row.appendChild(actions);
+        pending.appendChild(row);
+      });
+      box.appendChild(dCard('تحويلات بانتظار التأكيد', 'الخطة تتفعل فقط بعد وصول المبلغ.', 'check', [pending]));
+    }
 
     if (!servers.length) {
       box.appendChild(el('div', { class: 'd-empty', text: 'ما في سيرفرات معروفة بعد. حدّث بعد المزامنة.' }));
@@ -1889,10 +1934,11 @@ async function loadSubscriptions(box) {
       row.appendChild(info);
       const actions = el('div', { class: 'd-prem-actions' });
       [
-        ['month', 'شهر', 'يضيف ٣٠ يومًا'],
-        ['quarter', '٣ أشهر', 'يضيف ٩٠ يومًا'],
-        ['year', 'سنة', 'يضيف ٣٦٥ يومًا'],
-        ['lifetime', 'دائم', 'بلا تاريخ انتهاء'],
+        ['g2m', 'درجة ٢ شهر', '4 يورو · 30 يوم'],
+        ['g2y', 'درجة ٢ سنة', '25 يورو · 365 يوم'],
+        ['g1m', 'درجة ١ شهر', '7 يورو · 30 يوم'],
+        ['g1y', 'درجة ١ سنة', '60 يورو · 365 يوم'],
+        ['lifetime', 'دائم', 'بلا تاريخ انتهاء، وما ينقصر'],
       ].forEach(([plan, label, title]) => {
         const btn = el('button', { class: 'd-btn sm', type: 'button', text: label, title });
         btn.addEventListener('click', () => actPremium(server.guildId, { action: 'grant', plan }));
@@ -1910,6 +1956,29 @@ async function loadSubscriptions(box) {
   } catch (err) {
     box.innerHTML = '';
     box.appendChild(el('div', { class: 'd-empty', text: err.message || 'تعذّر تحميل الاشتراكات.' }));
+  }
+}
+
+async function startCheckout(offer) {
+  try {
+    const data = await api(`/guilds/${state.guildId}/premium/checkout`, { method: 'POST', body: { offer } });
+    state.premium = data.premium || state.premium;
+    toast(data.message || 'انعمل طلب التحويل.');
+    renderSection('premium');
+    paintPremiumBadge();
+  } catch (err) {
+    toast(err.message || 'تعذّر بدء التحويل.', true);
+  }
+}
+
+async function sendProof(orderId, proof) {
+  try {
+    const data = await api(`/guilds/${state.guildId}/premium/proof`, { method: 'POST', body: { orderId, proof } });
+    state.premium = data.premium || state.premium;
+    toast(data.message || 'وصل رقم العملية.');
+    renderSection('premium');
+  } catch (err) {
+    toast(err.message || 'تعذّر إرسال الإثبات.', true);
   }
 }
 

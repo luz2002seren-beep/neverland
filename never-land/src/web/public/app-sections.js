@@ -22,42 +22,51 @@
  * -------------------------------------------------------------
  */
 
+function premiumOffers() {
+  return [
+    { id: 'g2m', tier: 2, label: 'شهر', price: '4 يورو' },
+    { id: 'g2y', tier: 2, label: 'سنة', price: '25 يورو' },
+    { id: 'g1m', tier: 1, label: 'شهر', price: '7 يورو' },
+    { id: 'g1y', tier: 1, label: 'سنة', price: '60 يورو' },
+  ];
+}
+
 function premiumState() {
   const src = state.premium || {};
-  const plans = Array.isArray(src.plans) && src.plans.length
-    ? src.plans
-    : [
-        { id: 'month', label: 'شهر', price: '' },
-        { id: 'quarter', label: '٣ أشهر', price: '' },
-        { id: 'year', label: 'سنة', price: '' },
-        { id: 'lifetime', label: 'دائم', price: '' },
-      ];
-  const benefits = Array.isArray(src.benefits) && src.benefits.length
-    ? src.benefits
-    : [
-        { title: 'شارة في اللوحة', text: 'تاج ذهبي على اسم السيرفر لما الخطة شغّالة.' },
-        { title: 'أمر premium', text: 'يعرض الخطة وتاريخ الانتهاء داخل ديسكورد.' },
-        { title: 'تفعيل من المالك', text: 'الطلب يوصل لقائمة الاشتراكات، والمالك يفعّل المدة.' },
-        { title: 'بدون قفل', text: 'الترحيب والسجلات والتذاكر والإشراف تبقى شغّالة.' },
-      ];
+  const offers = Array.isArray(src.offers) && src.offers.length ? src.offers : premiumOffers();
+  const features = src.features && src.features[1] && src.features[2] ? src.features : {
+    2: [
+      { title: 'شارة درجة ثانية', text: 'تاج على اسم السيرفر طول ما الاشتراك شغّال.' },
+      { title: 'خبرة +25٪', text: 'الرسائل والصوت والتفاعل يعطون خبرة أعلى من المجاني.' },
+      { title: 'سطر درجة ثانية', text: 'يظهر في الترحيب وداخل التذكرة.' },
+    ],
+    1: [
+      { title: 'شارة درجة أولى', text: 'تاج ذهبي أقوى من درجة ثانية.' },
+      { title: 'خبرة +50٪ وزيادة', text: 'كل نقطة خبرة أعلى من درجة ثانية، مو بس من المجاني.' },
+      { title: 'أولوية أقوى', text: 'سطر ترحيب بتاج، وأولوية أوضح داخل التذكرة.' },
+    ],
+  };
   return {
     active: Boolean(src.active),
     status: src.status || 'free',
     statusLabel: src.statusLabel || (src.active ? 'بريميوم' : 'مجاني'),
     plan: src.plan || '',
     planLabel: src.planLabel || '',
+    tier: src.tier || null,
+    tierLabel: src.tierLabel || '',
     untilLabel: src.untilLabel || '',
+    boost: src.boost || '',
     requested: Boolean(src.requested),
     requestNote: src.requestNote || '',
-    plans,
-    benefits,
-    prices: src.prices || {},
+    offers,
+    features,
+    pay: src.pay || {},
   };
 }
 
 function premiumStatusNode(view) {
   const wrap = el('span', { class: view.active ? 'prem-tag' : '' });
-  wrap.appendChild(el('span', { text: view.active ? 'بريميوم' : (view.statusLabel || 'مجاني') }));
+  wrap.appendChild(el('span', { text: view.active ? (view.tierLabel || 'بريميوم') : (view.statusLabel || 'مجاني') }));
   if (view.active && view.planLabel) {
     wrap.appendChild(document.createTextNode(' · '));
     wrap.appendChild(el('span', { text: view.planLabel }));
@@ -69,89 +78,95 @@ function premiumStatusNode(view) {
   return wrap;
 }
 
+function gradeCard(view, tier) {
+  const card = el('div', { class: `d-grade tier-${tier}${view.active && view.tier === tier ? ' on' : ''}` });
+  card.appendChild(el('b', { text: tier === 1 ? 'درجة أولى' : 'درجة ثانية' }));
+  card.appendChild(el('span', {
+    class: 'price',
+    text: tier === 1 ? '7 يورو بالشهر · 60 يورو بالسنة' : '4 يورو بالشهر · 25 يورو بالسنة',
+  }));
+  if (tier === 1) card.appendChild(el('span', { class: 'prem-tag', text: 'أقوى من درجة ثانية' }));
+  (view.features[tier] || []).forEach((item) => {
+    const line = el('div');
+    line.appendChild(el('b', { text: item.title || 'ميزة' }));
+    line.appendChild(el('span', { text: item.text || '' }));
+    card.appendChild(line);
+  });
+  if (state.canEdit) {
+    const actions = el('div', { class: 'd-prem-actions' });
+    view.offers.filter((offer) => Number(offer.tier) === tier).forEach((offer) => {
+      const btn = el('button', {
+        class: `d-btn sm${tier === 1 ? ' primary' : ''}`,
+        type: 'button',
+        text: `${offer.label || 'خطة'} · ${offer.price || ''}`,
+      });
+      btn.addEventListener('click', () => startCheckout(offer.id));
+      actions.appendChild(btn);
+    });
+    card.appendChild(actions);
+  }
+  return card;
+}
+
 function renderPremium() {
   const view = premiumState();
   const frag = document.createDocumentFragment();
   frag.appendChild(el('div', {
     class: 'd-readonly-note',
-    html: `${ic('crown', 15)} <span>الوحدات الحالية تبقى مجانية. البريميوم شارة وخطة يفعّلها مالك الموقع. ما في خصم من البطاقة.</span>`,
+    html: `${ic('crown', 15)} <span>الدفع تحويل. الخطة تتفعل لما يوصل المبلغ ويتأكد. الوحدات الحالية تبقى مجانية، ودرجة أولى أقوى من درجة ثانية.</span>`,
   }));
 
   const statusRows = [
     dField('الحالة', 'خطة البوت، مو دعم ديسكورد', [premiumStatusNode(view)]),
   ];
-  if (view.requestNote) {
-    statusRows.push(dField('ملاحظة الطلب', '', [el('span', { text: view.requestNote, 'data-nl-raw': '1' })]));
-  }
+  if (view.boost) statusRows.push(dField('الفرق', '', [el('span', { text: view.boost })]));
   frag.appendChild(dCard('الخطة الحالية', '', 'crown', statusRows));
 
-  const grid = el('div', { class: 'd-plan-grid' });
-  view.plans.forEach((plan) => {
-    const card = el('div', { class: `d-plan${view.active && view.plan === plan.id ? ' on' : ''}` });
-    card.appendChild(el('b', { text: plan.label || 'خطة' }));
-    const price = plan.price || (plan.id === 'lifetime' ? 'بلا تاريخ انتهاء' : 'السعر من المالك');
-    card.appendChild(el('span', { class: 'price', text: price }));
-    if (state.isOwner && state.canEdit) {
-      const btn = el('button', { class: 'd-btn sm', type: 'button', text: view.active && view.plan === plan.id ? 'تمديد' : 'تفعيل' });
-      btn.addEventListener('click', () => actPremium(state.guildId, { action: 'grant', plan: plan.id }));
-      card.appendChild(btn);
+  const grid = el('div', { class: 'd-grade-grid' });
+  grid.appendChild(gradeCard(view, 2));
+  grid.appendChild(gradeCard(view, 1));
+  frag.appendChild(dCard('الدرجتان', 'درجة ٢ أرخص. درجة ١ ميزاتها أقوى داخل البوت.', 'star', [grid]));
+
+  const pay = view.pay || {};
+  const order = pay.order;
+  if (order) {
+    const box = el('div', { class: 'd-pay-box' });
+    box.appendChild(el('b', { text: `${order.label || 'خطة'} · ${order.price || ''}` }));
+    box.appendChild(el('span', { text: `رقم الطلب ${order.id} · ${order.statusLabel || ''}` }));
+    if (pay.method) box.appendChild(el('span', { text: pay.method, 'data-nl-raw': '1' }));
+    if (pay.holder) box.appendChild(el('span', { text: pay.holder, 'data-nl-raw': '1' }));
+    if (pay.bank) box.appendChild(el('span', { text: pay.bank, 'data-nl-raw': '1' }));
+    if (pay.account) {
+      const account = el('input', {
+        class: 'd-input',
+        type: 'text',
+        readonly: 'readonly',
+        value: pay.accountRaw || pay.account,
+      });
+      box.appendChild(account);
     }
-    grid.appendChild(card);
-  });
-  const planBody = [grid];
-  if (view.prices && view.prices.note) {
-    planBody.unshift(el('p', { class: 'd-prem-note', text: view.prices.note, 'data-nl-raw': '1' }));
-  }
-  frag.appendChild(dCard('الخطط', 'المدة: ٣٠ يوم، ٩٠ يوم، ٣٦٥ يوم، أو دائم.', 'star', planBody));
-
-  const benefits = el('div', { class: 'd-prem-list' });
-  view.benefits.forEach((item) => {
-    const row = el('div', { class: 'd-prem-row' });
-    const info = el('div');
-    info.appendChild(el('b', { text: item.title || 'ميزة' }));
-    info.appendChild(el('span', { text: item.text || '' }));
-    row.appendChild(info);
-    benefits.appendChild(row);
-  });
-  frag.appendChild(dCard('شو بيفرق البريميوم', 'ما بيقفل الوحدات اللي تستخدمها.', 'check', [benefits]));
-
-  if (state.isOwner && state.canEdit && view.active) {
-    const cancel = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'إلغاء البريميوم' });
-    cancel.addEventListener('click', () => actPremium(state.guildId, { action: 'revoke' }));
-    frag.appendChild(cancel);
-  } else if (!view.active && state.canEdit && !state.isOwner) {
-    const form = el('div', { class: 'd-prem-prices' });
-    const note = el('input', {
-      class: 'd-input',
-      type: 'text',
-      maxlength: '180',
-      placeholder: 'ملاحظة للمالك (اختياري)',
-      value: view.requestNote || '',
-    });
-    const ask = el('button', {
-      class: 'd-btn sm primary',
-      type: 'button',
-      text: view.requested ? 'تحديث الطلب' : 'اطلب بريميوم',
-    });
-    ask.addEventListener('click', async () => {
-      ask.disabled = true;
-      try {
-        const data = await api(`/guilds/${state.guildId}/premium/request`, { method: 'POST', body: { note: note.value } });
-        state.premium = data.premium || state.premium;
-        toast(data.message || 'وصل الطلب لمالك الموقع.');
-        renderSection('premium');
-      } catch (err) {
-        toast(err.message || 'تعذّر إرسال الطلب.', true);
-      } finally {
-        ask.disabled = false;
-      }
-    });
-    form.appendChild(note);
-    form.appendChild(ask);
-    const title = view.requested ? 'طلبك وصل لمالك الموقع' : 'اطلب التفعيل';
-    frag.appendChild(dCard(title, 'المالك يفعّل الشهر أو ٣ أشهر أو السنة أو الدائم.', 'ticket', [form]));
-  } else if (view.requested) {
-    frag.appendChild(el('div', { class: 'd-readonly-note', text: 'طلبك وصل لمالك الموقع.' }));
+    if (pay.note) box.appendChild(el('span', { text: pay.note, 'data-nl-raw': '1' }));
+    if (pay.payUrl && state.canEdit) {
+      const link = el('a', { class: 'd-btn sm', href: pay.payUrl, target: '_blank', rel: 'noopener', text: 'ادفع من الرابط' });
+      box.appendChild(link);
+    }
+    if (!pay.published) {
+      box.appendChild(el('span', { text: 'حساب التحويل لسا ما اننشر. الطلب محفوظ عند المالك.' }));
+    }
+    if (state.canEdit) {
+      const proof = el('input', {
+        class: 'd-input',
+        type: 'text',
+        maxlength: '40',
+        placeholder: 'رقم العملية بعد التحويل',
+        value: order.proof || '',
+      });
+      const send = el('button', { class: 'd-btn sm primary', type: 'button', text: 'أرسل إثبات التحويل' });
+      send.addEventListener('click', () => sendProof(order.id, proof.value));
+      box.appendChild(proof);
+      box.appendChild(send);
+    }
+    frag.appendChild(dCard('التحويل', 'اكتب رقم العملية بعد ما تحوّل. التفعيل يصير لما يتأكد المبلغ.', 'ticket', [box]));
   }
 
   return frag;
@@ -238,7 +253,7 @@ const SECTIONS = {
     group: 'عام',
     label: 'الاشتراك',
     title: 'الاشتراك',
-    desc: 'خطة البوت لهذا السيرفر. مو دعم ديسكورد، وما في خصم من البطاقة.',
+    desc: 'درجة ٢: 4 يورو بالشهر أو 25 بالسنة. درجة ١ أقوى: 7 يورو بالشهر أو 60 بالسنة. الدفع تحويل.',
     render() {
       return renderPremium();
     },
@@ -765,7 +780,7 @@ const SECTIONS = {
     ownerOnly: true,
     label: 'الاشتراكات',
     title: 'الاشتراكات',
-    desc: 'تفعيل البريميوم وإلغاؤه، وأسعار الخطط. ما في دفع بالبطاقة من الموقع.',
+    desc: 'حساب التحويل، وتأكيد المبالغ الواصلة. درجة ١ أقوى من درجة ٢.',
     render() {
       const wrap = el('div');
       const box = el('div', { html: '<div class="d-empty">جارٍ التحميل…</div>' });

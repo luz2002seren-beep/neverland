@@ -487,6 +487,34 @@ router.post('/guilds/:guildId/premium/request', async (req, res) => {
   return res.json({ ok: true, message: result.message, premium: result.view });
 });
 
+router.post('/guilds/:guildId/premium/checkout', async (req, res) => {
+  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
+  const { guildId } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+  const result = premiumLib.checkout(guildId, String(req.body?.offer || ''));
+  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
+  audit.guild(req, guildId, {
+    action: 'premium.checkout',
+    target: 'premium',
+    detail: 'طلب تحويل لاشتراك البوت',
+  });
+  return res.json({ ok: true, message: result.message, premium: result.view });
+});
+
+router.post('/guilds/:guildId/premium/proof', async (req, res) => {
+  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
+  const { guildId } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+  const result = premiumLib.submitProof(guildId, req.body?.orderId, req.body?.proof);
+  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
+  audit.guild(req, guildId, {
+    action: 'premium.proof',
+    target: 'premium',
+    detail: 'إثبات تحويل لاشتراك البوت',
+  });
+  return res.json({ ok: true, message: result.message, premium: result.view });
+});
+
 /* ------------------------------- معاينة صورة الترحيب ------------------------------- */
 
 /**

@@ -452,7 +452,7 @@ router.get('/', requireAuth, (req, res) => {
     { i: 'scroll', k: 'السجلات', t: 'سجّل كل حدث في رومه', d: 'حذف الرسائل، الرتب، الدخول والخروج، والحظر. كل مجموعة أحداث لها قناة.' },
     { i: 'chart', k: 'المستويات', t: 'كافئ الأعضاء النشطين', d: 'خبرة على الرسائل والصوت، رتب عند الوصول لمستوى، ولوحة متصدرين.' },
     { i: 'ticket', k: 'التذاكر', t: 'استقبل الطلبات بتذاكر واضحة', d: 'أربعة أنواع، استلام، وأرشيف عند الإغلاق، مع نموذج تقديم الإدارة.' },
-    { i: 'crown', k: 'الاشتراك', t: 'فعّل بريميوم لسيرفرك', d: 'اطلب شهرًا أو ٣ أشهر أو سنة من اللوحة. مالك الموقع يفعّل الخطة. الوحدات الحالية تبقى مجانية.' },
+    { i: 'crown', k: 'الاشتراك', t: 'فعّل بريميوم لسيرفرك', d: 'درجة ٢: 4 يورو بالشهر أو 25 بالسنة. درجة ١ أقوى: 7 يورو بالشهر أو 60 بالسنة. الدفع تحويل، والوحدات الحالية تبقى مجانية.' },
   ];
 
   const body = `
@@ -537,7 +537,13 @@ router.get('/dashboard', requireAuth, async (req, res) => {
 
   const withBot = guilds.filter((g) => g.botPresent).length;
   let premiumIds = new Set();
-  try { premiumIds = premiumLib.activeIds(); } catch { premiumIds = new Set(); }
+  const premiumLabels = new Map();
+  try {
+    premiumIds = premiumLib.activeIds();
+    for (const row of premiumLib.ownerList()) {
+      if (row.active) premiumLabels.set(String(row.guildId), row.tier === 1 ? 'درجة أولى' : 'درجة ثانية');
+    }
+  } catch { premiumIds = new Set(); }
   const numLoc = pickLang(req) === 'fr' ? 'fr-FR' : pickLang(req) === 'en' ? 'en-US' : 'ar-EG';
 
   const guildPick = [];
@@ -554,7 +560,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         ${thumb}
         <div class="guild-info">
           <b>${escapeHtml(g.name)}</b>
-          ${premiumIds.has(String(g.id)) ? `<span class="prem-pill">${icon('star', { size: 13 })} بريميوم</span>` : ''}
+          ${premiumIds.has(String(g.id)) ? `<span class="prem-pill">${icon('star', { size: 13 })} ${premiumLabels.get(String(g.id)) || 'بريميوم'}</span>` : ''}
           <span class="muted">
             ${g.memberCount ? `${Number(g.memberCount).toLocaleString('ar-EG')} عضو` : 'عدد الأعضاء غير متاح'}
             ${g.owner ? `— ${icon('crown', { size: 14 })} المالك` : ''}

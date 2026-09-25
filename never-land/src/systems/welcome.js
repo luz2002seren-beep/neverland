@@ -498,11 +498,17 @@ async function buildWelcomePayload(client, member, settings, { inviteInfo = null
   const guild = member.guild;
   const vars = inviterVars(inviteInfo, settings.welcome, guild);
   const fallbackEmoji = settings.welcome.emojiFallback ?? (require('../config').defaults.welcome.emojiFallback || '✨');
-  const text = sanitizeEmojiText(
+  let text = sanitizeEmojiText(
     applyPlaceholders(settings.welcome.message, { user: member.user, member, guild, extra: vars }),
     failedEmojis,
     fallbackEmoji,
   );
+  try {
+    const extraLine = require('../lib/premium').welcomeLine(guild.id);
+    if (extraLine) text = `${text}\n${extraLine}`.slice(0, 2000);
+  } catch {
+    /* الترحيب يكمل بلا سطر الاشتراك */
+  }
   const plain = settings.welcome.embed === false;
   const { files, imageRef } = await buildWelcomeImage(client, member, settings, { asFile: plain });
 

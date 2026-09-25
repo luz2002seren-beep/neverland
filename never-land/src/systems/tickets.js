@@ -501,6 +501,12 @@ async function createTicket(client, guild, user, typeId) {
     ? fill(cfg.openDescription)
     : `${t(lang, 'tickets.intro', { user: `<@${user.id}>`, type: type.label })}`;
   const introExtra = cfg.openIntro ? fill(cfg.openIntro) : (type.intro || '');
+  let premiumNote = '';
+  try {
+    premiumNote = require('../lib/premium').ticketNote(guild.id) || '';
+  } catch {
+    premiumNote = '';
+  }
   const openFields = cfg.openFields === false
     ? []
     : [
@@ -525,7 +531,7 @@ async function createTicket(client, guild, user, typeId) {
             base({
               color: 0x5865f2,
               title: openTitle.slice(0, 256),
-              description: [introBase, introExtra].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
+              description: [introBase, introExtra, premiumNote].filter(Boolean).join('\n\n').slice(0, 4000) || undefined,
               fields: openFields,
               footer: openFooter,
             }),
@@ -533,6 +539,10 @@ async function createTicket(client, guild, user, typeId) {
         }),
     })
     .catch(() => {});
+
+  if (premiumNote && openFile) {
+    await channel.send({ content: premiumNote }).catch(() => {});
+  }
 
   // 📝 تذاكر تقديم الإدارة: يُرسل البوت رسالة فيها زر يفتح النموذج (5 خانات)
   const applications = require('./applications');

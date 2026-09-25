@@ -335,10 +335,15 @@ router.get('/premium', (req, res) => {
     note: row.note,
     requested: row.requested,
   }));
+  const orders = premiumLib.pendingOrders();
   return res.json({
     servers,
+    orders,
+    waiting: orders.length + servers.filter((row) => row.requested).length,
+    payout: premiumLib.payout(),
+    offers: premiumLib.offerCards(),
     prices: premiumLib.prices(),
-    plans: Object.values(premiumLib.PLANS).map((plan) => ({ id: plan.id, label: plan.label, days: plan.days })),
+    plans: Object.values(premiumLib.PLANS).map((plan) => ({ id: plan.id, label: plan.label, days: plan.days, tier: plan.tier || null })),
   });
 });
 
@@ -346,8 +351,25 @@ router.post('/premium', (req, res) => {
   const action = String(req.body?.action || '');
   if (action === 'prices') {
     const prices = premiumLib.setPrices(req.body?.prices || {});
-    audit.record(req, { action: 'premium.prices', target: 'premium', detail: 'تحديث أسعار الخطط' });
-    return res.json({ ok: true, prices, message: 'تم حفظ الأسعار.' });
+    audit.record(req, { action: 'premium.prices', target: 'premium', detail: 'أسعار الخطط ثابتة' });
+    return res.json({ ok: true, prices, message: 'الأسعار ثابتة: درجة ٢ أربعة يورو، ودرجة ١ سبعة يورو.' });
+  }
+  if (action === 'payout') {
+    const payout = premiumLib.setPayout(req.body?.payout || {});
+    audit.record(req, { action: 'premium.payout', target: 'premium', detail: 'تحديث حساب التحويل' });
+    return res.json({ ok: true, payout, message: payout.account || payout.payUrl ? 'تم حفظ حساب التحويل.' : 'تم مسح حساب التحويل.' });
+  }
+  if (action === 'confirm' || action === 'reject') {
+    const result = action === 'confirm'
+      ? premiumLib.confirmOrder(req.body?.orderId)
+      : premiumLib.rejectOrder(req.body?.orderId);
+    if (!result.ok) return res.status(400).json({ error: result.error, message: result.message });
+    audit.record(req, {
+      action: action === 'confirm' ? 'premium.confirm' : 'premium.reject',
+      target: 'premium',
+      detail: action === 'confirm' ? 'تأكيد وصول تحويل' : 'رفض تحويل',
+    });
+    return res.json({ ok: true, message: result.message, premium: result.view });
   }
   const guildId = String(req.body?.guildId || '');
   if (!/^\d{15,25}$/.test(guildId)) {

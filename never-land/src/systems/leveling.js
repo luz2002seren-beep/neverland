@@ -228,6 +228,11 @@ async function addXp(client, member, amount, options = {}) {
     // الكولداون يخصّ الخبرة الكتابية فقط (الصوتية والتفاعل لها حماياتها)
     if (source === 'text' && !bypassCooldown && row && now - row.last_xp_at < cooldownMs) return null;
 
+    try {
+      amount = require('../lib/premium').boostXp(guild.id, amount);
+    } catch {
+      /* الاشتراك اختياري — الخبرة العادية تبقى */
+    }
     const xp = (row?.xp ?? 0) + amount;
     const before = levelFromXp(row?.xp ?? 0).level;
     const after = levelFromXp(xp);

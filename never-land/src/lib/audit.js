@@ -134,6 +134,11 @@ const ACTION_LABELS = {
   'premium.grant': 'تفعيل بريميوم',
   'premium.revoke': 'إلغاء بريميوم',
   'premium.prices': 'أسعار الخطط',
+  'premium.checkout': 'طلب تحويل',
+  'premium.proof': 'إثبات تحويل',
+  'premium.confirm': 'تأكيد تحويل',
+  'premium.reject': 'رفض تحويل',
+  'premium.payout': 'حساب التحويل',
 };
 
 /** إحصاءات سريعة للسجل (للوحة الحماية) */

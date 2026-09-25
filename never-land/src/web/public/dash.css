@@ -1346,3 +1346,21 @@ html[data-theme='light'] .prem-tag { color: #8a6a12; }
 .d-prem-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .d-prem-prices { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .d-prem-prices .d-input { flex: 1 1 160px; min-width: 0; }
+.d-grade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; }
+.d-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(255, 255, 255, .03);
+}
+.d-grade.tier-1, .d-server.tier-1 { border-color: #e6c15a; }
+.d-grade.tier-2 { border-color: rgba(180, 180, 180, .45); }
+.d-grade.on { box-shadow: 0 0 0 1px rgba(230, 193, 90, .45); }
+.d-grade .price { color: var(--text); font-weight: 800; }
+.d-grade .d-prem-actions { margin-top: auto; }
+.prem-tag.tier-1 { color: #e6c15a; }
+.d-pay-box { display: flex; flex-direction: column; gap: 8px; }
+.d-pay-box .d-input { width: 100%; min-width: 0; }

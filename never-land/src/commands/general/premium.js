@@ -28,7 +28,7 @@ module.exports = {
       ? t(lang, 'premium.lifetime')
       : view.untilLabel;
     const description = view.active
-      ? t(lang, 'premium.active', { plan: planName(lang, view), until })
+      ? t(lang, 'premium.active', { plan: planName(lang, view), until, boost: view.boost || t(lang, 'premium.plan') })
       : t(lang, 'premium.free');
     await interaction.reply({ embeds: [embeds.info(t(lang, 'premium.title'), description)] }).catch(() => {});
   },
