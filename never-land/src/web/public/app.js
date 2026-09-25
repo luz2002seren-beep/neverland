@@ -401,7 +401,7 @@ function dSelect(path, options, { noneLabel = '— بدون —', onAfter = null
     select.value = String(current);
     if (select.value !== String(current)) {
       /* القيمة المحفوظة غير موجودة في الخيارات → نضيفها حتى ما تضيع */
-      select.appendChild(el('option', { value: String(current), text: `${String(current)} (محفوظ)` }));
+      select.appendChild(el('option', { value: String(current), text: 'محفوظ' }));
       select.value = String(current);
     }
   } else {
@@ -424,7 +424,7 @@ function pickOption(select, value) {
   select.value = String(value);
   if (select.value !== String(value)) {
     /* القيمة المحفوظة غير موجودة بين الخيارات → نضيفها حتى ما تضيع */
-    select.appendChild(el('option', { value: String(value), text: `${String(value)} (محفوظ)` }));
+    select.appendChild(el('option', { value: String(value), text: 'محفوظ' }));
     select.value = String(value);
   }
   return select;
@@ -462,8 +462,8 @@ const roleOptions = (filterOut = []) =>
 
 const categoryOptions = () => state.meta.channels.filter((c) => c.type === 4).map((c) => ({ value: c.id, label: c.name }));
 
-const nameOfChannel = (id) => state.meta.channels.find((c) => c.id === id)?.name || id;
-const nameOfRole = (id) => state.meta.roles.find((r) => r.id === id)?.name || id;
+const nameOfChannel = (id) => state.meta.channels.find((c) => c.id === id)?.name || 'قناة محفوظة';
+const nameOfRole = (id) => state.meta.roles.find((r) => r.id === id)?.name || 'رتبة محفوظة';
 
 function dCard(title, desc, iconName, children, { tail = null, noPad = false, id = '' } = {}) {
   const card = el('div', { class: 'd-card', id });
@@ -495,7 +495,7 @@ function dListEditor(path, { type = 'channel', placeholder = 'اختر...' } = {
 
   current.forEach((id, index) => {
     const found = state.meta.channels.find((c) => c.id === id);
-    const label = type === 'channel' ? (found ? (found.type === 4 ? `[قسم] ${found.name}` : `#${found.name}`) : id) : type === 'role' ? nameOfRole(id) : id;
+    const label = type === 'channel' ? (found ? (found.type === 4 ? `[قسم] ${found.name}` : `#${found.name}`) : 'قناة محفوظة') : type === 'role' ? nameOfRole(id) : 'محفوظ';
     const chip = el('span', { class: 'd-chip', text: label });
     const remove = el('button', { html: ic('close', 13), title: 'إزالة' });
     remove.addEventListener('click', () => {
@@ -712,8 +712,8 @@ function memberCell(map, id) {
   const cell = el('div', { class: 'd-member' });
   if (member?.avatar) cell.appendChild(el('img', { src: member.avatar, alt: '' }));
   const txt = el('div');
-  txt.appendChild(el('div', { class: 'nm', text: member?.displayName || member?.username || String(id) }));
-  txt.appendChild(el('div', { class: 'tg', text: member?.username ? `@${member.username}` : String(id) }));
+  txt.appendChild(el('div', { class: 'nm', text: member?.displayName || member?.username || 'بدون اسم' }));
+  if (member?.username) txt.appendChild(el('div', { class: 'tg', text: `@${member.username}` }));
   cell.appendChild(txt);
   return cell;
 }
@@ -1638,8 +1638,20 @@ function connectLive() {
   } catch { /* المتصفح لا يدعم البث الحيّ */ }
 }
 
+/* الرابط ما يبقي رقم السيرفر في شريط العنوان */
+function hideGuildFromAddressBar() {
+  try {
+    let path = String(location.pathname || '');
+    while (path.endsWith('/')) path = path.slice(0, -1);
+    const parts = path.split('/');
+    if (parts.length !== 3 || parts[1] !== 'dashboard' || !/^\d{15,25}$/.test(parts[2] || '')) return;
+    history.replaceState(null, '', '/dashboard/server' + (location.search || '') + (location.hash || ''));
+  } catch { /* المتصفح منع تعديل الرابط */ }
+}
+
 /* ============================ الإقلاع ============================ */
 async function boot() {
+  hideGuildFromAddressBar();
   const root = document.getElementById('app');
   state.guildId = root.dataset.guild;
   root.innerHTML = '<div class="d-loading"><div class="d-spinner"></div><div>جارٍ تحميل إعدادات السيرفر…</div></div>';
@@ -1744,4 +1756,5 @@ async function boot() {
   }
 }
 
+hideGuildFromAddressBar();
 document.addEventListener('DOMContentLoaded', boot);

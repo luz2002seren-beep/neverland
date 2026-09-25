@@ -231,7 +231,8 @@ code {
   color: var(--text);
 }
 .guild-card:hover { border-color: var(--primary); }
-a.guild-card { color: inherit; text-decoration: none; }
+a.guild-card, button.guild-card { color: inherit; text-decoration: none; width: 100%; text-align: inherit; font: inherit; cursor: pointer; }
+.guild-card-form { margin: 0; }
 .guild-card.disabled { opacity: .6; cursor: not-allowed; }
 .guild-icon { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; }
 .guild-icon.placeholder {

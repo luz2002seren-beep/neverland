@@ -1860,7 +1860,7 @@ const SECTIONS = {
 
         return dCard(
           type.label,
-          `المعرّف: <code>${esc(type.id)}</code> • النمط: ${type.buttonStyle || 'Primary'}`,
+          '',
           'ticket',
           [
             dField('الاسم في اللوحة', '', [dInput(`tickets.types.${index}.label`, { onChange: () => typePreview.refresh() })]),
@@ -1902,16 +1902,16 @@ const SECTIONS = {
         );
       });
 
-      const newId = el('input', { class: 'd-input narrow', placeholder: 'المعرّف' });
       const newLabel = el('input', { class: 'd-input', placeholder: 'الاسم الظاهر' });
       // ملاحظة: إيموجي النوع بيانات تُرسل إلى ديسكورد (زر التذكرة)، وليست عنصرًا في واجهة الموقع
       const newEmoji = el('input', { class: 'd-input narrow', placeholder: 'إيموجي الزر' });
       const addType = el('button', { class: 'd-btn sm primary', html: `${ic('plus', 15)} إضافة نوع` });
       addType.addEventListener('click', () => {
-        const id = newId.value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
         const label = newLabel.value.trim();
-        if (!id || !label) return toast('يجب كتابة المعرّف والاسم.', true);
-        if (types.some((t) => t.id === id)) return toast('هذا المعرّف مستخدم مسبقًا.', true);
+        const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '');
+        const id = slug || `type-${Date.now().toString(36)}`;
+        if (!label) return toast('اكتب اسم النوع.', true);
+        if (types.some((t) => t.id === id)) return toast('هذا النوع موجود مسبقًا.', true);
         if (types.length >= 25) return toast('الحد الأقصى خمسة وعشرون نوعًا.', true);
         setPath('tickets.types', [...types, { id, label, emoji: newEmoji.value.trim() || '🎫', description: '', intro: '', buttonStyle: 'Primary' }]);
         renderSection('tickets');
@@ -1928,7 +1928,7 @@ const SECTIONS = {
         toast('تم استرجاع الأنواع الأربعة، اضغط حفظ التغييرات.');
       });
       const addRow = el('div', { class: 'd-field-control' });
-      [newId, newLabel, newEmoji, addType, restore].forEach((n) => addRow.appendChild(n));
+      [newLabel, newEmoji, addType, restore].forEach((n) => addRow.appendChild(n));
 
       /* معاينة صور اللوحة (الرئيسية + الزخرفية) ورسالة التذكرة */
       const assetSrc = (value, fallback) => {
@@ -2025,7 +2025,7 @@ const SECTIONS = {
       const fieldCards = fields.map((field, index) =>
         dCard(
           `الخانة ${index + 1} — ${field.label}`,
-          `المعرّف: <code>${esc(field.id)}</code> • ${field.style === 'paragraph' ? 'نص طويل' : 'سطر واحد'}`,
+          field.style === 'paragraph' ? 'نص طويل' : 'سطر واحد',
           'clipboard',
           [
             dField('عنوان الخانة', 'يظهر للعضو', [dInput(`staffApplication.fields.${index}.label`)]),

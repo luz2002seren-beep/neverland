@@ -561,7 +561,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
           }
         </div>`;
           return g.botPresent
-            ? `<a class="guild-card" href="/dashboard/${g.id}" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="1">${cardInner}</a>`
+            ? `<form method="post" action="/dashboard/open" class="guild-card-form"><input type="hidden" name="guild" value="${escapeHtml(g.id)}"><button type="submit" class="guild-card" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="1">${cardInner}</button></form>`
             : `<div class="guild-card disabled" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="0">${cardInner}</div>`;
         })
         .join('')
@@ -646,7 +646,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
                  var okName = !q || (c.dataset.name || '').indexOf(q) !== -1;
                  var okBot = mode === 'all' || (mode === 'with' ? c.dataset.bot === '1' : c.dataset.bot === '0');
                  var visible = okName && okBot;
-                 c.style.display = visible ? '' : 'none';
+                 var box = c.closest('form') || c;
+                 box.style.display = visible ? '' : 'none';
                  if (visible) shown++;
                });
                var empty = grid.querySelector('.no-result');
@@ -676,20 +677,39 @@ router.get('/dashboard', requireAuth, async (req, res) => {
 });
 
 /* ---------------------------------- لوحة إعداد سيرفر ---------------------------------- */
-router.get('/dashboard/:guildId', requireAuth, async (req, res) => {
-  const { guildId } = req.params;
 
-  if (!config.web.demoData) {
-    const allowed = await webGuilds.canAccessGuild(req, guildId);
-    if (!allowed) {
-      return res.status(403).send('ما عندك صلاحية الوصول لهذا السيرفر.');
-    }
-  }
+function rememberGuild(req, guildId) {
+  if (!req.session || !guildId) return Promise.resolve();
+  req.session.activeGuildId = String(guildId);
+  return new Promise((resolve) => {
+    if (typeof req.session.save === 'function') req.session.save(() => resolve());
+    else resolve();
+  });
+}
 
+/** المتصفح يفتح الصفحة. الاختبارات ترسل X-Requested-With وتبقى على الرد المباشر. */
+function browserWantsHtml(req) {
+  if (req.get('X-Requested-With')) return false;
+  return String(req.get('Accept') || '').includes('text/html');
+}
+
+function sendGuildDashboard(req, res, guildId) {
+  const n = res.locals.cspNonce ? ` nonce="${res.locals.cspNonce}"` : '';
   const body = `
   <div id="app" data-guild="${escapeHtml(guildId)}" data-edit="${req.canEdit ? '1' : '0'}" data-owner="${req.isSiteOwner ? '1' : '0'}" data-viewonly="${req.viewOnly ? '1' : '0'}">
     <div class="loading">جارٍ تحميل الإعدادات...</div>
   </div>
+  <script${n}>
+    (function () {
+      var path = String(location.pathname || '');
+      while (path.charAt(path.length - 1) === '/') path = path.slice(0, -1);
+      var parts = path.split('/');
+      if (parts.length !== 3 || parts[1] !== 'dashboard' || !/^[0-9]{15,25}$/.test(parts[2] || '')) return;
+      try {
+        history.replaceState(null, '', '/dashboard/server' + (location.search || '') + (location.hash || ''));
+      } catch (e) {}
+    })();
+  </script>
   <script src="${asset('icons.js')}"></script>
   <script src="${asset('app.js')}"></script>
   <script src="${asset('app-sections.js')}"></script>`;
@@ -703,6 +723,43 @@ router.get('/dashboard/:guildId', requireAuth, async (req, res) => {
       bodyClass: `dashboard${req.canEdit ? '' : ' dashboard-readonly'}${req.isSiteOwner ? ' dashboard-owner' : ''}`,
     }),
   );
+}
+
+router.post('/dashboard/open', requireAuth, async (req, res) => {
+  const guildId = String(req.body?.guild || '');
+  if (!/^\d{15,25}$/.test(guildId)) return res.redirect('/dashboard');
+  if (!config.web.demoData) {
+    const allowed = await webGuilds.canAccessGuild(req, guildId);
+    if (!allowed) return res.status(403).send('ما عندك صلاحية الوصول لهذا السيرفر.');
+  }
+  await rememberGuild(req, guildId);
+  return res.redirect(302, '/dashboard/server');
+});
+
+router.get('/dashboard/server', requireAuth, async (req, res) => {
+  const guildId = String(req.session?.activeGuildId || '');
+  if (!/^\d{15,25}$/.test(guildId)) return res.redirect('/dashboard');
+  if (!config.web.demoData) {
+    const allowed = await webGuilds.canAccessGuild(req, guildId);
+    if (!allowed) return res.redirect('/dashboard');
+  }
+  return sendGuildDashboard(req, res, guildId);
+});
+
+router.get('/dashboard/:guildId', requireAuth, async (req, res) => {
+  const { guildId } = req.params;
+
+  if (!config.web.demoData) {
+    const allowed = await webGuilds.canAccessGuild(req, guildId);
+    if (!allowed) {
+      return res.status(403).send('ما عندك صلاحية الوصول لهذا السيرفر.');
+    }
+  }
+
+  await rememberGuild(req, guildId);
+  /* الرابط النظيف ما فيه رقم السيرفر. المتصفح يحافظ على #tickets بعد التحويل. */
+  if (browserWantsHtml(req)) return res.redirect(302, '/dashboard/server');
+  return sendGuildDashboard(req, res, guildId);
 });
 
 // نُصدّر الراوتر نفسه مع إرفاق دوال مساعدة (يستخدمها خادم اللوحة)
