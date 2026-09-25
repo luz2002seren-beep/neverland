@@ -457,7 +457,7 @@ never-land/
 │   ├── client.js              ← عميل ديسكورد والـ Intents
 │   ├── config.js              ← الإعدادات والقيم الافتراضية
 │   ├── deploy-commands.js     ← تسجيل أوامر السلاش
-│   ├── commands/              ← الأوامر (30 أمر)
+│   ├── commands/              ← الأوامر (31 أمر)
 │   │   ├── general/  moderation/  config/  tickets/  utility/
 │   ├── events/                ← الأحداث (33 حدثًا)
 │   ├── systems/               ← الأنظمة الكبرى

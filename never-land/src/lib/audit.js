@@ -130,6 +130,10 @@ const ACTION_LABELS = {
   'command.denied': 'محاولة استعمال أمر إدارة (مرفوضة)',
   'command.suggest': 'اقتراح أوامر مشابهة',
   'settings.live': 'تحديث فوري (موقع/بوت)',
+  'premium.request': 'طلب اشتراك',
+  'premium.grant': 'تفعيل بريميوم',
+  'premium.revoke': 'إلغاء بريميوم',
+  'premium.prices': 'أسعار الخطط',
 };
 
 /** إحصاءات سريعة للسجل (للوحة الحماية) */

@@ -49,6 +49,7 @@ const state = {
   guild: null,
   stats: null,
   daily: [],
+  premium: null,
   section: 'overview',
   dirty: false,
   /** هل هذا الحساب مالك الموقع؟ (يرى قسم «أعضاء الموقع») */
@@ -574,6 +575,7 @@ function dWordEditor(path, { placeholder = 'أضف عنصرًا...', labeler = n
 /* ============================ الأقسام ============================ */
 const SECTION_ICONS = {
   overview: 'dashboard',
+  premium: 'crown',
   general: 'settings',
   welcome: 'userPlus',
   autorole: 'userCog',
@@ -595,6 +597,7 @@ const SECTION_ICONS = {
   audit: 'scroll',
   security: 'shield',
   siteMembers: 'key',
+  subscriptions: 'star',
 };
 
 /** أنماط خط الفاصل (احتياطي — يأتي الكامل من الـAPI) */
@@ -1249,7 +1252,7 @@ async function loadSiteMembers(note, box) {
 /* ============================ الهيكل العام (هيكل بروبوت) ============================ */
 /* عام ثم إعدادات الوحدات — نفس ترتيب لوحة ProBot، بأسماء أقسامنا */
 const NAV_GROUPS = [
-  { title: 'عام', ids: ['overview', 'general', 'commandGuide'] },
+  { title: 'عام', ids: ['overview', 'premium', 'general', 'commandGuide'] },
   {
     title: 'إعدادات الوحدات',
     ids: [
@@ -1259,7 +1262,7 @@ const NAV_GROUPS = [
     ],
   },
   { title: 'البيانات', ids: ['audit', 'data'] },
-  { title: 'إدارة الموقع', ids: ['security', 'siteMembers'], ownerOnly: true },
+  { title: 'إدارة الموقع', ids: ['security', 'siteMembers', 'subscriptions'], ownerOnly: true },
 ];
 
 /** مفتاح التفعيل لكل وحدة — النقطة الخضراء ومفتاح أعلى الصفحة */
@@ -1601,7 +1604,9 @@ async function refreshAfterExternalChange(payload) {
     state.guild = data.guild;
     state.stats = data.stats;
     state.meta = data.meta;
+    state.premium = data.premium || state.premium;
     state.dirty = false;
+    paintPremiumBadge();
     if (state.section && SECTIONS[state.section]) renderSection(state.section);
     toast(payload?.source === 'bot'
       ? 'تغيّر الإعدادات من ديسكورد — حُدّثت اللوحة تلقائيًا'
@@ -1696,6 +1701,176 @@ async function resolveGuildId(root) {
   return data.id;
 }
 
+function paintPremiumBadge() {
+  const server = document.querySelector('.d-side .d-server, .d-server');
+  if (!server) return;
+  const on = Boolean(state.premium?.active);
+  server.classList.toggle('is-premium', on);
+  const info = server.querySelector('.d-server-info');
+  if (!info) return;
+  let tag = info.querySelector('.prem-tag');
+  if (on) {
+    if (!tag) info.appendChild(el('span', { class: 'prem-tag', html: `${ic('crown', 12)} بريميوم` }));
+  } else if (tag) {
+    tag.remove();
+  }
+}
+
+function paintRequestBadge(count) {
+  const item = document.querySelector('.d-nav-item[data-id="subscriptions"]');
+  if (!item) return;
+  let badge = item.querySelector('.prem-count');
+  const n = Number(count) || 0;
+  if (n < 1) {
+    if (badge) badge.remove();
+    return;
+  }
+  if (!badge) {
+    badge = el('span', { class: 'prem-count' });
+    const dot = item.querySelector('.dot');
+    if (dot) item.insertBefore(badge, dot);
+    else item.appendChild(badge);
+  }
+  badge.textContent = String(n);
+}
+
+function paintRequestBadgeFromApi() {
+  if (!state.isOwner) return;
+  api('/admin/premium')
+    .then((data) => paintRequestBadge((data.servers || []).filter((s) => s.requested).length))
+    .catch(() => {});
+}
+
+async function loadSubscriptions(box) {
+  try {
+    const data = await api('/admin/premium');
+    const servers = Array.isArray(data.servers) ? data.servers : [];
+    const prices = data.prices || {};
+    const waiting = servers.filter((s) => s.requested).length;
+    const active = servers.filter((s) => s.active).length;
+    paintRequestBadge(waiting);
+    box.innerHTML = '';
+
+    const cards = el('div', { class: 'd-stats' });
+    [
+      ['crown', active, 'خطط شغّالة'],
+      ['star', waiting, 'طلبات معلّقة'],
+      ['server', servers.length, 'سيرفر'],
+    ].forEach(([iconName, value, label]) => {
+      const card = el('div', { class: 'd-stat' });
+      card.appendChild(el('b', { text: Number(value || 0).toLocaleString(numLoc()) }));
+      card.appendChild(el('span', { html: `${ic(iconName, 15)} ${label}` }));
+      cards.appendChild(card);
+    });
+    box.appendChild(cards);
+
+    const priceBox = el('div', { class: 'd-prem-prices' });
+    const inputs = {};
+    [
+      ['month', 'سعر الشهر'],
+      ['quarter', 'سعر ٣ أشهر'],
+      ['year', 'سعر السنة'],
+      ['note', 'ملاحظة تظهر في الصفحة'],
+    ].forEach(([key, label]) => {
+      const input = el('input', {
+        class: 'd-input',
+        type: 'text',
+        maxlength: key === 'note' ? '180' : '40',
+        placeholder: label,
+        value: prices[key] || '',
+      });
+      inputs[key] = input;
+      priceBox.appendChild(input);
+    });
+    const savePrices = el('button', { class: 'd-btn sm', type: 'button', text: 'حفظ الأسعار' });
+    savePrices.addEventListener('click', async () => {
+      savePrices.disabled = true;
+      try {
+        const saved = await api('/admin/premium', {
+          method: 'POST',
+          body: {
+            action: 'prices',
+            prices: {
+              month: inputs.month.value,
+              quarter: inputs.quarter.value,
+              year: inputs.year.value,
+              note: inputs.note.value,
+            },
+          },
+        });
+        toast(saved.message || 'تم حفظ الأسعار.');
+      } catch (err) {
+        toast(err.message || 'تعذّر حفظ الأسعار.', true);
+      } finally {
+        savePrices.disabled = false;
+      }
+    });
+    priceBox.appendChild(savePrices);
+    box.appendChild(dCard('أسعار الخطط', 'نص يظهر للسيرفر. ما في خصم من البطاقة.', 'star', [priceBox]));
+
+    if (!servers.length) {
+      box.appendChild(el('div', { class: 'd-empty', text: 'ما في سيرفرات معروفة بعد. حدّث بعد المزامنة.' }));
+      return;
+    }
+
+    const list = el('div', { class: 'd-prem-list' });
+    servers.forEach((server) => {
+      const row = el('div', { class: `d-prem-row${server.requested ? ' is-request' : ''}${server.active ? ' is-on' : ''}` });
+      const info = el('div', { class: 'd-prem-who' });
+      info.appendChild(el('b', { text: server.name || 'سيرفر', 'data-nl-raw': '1' }));
+      const bits = [];
+      if (state.guildId && server.guildId === state.guildId) bits.push('هذا السيرفر');
+      bits.push(server.statusLabel || 'مجاني');
+      if (server.planLabel) bits.push(server.planLabel);
+      if (server.untilLabel) bits.push(server.untilLabel);
+      if (server.members != null && Number.isFinite(Number(server.members))) {
+        bits.push(`${Number(server.members).toLocaleString(numLoc())} عضو`);
+      }
+      info.appendChild(el('span', { text: bits.filter(Boolean).join(' · ') }));
+      if (server.note) info.appendChild(el('span', { class: 'd-prem-note', text: server.note, 'data-nl-raw': '1' }));
+      row.appendChild(info);
+      const actions = el('div', { class: 'd-prem-actions' });
+      [
+        ['month', 'شهر', 'يضيف ٣٠ يومًا'],
+        ['quarter', '٣ أشهر', 'يضيف ٩٠ يومًا'],
+        ['year', 'سنة', 'يضيف ٣٦٥ يومًا'],
+        ['lifetime', 'دائم', 'بلا تاريخ انتهاء'],
+      ].forEach(([plan, label, title]) => {
+        const btn = el('button', { class: 'd-btn sm', type: 'button', text: label, title });
+        btn.addEventListener('click', () => actPremium(server.guildId, { action: 'grant', plan }));
+        actions.appendChild(btn);
+      });
+      if (server.active) {
+        const cancel = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'إلغاء البريميوم' });
+        cancel.addEventListener('click', () => actPremium(server.guildId, { action: 'revoke' }));
+        actions.appendChild(cancel);
+      }
+      row.appendChild(actions);
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+  } catch (err) {
+    box.innerHTML = '';
+    box.appendChild(el('div', { class: 'd-empty', text: err.message || 'تعذّر تحميل الاشتراكات.' }));
+  }
+}
+
+async function actPremium(guildId, body) {
+  try {
+    const data = await api('/admin/premium', { method: 'POST', body: { ...body, guildId } });
+    toast(data.message || 'تم.');
+    if (state.guildId && state.guildId === guildId && data.premium) {
+      state.premium = data.premium;
+      paintPremiumBadge();
+    }
+    if (state.section === 'subscriptions') renderSection('subscriptions');
+    else if (state.section === 'premium') renderSection('premium');
+    paintRequestBadgeFromApi();
+  } catch (err) {
+    toast(err.message || 'تعذّر تنفيذ الطلب.', true);
+  }
+}
+
 /* ============================ الإقلاع ============================ */
 async function boot() {
   hideGuildFromAddressBar();
@@ -1723,6 +1898,7 @@ async function boot() {
     state.guild = data.guild;
     state.stats = data.stats;
     state.daily = data.daily || [];
+    state.premium = data.premium || null;
     state.meta = data.meta;
     state.sync = data.sync || null;
     state.dirty = false;
@@ -1760,6 +1936,8 @@ async function boot() {
     main.appendChild(content);
     shell.appendChild(main);
     root.appendChild(shell);
+    paintPremiumBadge();
+    paintRequestBadgeFromApi();
     const backdrop = el('div', { class: 'd-side-backdrop' });
     backdrop.addEventListener('click', closeSide);
     root.appendChild(backdrop);
@@ -1793,7 +1971,7 @@ async function boot() {
 
     /* لو الرابط فيه #قسم (مثل ما يرسله البوت) نفتحه مباشرة */
     const wanted = (window.location.hash || '').replace('#', '');
-    if (wanted && SECTIONS[wanted]) state.section = wanted;
+    if (wanted && SECTIONS[wanted] && !(SECTIONS[wanted].ownerOnly && !state.isOwner)) state.section = wanted;
 
     items.forEach(({ item }) => item.classList.toggle('active', item.dataset.id === state.section));
     if (drawerMode()) closeSide();

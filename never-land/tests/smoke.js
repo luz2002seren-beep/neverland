@@ -1856,7 +1856,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
 
     // ١) الكتالوج: جمهور لكل أمر
     assert.ok(Array.isArray(catalog43.namesOf('member')), 'الكتالوج ينقصه تصنيف الجمهور');
-    assert.strictEqual(catalog43.namesOf('member').length, 10, 'عدد أوامر الأعضاء غير صحيح');
+    assert.strictEqual(catalog43.namesOf('member').length, 11, 'عدد أوامر الأعضاء غير صحيح');
     assert.strictEqual(catalog43.namesOf('staff').length, 20, 'عدد أوامر الإدارة غير صحيح');
     assert.ok(catalog43.AUDIENCES.member.badge && catalog43.AUDIENCES.staff.badge, 'وسوم الجمهور ناقصة');
 
@@ -1894,7 +1894,7 @@ console.log('[نجاح] كل الاختبارات نجحت!');
     }
     assert.ok(out43.includes('🎉'), 'اختبار الجمهور ما نجح');
 
-  console.log('  [تم] أوامر الأعضاء (10) تشتغل لأي عضو · أوامر الإدارة (19) مخفية عن الأعضاء في ديسكورد وفي الموقع');
+  console.log('  [تم] أوامر الأعضاء (11) تشتغل لأي عضو · أوامر الإدارة (20) مخفية عن الأعضاء في ديسكورد وفي الموقع');
   }
 
  console.log('[اختبار] 44: ربط الموقع بالبوت · اقتراح الأوامر المشابهة (طير) · التنفيذ بمنشن صريح فقط');

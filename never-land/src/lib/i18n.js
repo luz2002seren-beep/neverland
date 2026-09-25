@@ -101,6 +101,17 @@ const strings = {
       title: '🤖 Never Land — قائمة الأوامر',
       footer: 'استخدم الأزرار للتنقل بين الأقسام',
     },
+    premium: {
+      title: 'اشتراك البوت',
+      guildOnly: 'هذا الأمر يشتغل داخل السيرفر فقط.',
+      active: 'الخطة: **{plan}**\nينتهي: **{until}**\nالوحدات الحالية تبقى شغّالة.',
+      free: 'هذا السيرفر على الخطة المجانية.\nاطلب البريميوم من لوحة التحكم، قسم الاشتراك. التفعيل من مالك الموقع، بلا خصم بطاقة.',
+      plan: 'بريميوم',
+      month: 'شهر',
+      quarter: '٣ أشهر',
+      year: 'سنة',
+      lifetime: 'دائم',
+    },
   },
 
   en: {
@@ -193,6 +204,17 @@ const strings = {
     help: {
       title: '🤖 Never Land — Commands',
       footer: 'Use the buttons to browse categories',
+    },
+    premium: {
+      title: 'Bot subscription',
+      guildOnly: 'This command only works inside a server.',
+      active: 'Plan: **{plan}**\nEnds: **{until}**\nYour current modules stay on.',
+      free: 'This server is on the free plan.\nRequest premium from the dashboard, Subscription section. The site owner activates it. No card charge.',
+      plan: 'Premium',
+      month: 'Month',
+      quarter: '3 months',
+      year: 'Year',
+      lifetime: 'Lifetime',
     },
   },
 };

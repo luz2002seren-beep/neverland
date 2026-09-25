@@ -24,6 +24,7 @@ const siteUsers = require('../siteUsers');
 const { destroyUserSessions, countUserSessions } = require('../server');
 const audit = require('../../lib/audit');
 const db = require('../../database');
+const premiumLib = require('../../lib/premium');
 
 const router = express.Router();
 
@@ -317,6 +318,62 @@ router.get('/security', (req, res) => {
       warn: db.listAudit?.({ severity: 'warn', limit: 1 })?.total ?? 0,
     },
   });
+});
+
+/* ------------------------------ اشتراكات البوت ------------------------------ */
+
+router.get('/premium', (req, res) => {
+  const servers = premiumLib.ownerList().map((row) => ({
+    guildId: row.guildId,
+    name: row.name,
+    members: row.members,
+    status: row.status,
+    statusLabel: row.statusLabel,
+    active: row.active,
+    planLabel: row.planLabel,
+    untilLabel: row.untilLabel,
+    note: row.note,
+    requested: row.requested,
+  }));
+  return res.json({
+    servers,
+    prices: premiumLib.prices(),
+    plans: Object.values(premiumLib.PLANS).map((plan) => ({ id: plan.id, label: plan.label, days: plan.days })),
+  });
+});
+
+router.post('/premium', (req, res) => {
+  const action = String(req.body?.action || '');
+  if (action === 'prices') {
+    const prices = premiumLib.setPrices(req.body?.prices || {});
+    audit.record(req, { action: 'premium.prices', target: 'premium', detail: 'تحديث أسعار الخطط' });
+    return res.json({ ok: true, prices, message: 'تم حفظ الأسعار.' });
+  }
+  const guildId = String(req.body?.guildId || '');
+  if (!/^\d{15,25}$/.test(guildId)) {
+    return res.status(400).json({ error: 'bad_request', message: 'اختر السيرفر من القائمة.' });
+  }
+  const name = premiumLib.guildMeta(guildId).name;
+  if (action === 'grant') {
+    const result = premiumLib.grant(guildId, String(req.body?.plan || ''));
+    if (!result.ok) return res.status(400).json({ error: result.error, message: result.message });
+    audit.record(req, {
+      action: 'premium.grant',
+      target: 'premium',
+      detail: `تفعيل بريميوم لسيرفر ${name}`,
+    });
+    return res.json({ ok: true, message: result.message, premium: result.view });
+  }
+  if (action === 'revoke') {
+    const result = premiumLib.revoke(guildId);
+    audit.record(req, {
+      action: 'premium.revoke',
+      target: 'premium',
+      detail: `إلغاء بريميوم عن سيرفر ${name}`,
+    });
+    return res.json({ ok: true, message: result.message, premium: result.view });
+  }
+  return res.status(400).json({ error: 'bad_request', message: 'إجراء غير معروف.' });
 });
 
 module.exports = router;

@@ -16,6 +16,7 @@ const webGuilds = require('../guilds');
 const { guildIconUrl, initials } = require('../../lib/discordIcon');
 const siteUsers = require('../siteUsers');
 const db = require('../../database');
+const premiumLib = require('../../lib/premium');
 
 const router = express.Router();
 const { icon, logoMark } = require('../public/icons');
@@ -418,13 +419,14 @@ router.get('/', requireAuth, (req, res) => {
     { i: 'chart', t: 'مستويات وخبرة', d: 'خبرة على الرسائل والقنوات الصوتية، ومكافآت رتب، ولوحة متصدّرين.' },
     { i: 'sliders', t: 'لوحة تحكم عربية', d: 'تحكم كامل من المتصفح بثلاثة عشر قسمًا، مع وضع ليلي ونهاري، بدون أوامر.' },
     { i: 'server', t: 'استضافة ذاتية', d: 'يعمل على SQLite افتراضيًا مع بديل JSON، ودعم Docker وPM2.' },
+    { i: 'crown', t: 'اشتراك بريميوم', d: 'خطط شهر و٣ أشهر وسنة. تطلبها من اللوحة، ومالك الموقع يفعّلها. الوحدات الحالية تبقى مجانية.' },
   ];
 
   const stats = [
-    { i: 'terminal', n: '27', l: 'أمر سلاش' },
+    { i: 'terminal', n: '31', l: 'أمر سلاش' },
     { i: 'scroll', n: '38', l: 'حدث سجلات' },
     { i: 'layers', n: '11', l: 'نظامًا' },
-    { i: 'sliders', n: '13', l: 'قسمًا في اللوحة' },
+    { i: 'sliders', n: '24', l: 'قسمًا في اللوحة' },
   ];
 
   const steps = [
@@ -441,6 +443,7 @@ router.get('/', requireAuth, (req, res) => {
     ['/tickets applychannel', 'القناة:#قبول-إدارة'],
     ['/logs events', 'تحديد أحداث السجلات بالمجموعات'],
     ['/automod word', 'العملية:إضافة', 'الكلمة:كلمة_ممنوعة'],
+    ['/premium'],
   ];
 
   const rows = [
@@ -449,6 +452,7 @@ router.get('/', requireAuth, (req, res) => {
     { i: 'scroll', k: 'السجلات', t: 'سجّل كل حدث في رومه', d: 'حذف الرسائل، الرتب، الدخول والخروج، والحظر. كل مجموعة أحداث لها قناة.' },
     { i: 'chart', k: 'المستويات', t: 'كافئ الأعضاء النشطين', d: 'خبرة على الرسائل والصوت، رتب عند الوصول لمستوى، ولوحة متصدرين.' },
     { i: 'ticket', k: 'التذاكر', t: 'استقبل الطلبات بتذاكر واضحة', d: 'أربعة أنواع، استلام، وأرشيف عند الإغلاق، مع نموذج تقديم الإدارة.' },
+    { i: 'crown', k: 'الاشتراك', t: 'فعّل بريميوم لسيرفرك', d: 'اطلب شهرًا أو ٣ أشهر أو سنة من اللوحة. مالك الموقع يفعّل الخطة. الوحدات الحالية تبقى مجانية.' },
   ];
 
   const body = `
@@ -532,6 +536,8 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   const isGuest = !req.canEdit;
 
   const withBot = guilds.filter((g) => g.botPresent).length;
+  let premiumIds = new Set();
+  try { premiumIds = premiumLib.activeIds(); } catch { premiumIds = new Set(); }
   const numLoc = pickLang(req) === 'fr' ? 'fr-FR' : pickLang(req) === 'en' ? 'en-US' : 'ar-EG';
 
   const guildPick = [];
@@ -548,6 +554,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
         ${thumb}
         <div class="guild-info">
           <b>${escapeHtml(g.name)}</b>
+          ${premiumIds.has(String(g.id)) ? `<span class="prem-pill">${icon('star', { size: 13 })} بريميوم</span>` : ''}
           <span class="muted">
             ${g.memberCount ? `${Number(g.memberCount).toLocaleString('ar-EG')} عضو` : 'عدد الأعضاء غير متاح'}
             ${g.owner ? `— ${icon('crown', { size: 14 })} المالك` : ''}

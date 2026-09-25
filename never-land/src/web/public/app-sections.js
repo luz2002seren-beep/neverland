@@ -21,6 +21,142 @@
  * [مهم] لازم يُحمَّل بعد app.js (انظر ASSET_FILES ووسم <script> في routes/pages.js).
  * -------------------------------------------------------------
  */
+
+function premiumState() {
+  const src = state.premium || {};
+  const plans = Array.isArray(src.plans) && src.plans.length
+    ? src.plans
+    : [
+        { id: 'month', label: 'شهر', price: '' },
+        { id: 'quarter', label: '٣ أشهر', price: '' },
+        { id: 'year', label: 'سنة', price: '' },
+        { id: 'lifetime', label: 'دائم', price: '' },
+      ];
+  const benefits = Array.isArray(src.benefits) && src.benefits.length
+    ? src.benefits
+    : [
+        { title: 'شارة في اللوحة', text: 'تاج ذهبي على اسم السيرفر لما الخطة شغّالة.' },
+        { title: 'أمر premium', text: 'يعرض الخطة وتاريخ الانتهاء داخل ديسكورد.' },
+        { title: 'تفعيل من المالك', text: 'الطلب يوصل لقائمة الاشتراكات، والمالك يفعّل المدة.' },
+        { title: 'بدون قفل', text: 'الترحيب والسجلات والتذاكر والإشراف تبقى شغّالة.' },
+      ];
+  return {
+    active: Boolean(src.active),
+    status: src.status || 'free',
+    statusLabel: src.statusLabel || (src.active ? 'بريميوم' : 'مجاني'),
+    plan: src.plan || '',
+    planLabel: src.planLabel || '',
+    untilLabel: src.untilLabel || '',
+    requested: Boolean(src.requested),
+    requestNote: src.requestNote || '',
+    plans,
+    benefits,
+    prices: src.prices || {},
+  };
+}
+
+function premiumStatusNode(view) {
+  const wrap = el('span', { class: view.active ? 'prem-tag' : '' });
+  wrap.appendChild(el('span', { text: view.active ? 'بريميوم' : (view.statusLabel || 'مجاني') }));
+  if (view.active && view.planLabel) {
+    wrap.appendChild(document.createTextNode(' · '));
+    wrap.appendChild(el('span', { text: view.planLabel }));
+  }
+  if (view.active && view.untilLabel) {
+    wrap.appendChild(document.createTextNode(' · '));
+    wrap.appendChild(el('span', { text: view.untilLabel }));
+  }
+  return wrap;
+}
+
+function renderPremium() {
+  const view = premiumState();
+  const frag = document.createDocumentFragment();
+  frag.appendChild(el('div', {
+    class: 'd-readonly-note',
+    html: `${ic('crown', 15)} <span>الوحدات الحالية تبقى مجانية. البريميوم شارة وخطة يفعّلها مالك الموقع. ما في خصم من البطاقة.</span>`,
+  }));
+
+  const statusRows = [
+    dField('الحالة', 'خطة البوت، مو دعم ديسكورد', [premiumStatusNode(view)]),
+  ];
+  if (view.requestNote) {
+    statusRows.push(dField('ملاحظة الطلب', '', [el('span', { text: view.requestNote, 'data-nl-raw': '1' })]));
+  }
+  frag.appendChild(dCard('الخطة الحالية', '', 'crown', statusRows));
+
+  const grid = el('div', { class: 'd-plan-grid' });
+  view.plans.forEach((plan) => {
+    const card = el('div', { class: `d-plan${view.active && view.plan === plan.id ? ' on' : ''}` });
+    card.appendChild(el('b', { text: plan.label || 'خطة' }));
+    const price = plan.price || (plan.id === 'lifetime' ? 'بلا تاريخ انتهاء' : 'السعر من المالك');
+    card.appendChild(el('span', { class: 'price', text: price }));
+    if (state.isOwner && state.canEdit) {
+      const btn = el('button', { class: 'd-btn sm', type: 'button', text: view.active && view.plan === plan.id ? 'تمديد' : 'تفعيل' });
+      btn.addEventListener('click', () => actPremium(state.guildId, { action: 'grant', plan: plan.id }));
+      card.appendChild(btn);
+    }
+    grid.appendChild(card);
+  });
+  const planBody = [grid];
+  if (view.prices && view.prices.note) {
+    planBody.unshift(el('p', { class: 'd-prem-note', text: view.prices.note, 'data-nl-raw': '1' }));
+  }
+  frag.appendChild(dCard('الخطط', 'المدة: ٣٠ يوم، ٩٠ يوم، ٣٦٥ يوم، أو دائم.', 'star', planBody));
+
+  const benefits = el('div', { class: 'd-prem-list' });
+  view.benefits.forEach((item) => {
+    const row = el('div', { class: 'd-prem-row' });
+    const info = el('div');
+    info.appendChild(el('b', { text: item.title || 'ميزة' }));
+    info.appendChild(el('span', { text: item.text || '' }));
+    row.appendChild(info);
+    benefits.appendChild(row);
+  });
+  frag.appendChild(dCard('شو بيفرق البريميوم', 'ما بيقفل الوحدات اللي تستخدمها.', 'check', [benefits]));
+
+  if (state.isOwner && state.canEdit && view.active) {
+    const cancel = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'إلغاء البريميوم' });
+    cancel.addEventListener('click', () => actPremium(state.guildId, { action: 'revoke' }));
+    frag.appendChild(cancel);
+  } else if (!view.active && state.canEdit && !state.isOwner) {
+    const form = el('div', { class: 'd-prem-prices' });
+    const note = el('input', {
+      class: 'd-input',
+      type: 'text',
+      maxlength: '180',
+      placeholder: 'ملاحظة للمالك (اختياري)',
+      value: view.requestNote || '',
+    });
+    const ask = el('button', {
+      class: 'd-btn sm primary',
+      type: 'button',
+      text: view.requested ? 'تحديث الطلب' : 'اطلب بريميوم',
+    });
+    ask.addEventListener('click', async () => {
+      ask.disabled = true;
+      try {
+        const data = await api(`/guilds/${state.guildId}/premium/request`, { method: 'POST', body: { note: note.value } });
+        state.premium = data.premium || state.premium;
+        toast(data.message || 'وصل الطلب لمالك الموقع.');
+        renderSection('premium');
+      } catch (err) {
+        toast(err.message || 'تعذّر إرسال الطلب.', true);
+      } finally {
+        ask.disabled = false;
+      }
+    });
+    form.appendChild(note);
+    form.appendChild(ask);
+    const title = view.requested ? 'طلبك وصل لمالك الموقع' : 'اطلب التفعيل';
+    frag.appendChild(dCard(title, 'المالك يفعّل الشهر أو ٣ أشهر أو السنة أو الدائم.', 'ticket', [form]));
+  } else if (view.requested) {
+    frag.appendChild(el('div', { class: 'd-readonly-note', text: 'طلبك وصل لمالك الموقع.' }));
+  }
+
+  return frag;
+}
+
 const SECTIONS = {
   /* ------------------------------ نظرة عامة ------------------------------ */
   overview: {
@@ -87,12 +223,24 @@ const SECTIONS = {
       /* حالة البوت */
       const statusRows = [
         dField('حالة البوت', '', [el('span', { class: 'd-chip', html: state.guild.botOnline ? `<span class="state-on">متصل</span>` : `<span class="state-off">غير متصل</span>` })]),
+        dField('خطة البوت', 'اشتراك البوت، مو دعم ديسكورد', [premiumStatusNode(premiumState())]),
         dField('عدد الأعضاء', '', [el('b', { class: 'accent', text: (state.guild.memberCount || 0).toLocaleString(numLoc()) })]),
         dField('أولوية الدعم', 'مدة الرد المتوقّعة في التذاكر', [dInput('tickets.responseTime', { narrow: true })]),
       ];
       frag.appendChild(dCard('معلومات السيرفر', '', 'info', statusRows));
 
       return frag;
+    },
+  },
+
+  /* ------------------------------ اشتراك البوت ------------------------------ */
+  premium: {
+    group: 'عام',
+    label: 'الاشتراك',
+    title: 'الاشتراك',
+    desc: 'خطة البوت لهذا السيرفر. مو دعم ديسكورد، وما في خصم من البطاقة.',
+    render() {
+      return renderPremium();
     },
   },
 
@@ -607,6 +755,22 @@ const SECTIONS = {
       wrap.appendChild(note);
       wrap.appendChild(box);
       loadSiteMembers(note, box);
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ اشتراكات البوت (للمالك فقط) ------------------------------ */
+  subscriptions: {
+    group: 'إدارة الموقع',
+    ownerOnly: true,
+    label: 'الاشتراكات',
+    title: 'الاشتراكات',
+    desc: 'تفعيل البريميوم وإلغاؤه، وأسعار الخطط. ما في دفع بالبطاقة من الموقع.',
+    render() {
+      const wrap = el('div');
+      const box = el('div', { html: '<div class="d-empty">جارٍ التحميل…</div>' });
+      wrap.appendChild(box);
+      loadSubscriptions(box);
       return wrap;
     },
   },

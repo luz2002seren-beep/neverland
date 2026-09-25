@@ -149,6 +149,12 @@ module.exports = {
     return { ...current, settings: merged, updatedAt: now() };
   },
 
+  setPremium(guildId, on) {
+    this.ensureGuild(guildId);
+    db.prepare('UPDATE guilds SET premium = ?, updated_at = ? WHERE id = ?').run(on ? 1 : 0, now(), guildId);
+    return true;
+  },
+
   setGuildPath(guildId, dotPath, value, defaults) {
     const patch = {};
     const keys = dotPath.split('.');

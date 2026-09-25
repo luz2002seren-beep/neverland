@@ -32,6 +32,7 @@ const { mergeSettings } = require('../../database/defaults');
 const sync = require('../../sync');
 const webGuilds = require('../guilds');
 const { guildIconUrl, initials } = require('../../lib/discordIcon');
+const premiumLib = require('../../lib/premium');
 
 const router = express.Router();
 
@@ -267,6 +268,7 @@ router.get('/guilds/:guildId', async (req, res) => {
       })(),
       autolineStyles: Object.entries(require('../../systems/autoline').GIF_STYLES).map(([key, meta]) => ({ key, ...meta })),
     },
+    premium: premiumLib.publicView(guildId),
     viewer: {
       canEdit: canEdit(req),
       isOwner: Boolean(req.session?.user && siteUsers.isOwner(req.session.user.id)),
@@ -467,6 +469,22 @@ router.post('/guilds/:guildId/settings', async (req, res) => {
   });
 
   return res.json({ ok: true, settings: db.getGuild(guildId).settings, savedAt: Date.now() });
+});
+
+/* ------------------------------- اشتراك البوت ------------------------------- */
+
+router.post('/guilds/:guildId/premium/request', async (req, res) => {
+  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
+  const { guildId } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+  const result = premiumLib.request(guildId, premiumLib.hideIds(req.body?.note || ''));
+  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
+  audit.guild(req, guildId, {
+    action: 'premium.request',
+    target: 'premium',
+    detail: 'طلب اشتراك بريميوم',
+  });
+  return res.json({ ok: true, message: result.message, premium: result.view });
 });
 
 /* ------------------------------- معاينة صورة الترحيب ------------------------------- */

@@ -150,6 +150,15 @@ module.exports = {
     return hydrateGuild(guildId, defaults);
   },
 
+  setPremium(guildId, on) {
+    this.ensureGuild(guildId);
+    const row = store.guilds[guildId];
+    row.premium = on ? 1 : 0;
+    row.updatedAt = now();
+    scheduleSave();
+    return true;
+  },
+
   setGuildPath(guildId, dotPath, value, defaults) {
     const patch = {};
     const keys = dotPath.split('.');

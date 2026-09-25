@@ -52,6 +52,15 @@ module.exports = {
         { name: 'مستوى الدعم', value: `المستوى ${guild.premiumTier} (${guild.premiumSubscriptionCount ?? 0} دعم)`, inline: true },
         { name: 'مستوى التحقق', value: VERIFICATION[guild.verificationLevel] ?? '—', inline: true },
         { name: 'اللغة', value: settings.language === 'ar' ? 'العربية 🇸🇦' : 'English 🇬🇧', inline: true },
+        {
+          name: 'خطة البوت',
+          value: (() => {
+            const view = require('../../lib/premium').publicView(guild.id);
+            if (!view.active) return 'مجاني';
+            return ['بريميوم', view.planLabel, view.untilLabel].filter(Boolean).join(' · ');
+          })(),
+          inline: true,
+        },
         { name: 'فلتر المحتوى', value: guild.explicitContentFilter === GuildExplicitContentFilter.Disabled ? 'معطّل' : 'مفعّل', inline: true },
         {
           name: '📊 إحصائيات البوت هنا',

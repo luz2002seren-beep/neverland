@@ -1210,3 +1210,63 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 .d-chart rect { transform-box: fill-box; transform-origin: center bottom; animation: nlBarGrow .45s ease-out both; }
 .d-chart rect.bar-join { animation-delay: .12s; }
 @keyframes nlBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* اشتراك البوت */
+.prem-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #e6c15a;
+  font-weight: 800;
+  font-size: .78rem;
+}
+html[data-theme='light'] .prem-tag { color: #8a6a12; }
+.d-server.is-premium { border-color: rgba(230, 193, 90, .55); }
+.prem-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #e6c15a;
+  color: #1a1404;
+  font-size: .72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.d-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 10px;
+}
+.d-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+.d-plan.on { border-color: #e6c15a; }
+.d-plan .price { color: var(--muted); font-size: .82rem; }
+.d-prem-list { display: flex; flex-direction: column; gap: 8px; }
+.d-prem-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.d-prem-row.is-request { border-color: rgba(230, 193, 90, .7); }
+.d-prem-row.is-on { border-color: rgba(87, 242, 135, .45); }
+.d-prem-who { min-width: 0; display: flex; flex-direction: column; gap: 3px; flex: 1 1 180px; }
+.d-prem-who span, .d-prem-note { color: var(--muted); font-size: .8rem; }
+.d-prem-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.d-prem-prices { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.d-prem-prices .d-input { flex: 1 1 160px; min-width: 0; }

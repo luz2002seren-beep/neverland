@@ -75,6 +75,17 @@ const COMMANDS = {
     audience: 'member',
     text: true,
   },
+  premium: {
+    category: 'general',
+    label: 'الاشتراك',
+    what: 'يعرض خطة البوت: مجاني أو بريميوم، وتاريخ الانتهاء.',
+    usage: ['premium'],
+    examples: ['premium'],
+    aliases: ['prem'],
+    perm: null,
+    audience: 'member',
+    text: true,
+  },
   userinfo: {
     category: 'general',
     label: 'معلومات عضو',

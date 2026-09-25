@@ -144,7 +144,7 @@ function linkButtons(rows) {
   const memberNames = catalog.namesOf('member');
   const staffNames = catalog.namesOf('staff');
   console.log('٩) الكتالوج: أوامر الأعضاء', memberNames.length, '· أوامر الإدارة', staffNames.length);
-  assert.strictEqual(memberNames.length, 10, 'عدد أوامر الأعضاء تغيّر');
+  assert.strictEqual(memberNames.length, 11, 'عدد أوامر الأعضاء تغيّر');
   assert.strictEqual(staffNames.length, 20, 'عدد أوامر الإدارة تغيّر');
   assert.strictEqual(memberNames.length + staffNames.length, Object.keys(catalog.COMMANDS).length, 'أمر بلا تصنيف');
 

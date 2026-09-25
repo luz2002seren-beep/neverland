@@ -658,6 +658,8 @@ img.guild-icon:not([src]), img.guild-icon[src=""] { visibility: hidden; }
 
 /* بطاقة السيرفر: النصوص الطويلة تلتف بدل ما تخرج */
 .guild-card { overflow: hidden; }
+.prem-pill { color: #e6c15a; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; }
+html[data-theme='light'] .prem-pill { color: #8a6a12; }
 .guild-info { min-width: 0; flex: 1 1 auto; display: flex; flex-direction: column; gap: 3px; }
 .guild-info b { display: block; overflow-wrap: anywhere; line-height: 1.35; }
 .guild-info .muted { display: block; overflow-wrap: anywhere; }
