@@ -84,7 +84,7 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
          <span class="user-name" data-nl-raw>${escapeHtml(user.globalName || user.username || 'مستخدم')}</span>
          <a class="btn btn-ghost" href="/auth/logout">${icon('logout', { size: 17 })} خروج</a>
        </div>`
-    : `<a class="btn btn-primary" href="/auth/login">${icon('login', { size: 17 })} تسجيل الدخول بـ Discord</a>`;
+    : `<a class="btn btn-primary" href="/auth/login">${icon('login', { size: 17 })} <span class="btn-label">تسجيل الدخول بـ Discord</span></a>`;
 
   const langSwitch = `<div class="lang-switch" role="group" aria-label="${lang === 'fr' ? 'Langue' : lang === 'en' ? 'Language' : 'اللغة'}">
       <button type="button" class="lang-btn${lang === 'ar' ? ' on' : ''}" data-set-lang="ar" title="العربية" aria-label="العربية">ع</button>
@@ -96,7 +96,7 @@ function layout({ title, body, user = null, extraHead = '', bodyClass = '', nonc
 <html lang="${lang}" dir="${dir}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="description" content="${escapeHtml(metaDesc)}">
 <meta name="theme-color" content="#0d1017" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)">

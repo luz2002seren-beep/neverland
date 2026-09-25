@@ -1292,6 +1292,64 @@ function toggleSide() {
   document.body.classList.toggle('side-open');
 }
 
+let mobileBound = false;
+function bindMobileShell() {
+  if (mobileBound) return;
+  mobileBound = true;
+  const root = document.documentElement;
+  const syncKeyboard = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    root.style.setProperty('--kb', kb + 'px');
+  };
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncKeyboard);
+    window.visualViewport.addEventListener('scroll', syncKeyboard);
+    syncKeyboard();
+  }
+  window.addEventListener('resize', () => {
+    if (!drawerMode()) closeSide();
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closeSide();
+  });
+  document.addEventListener('focusin', (ev) => {
+    const node = ev.target;
+    if (!node || !node.matches || !node.matches('input, textarea, select')) return;
+    setTimeout(() => {
+      try { node.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch { /* قديم */ }
+    }, 60);
+  });
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+  document.addEventListener('touchstart', (ev) => {
+    if (!drawerMode() || ev.touches.length !== 1) return;
+    const t = ev.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    const rtl = root.dir !== 'ltr';
+    const fromEdge = rtl ? startX > window.innerWidth - 28 : startX < 28;
+    tracking = document.body.classList.contains('side-open') || fromEdge;
+  }, { passive: true });
+  document.addEventListener('touchend', (ev) => {
+    if (!tracking || !drawerMode()) return;
+    tracking = false;
+    const t = ev.changedTouches && ev.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return;
+    const rtl = root.dir !== 'ltr';
+    const open = document.body.classList.contains('side-open');
+    const towardClose = rtl ? dx > 0 : dx < 0;
+    const towardOpen = rtl ? dx < 0 : dx > 0;
+    if (open && towardClose) closeSide();
+    else if (!open && towardOpen) document.body.classList.add('side-open');
+  }, { passive: true });
+}
+
 function buildSidebar() {
   const side = el('aside', { class: 'd-side' });
 
@@ -1975,6 +2033,7 @@ async function boot() {
 
     items.forEach(({ item }) => item.classList.toggle('active', item.dataset.id === state.section));
     if (drawerMode()) closeSide();
+    bindMobileShell();
     renderSection(state.section);
     updateDots(items);
     connectLive();

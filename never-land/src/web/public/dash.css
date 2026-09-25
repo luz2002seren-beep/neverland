@@ -1211,6 +1211,82 @@ tr.au-warn td { background: rgba(240, 199, 94, .05); }
 .d-chart rect.bar-join { animation-delay: .12s; }
 @keyframes nlBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
+/* الجوال: الترويسة ما تتداخل، والدرج يبقى مليان الصفحة */
+@media (max-width: 900px) {
+  .d-topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "menu brand status" "actions actions actions";
+    align-items: center;
+    gap: 8px;
+    padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+  }
+  .d-side-toggle { grid-area: menu; min-height: 44px; }
+  .d-top-brand {
+    position: static;
+    left: auto;
+    right: auto;
+    inset: auto;
+    transform: none;
+    grid-area: brand;
+    justify-content: flex-start;
+    min-width: 0;
+    font-size: .95rem;
+  }
+  .d-top-status {
+    grid-area: status;
+    max-width: 34vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .d-head-actions {
+    grid-area: actions;
+    width: auto;
+    margin: 0;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .d-head-actions::-webkit-scrollbar { display: none; }
+  .d-head-actions .d-btn,
+  .d-head-actions .lang-btn { flex: 0 0 auto; min-height: 40px; }
+  .d-side {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .d-side-close { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+  .d-nav-item { min-height: 44px; }
+  .d-search input,
+  .d-content input,
+  .d-content select,
+  .d-content textarea { font-size: 16px; }
+  .d-module-head { flex-wrap: wrap; align-items: flex-start; }
+  .d-page-title { font-size: clamp(1.15rem, 4.2vw, 1.45rem); }
+  .d-main { scroll-padding-bottom: calc(96px + var(--kb, 0px)); }
+  .d-savebar { bottom: var(--kb, 0px); }
+  .d-shell:has(.d-savebar.show) .d-main { padding-bottom: calc(120px + var(--kb, 0px)); }
+}
+@media (max-width: 420px) {
+  .d-top-status { font-size: 0; max-width: none; }
+  .d-top-status::before {
+    content: "";
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: currentColor;
+    display: inline-block;
+  }
+  .d-prem-actions .d-btn { flex: 1 1 calc(50% - 6px); justify-content: center; }
+}
+@media (hover: none) {
+  .d-btn, .d-nav-item, .d-side-close, .d-side-toggle { touch-action: manipulation; }
+}
+
 /* اشتراك البوت */
 .prem-tag {
   display: inline-flex;
