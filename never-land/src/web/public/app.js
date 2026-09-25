@@ -710,7 +710,8 @@ async function resolveMembers(ids) {
 function memberCell(map, id) {
   const member = map.get(String(id));
   const cell = el('div', { class: 'd-member' });
-  if (member?.avatar) cell.appendChild(el('img', { src: member.avatar, alt: '' }));
+  const initial = (member?.displayName || member?.username || '؟').trim().charAt(0).toUpperCase();
+  cell.appendChild(el('span', { class: 'sm-av', text: initial }));
   const txt = el('div');
   txt.appendChild(el('div', { class: 'nm', text: member?.displayName || member?.username || 'بدون اسم' }));
   if (member?.username) txt.appendChild(el('div', { class: 'tg', text: `@${member.username}` }));
@@ -1474,6 +1475,7 @@ function renderSection(id) {
   // كل قسم يقدر يرجّع عنصرًا واحدًا أو مصفوفة عناصر أو Fragment
   const output = section.render();
   (Array.isArray(output) ? output : [output]).filter(Boolean).forEach((node) => content.appendChild(node));
+  scrubVisibleIds(content);
   if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
   if (window.NL && window.NL.refresh) window.NL.refresh();
 }
@@ -1500,7 +1502,10 @@ function updateDots(items) {
  * يمنع تكرار البادئة الذي كان يُنتج صورة مكسورة.
  */
 function guildIconUrl(guildId, icon, size = 128) {
-  if (!icon || !guildId) return null;
+  if (!icon) return null;
+  const value = String(icon);
+  if (value.startsWith('/')) return value.includes('size=') ? value.replace(/size=\d+/, `size=${size}`) : value;
+  if (/\d{15,25}/.test(value) || /\d{15,25}/.test(String(guildId || ''))) return `/api/guild-icon?size=${size}`;
   const v = String(icon).trim();
   if (!v) return null;
   if (/^https?:\/\//i.test(v)) return v;
@@ -1649,14 +1654,58 @@ function hideGuildFromAddressBar() {
   } catch { /* المتصفح منع تعديل الرابط */ }
 }
 
+const SNOWFLAKE = /\d{15,25}/;
+
+/** يشيل أي رقم طويل من النص الظاهر في كل أقسام اللوحة */
+function scrubVisibleIds(root) {
+  if (!root || !root.querySelectorAll) return;
+  const skip = new Set(['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'OPTION', 'SELECT']);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || skip.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
+      return SNOWFLAKE.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach((node) => {
+    const next = String(node.nodeValue || '').replace(/\d{15,25}/g, '');
+    if (next !== node.nodeValue) node.nodeValue = next;
+  });
+  root.querySelectorAll('[title]').forEach((el) => {
+    const title = el.getAttribute('title') || '';
+    if (!SNOWFLAKE.test(title)) return;
+    el.setAttribute('title', title.replace(/\d{15,25}/g, ''));
+  });
+}
+
+let idsWatched = false;
+function watchVisibleIds(root) {
+  if (!root || idsWatched) return;
+  idsWatched = true;
+  scrubVisibleIds(root);
+  const observer = new MutationObserver(() => scrubVisibleIds(root));
+  observer.observe(root, { childList: true, subtree: true, characterData: true });
+}
+
+async function resolveGuildId(root) {
+  const fromPage = String(root?.dataset?.guild || '').trim();
+  if (fromPage) return fromPage;
+  const data = await api('/active-guild');
+  return data.id;
+}
+
 /* ============================ الإقلاع ============================ */
 async function boot() {
   hideGuildFromAddressBar();
   const root = document.getElementById('app');
-  state.guildId = root.dataset.guild;
+  if (!root) return;
   root.innerHTML = '<div class="d-loading"><div class="d-spinner"></div><div>جارٍ تحميل إعدادات السيرفر…</div></div>';
+  watchVisibleIds(document.body);
 
   try {
+    state.guildId = await resolveGuildId(root);
     const data = await api(`/guilds/${state.guildId}`);
     if (data.viewer?.locked) {
       root.innerHTML = `<div class="d-loading"><div class="d-empty-ico">${ic('lock', 34)}</div><div>بيانات السيرفر والأعضاء ما تنعرض إلا بعد تسجيل الدخول.</div><a class="d-btn primary" href="/auth/login">تسجيل الدخول</a></div>`;

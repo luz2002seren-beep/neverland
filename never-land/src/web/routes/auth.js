@@ -105,7 +105,6 @@ router.get('/callback', async (req, res) => {
          <body><div class="box"><h1>هذا الحساب محظور من الموقع</h1>
            <p>تم منع حسابك من دخول الموقع${entry.note ? ` — السبب: ${String(entry.note).replace(/[<>]/g, '')}` : ''}.<br>
            لو تعتقد أن هذا خطأ، تواصل مع إدارة السيرفر.</p>
-           <p style="margin-top:12px"><code>${String(user.id)}</code></p>
          </div></body></html>`,
       );
     }

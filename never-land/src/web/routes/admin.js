@@ -160,7 +160,7 @@ router.post('/members/:id/status', async (req, res) => {
   audit.record(req, {
     action: actionMap[status] || 'member.status',
     target: id,
-    detail: `${siteUsers.get(id)?.globalName || siteUsers.get(id)?.username || id}${reason ? ` — السبب: ${reason}` : ''}`,
+    detail: `${siteUsers.get(id)?.globalName || siteUsers.get(id)?.username || 'عضو'}${reason ? ` — السبب: ${reason}` : ''}`,
     severity: status === 'banned' ? 'danger' : 'warn',
   });
 
@@ -201,7 +201,7 @@ router.delete('/members/:id', (req, res) => {
   audit.record(req, {
     action: 'member.forget',
     target: req.params.id,
-    detail: `حذف ${target?.globalName || target?.username || req.params.id} من السجل`,
+    detail: `حذف ${target?.globalName || target?.username || 'عضو'} من السجل`,
     severity: 'warn',
   });
   return res.json({ ok: true, message: 'تم حذف الحساب من سجل الموقع.' });

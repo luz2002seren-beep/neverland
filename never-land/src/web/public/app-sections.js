@@ -241,7 +241,7 @@ const SECTIONS = {
       const frag = document.createDocumentFragment();
 
       /* --------- ١) صورة الترحيب (بطاقة بالأفتار) — الأهم --------- */
-      const previewPath = `/api/guilds/${state.guildId}/welcome/card`;
+      const previewPath = '/api/welcome-card';
       const previewBox = el('div', { class: 'wc-preview' });
       const previewImg = el('img', { alt: 'معاينة صورة الترحيب', src: `${previewPath}?t=${Date.now()}` });
       const refreshBtn = el('button', { class: 'd-btn sm', html: `${ic('refresh', 14)} تحديث المعاينة` });
@@ -335,7 +335,7 @@ const SECTIONS = {
         missing.forEach((m) => {
           const row = el('div', { class: 'd-empty' });
           row.appendChild(el('b', { text: `${m.name} ` }));
-          row.appendChild(el('span', { text: `(${m.animated ? 'متحرك' : 'ثابت'} · ${m.id}) — مو موجود في السيرفر، وراح ينطبع كنص «:${m.name}:». أضِفه للسيرفر ويرجع يظهر تلقائيًا.` }));
+          row.appendChild(el('span', { text: `(${m.animated ? 'متحرك' : 'ثابت'}) — مو موجود في السيرفر، وراح ينطبع كنص «:${m.name}:». أضِفه للسيرفر ويرجع يظهر تلقائيًا.` }));
           emojiCheck.appendChild(row);
         });
       };
@@ -375,7 +375,7 @@ const SECTIONS = {
               dChips('welcome.imageFirst', [ { value: true, label: 'الصورة أولًا ثم النص (رسالتان)' }, { value: false, label: 'رسالة واحدة (صورة + نص)' } ]),
             ], { wide: true }),
             dField('منشن الداعي في {inviter}', 'مفعّل = {inviter} يطلع منشن · مطفأ = اسم الداعي فقط', [dSwitch('welcome.inviterMention')]),
-            dField('منشن الدعوة العامة', 'آيدي العضو الذي يُمنشن لما تكون الدعوة عامة (رابط عام/فانيتي) أو صاحبها غير معروف — بدل «غير معروف»', [dInput('welcome.publicInviterId', { full: true, placeholder: 'مثال: 1345866950776979547' })], { wide: true }),
+            dField('منشن الدعوة العامة', 'آيدي العضو الذي يُمنشن لما تكون الدعوة عامة (رابط عام/فانيتي) أو صاحبها غير معروف — بدل «غير معروف»', [dInput('welcome.publicInviterId', { full: true, placeholder: 'آيدي العضو' })], { wide: true }),
             dField('أكواد الدعوات العامة', 'روابط/أكواد تُعتبر عامة ⇒ يُمنشن صاحب الدعوة العام بدل صانع الرابط — افصل بينها بفاصلة أو سطر', [welcomePublicCodes()], { wide: true }),
             dField('إيموجي بديل (يونيكود)', 'يُستخدم وقت الإرسال إذا تعذّر رفع الإيموجي الخارجي للسيرفر — بدل ما ينطبع :os49: نصًا', [dInput('welcome.emojiFallback', { narrow: true, placeholder: 'بدون' })]),
             dField('حذف تلقائي بعد (ثانية)', '0 = لا يُحذف', [dNumber('welcome.autoDeleteAfter')]),

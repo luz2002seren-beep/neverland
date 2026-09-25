@@ -311,7 +311,6 @@ function bannedBody(user, entry = {}) {
 /** صفحة الانتظار: الحساب وصل للمالك، وما يدخل إلا بعد ما يضيفه */
 function pendingBody(user) {
   const who = user ? escapeHtml(user.globalName || user.username) : '';
-  const id = user ? escapeHtml(String(user.id || '')) : '';
   return `
   <section class="site-hero" style="text-align:center;max-width:720px;margin-inline:auto">
     <span class="pill">${icon('shield', { size: 15 })} بانتظار الموافقة</span>
@@ -320,7 +319,6 @@ function pendingBody(user) {
     <div class="mock-panel" style="text-align:start;margin-top:18px">
       <div class="mock-title">${icon('userPlus', { size: 16 })} حسابك</div>
       <div class="mock-row"><span class="mock-ico">${icon('userPlus', { size: 16 })}</span> ${who || 'بدون اسم'}</div>
-      <div class="mock-row"><span class="mock-ico">${icon('tag', { size: 16 })}</span> المعرّف: <code>${id || '—'}</code></div>
     </div>
     <div class="site-cta" style="margin-top:18px">
       <a class="btn btn-primary" href="/dashboard">${icon('refresh', { size: 16 })} أعدت المحاولة</a>
@@ -536,10 +534,13 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   const withBot = guilds.filter((g) => g.botPresent).length;
   const numLoc = pickLang(req) === 'fr' ? 'fr-FR' : pickLang(req) === 'en' ? 'en-US' : 'ar-EG';
 
+  const guildPick = [];
   const cards = guilds.length
     ? guilds
         .map((g) => {
-          const iconUrl = guildIconUrl(g.id, g.icon);
+          const pick = guildPick.length;
+          if (g.botPresent) guildPick.push({ id: String(g.id), icon: g.icon || null });
+          const iconUrl = g.botPresent ? `/guild-icon/${pick}` : null;
           const thumb = iconUrl
             ? `<img class="guild-icon" src="${escapeHtml(iconUrl)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'guild-icon placeholder',textContent:this.dataset.initials}))" data-initials="${escapeHtml(initials(g.name))}">`
             : `<div class="guild-icon placeholder">${escapeHtml(initials(g.name))}</div>`;
@@ -561,7 +562,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
           }
         </div>`;
           return g.botPresent
-            ? `<form method="post" action="/dashboard/open" class="guild-card-form"><input type="hidden" name="guild" value="${escapeHtml(g.id)}"><button type="submit" class="guild-card" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="1">${cardInner}</button></form>`
+            ? `<form method="post" action="/dashboard/open" class="guild-card-form"><input type="hidden" name="pick" value="${pick}"><button type="submit" class="guild-card" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="1">${cardInner}</button></form>`
             : `<div class="guild-card disabled" data-name="${escapeHtml(String(g.name || '').toLowerCase())}" data-bot="0">${cardInner}</div>`;
         })
         .join('')
@@ -673,6 +674,12 @@ router.get('/dashboard', requireAuth, async (req, res) => {
       : ''
   }`;
 
+  if (req.session) {
+    req.session.guildPick = guildPick;
+    if (typeof req.session.save === 'function') {
+      await new Promise((resolve) => req.session.save(() => resolve()));
+    }
+  }
   res.send(layout({ title: 'السيرفرات', body, user: req.user, req }));
 });
 
@@ -693,10 +700,11 @@ function browserWantsHtml(req) {
   return String(req.get('Accept') || '').includes('text/html');
 }
 
-function sendGuildDashboard(req, res, guildId) {
+function sendGuildDashboard(req, res, guildId, { hideId = false } = {}) {
   const n = res.locals.cspNonce ? ` nonce="${res.locals.cspNonce}"` : '';
+  const guildAttr = hideId ? '' : ` data-guild="${escapeHtml(guildId)}"`;
   const body = `
-  <div id="app" data-guild="${escapeHtml(guildId)}" data-edit="${req.canEdit ? '1' : '0'}" data-owner="${req.isSiteOwner ? '1' : '0'}" data-viewonly="${req.viewOnly ? '1' : '0'}">
+  <div id="app"${guildAttr} data-edit="${req.canEdit ? '1' : '0'}" data-owner="${req.isSiteOwner ? '1' : '0'}" data-viewonly="${req.viewOnly ? '1' : '0'}">
     <div class="loading">جارٍ تحميل الإعدادات...</div>
   </div>
   <script${n}>
@@ -725,8 +733,16 @@ function sendGuildDashboard(req, res, guildId) {
   );
 }
 
+router.get('/guild-icon/:index', requireAuth, (req, res) => {
+  const row = req.session?.guildPick?.[Number(req.params.index)];
+  const url = row ? guildIconUrl(row.id, row.icon, 128) : null;
+  if (!url) return res.status(404).end();
+  return res.redirect(url);
+});
+
 router.post('/dashboard/open', requireAuth, async (req, res) => {
-  const guildId = String(req.body?.guild || '');
+  const picked = req.session?.guildPick?.[Number(req.body?.pick)];
+  const guildId = String(picked?.id || req.body?.guild || '');
   if (!/^\d{15,25}$/.test(guildId)) return res.redirect('/dashboard');
   if (!config.web.demoData) {
     const allowed = await webGuilds.canAccessGuild(req, guildId);
@@ -743,7 +759,7 @@ router.get('/dashboard/server', requireAuth, async (req, res) => {
     const allowed = await webGuilds.canAccessGuild(req, guildId);
     if (!allowed) return res.redirect('/dashboard');
   }
-  return sendGuildDashboard(req, res, guildId);
+  return sendGuildDashboard(req, res, guildId, { hideId: true });
 });
 
 router.get('/dashboard/:guildId', requireAuth, async (req, res) => {

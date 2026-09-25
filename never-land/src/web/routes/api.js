@@ -168,6 +168,29 @@ router.get('/guilds', async (req, res) => {
   res.json({ guilds: await availableGuilds(req) });
 });
 
+/** السيرفر المفتوح في الجلسة — الرقم ما ينحط في ملف الصفحة */
+router.get('/active-guild', async (req, res) => {
+  const guildId = String(req.session?.activeGuildId || '');
+  if (!/^\d{15,25}$/.test(guildId)) return res.status(404).json({ error: 'none' });
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
+  return res.json({ id: guildId });
+});
+
+/** صورة السيرفر المفتوح بلا رقم في رابط الصفحة */
+router.get('/guild-icon', async (req, res) => {
+  const guildId = String(req.session?.activeGuildId || '');
+  if (!/^\d{15,25}$/.test(guildId)) return res.status(404).end();
+  if (!(await canAccess(req, guildId))) return res.status(403).end();
+  const client = safeClient();
+  const discordGuild = client?.guilds?.cache?.get(guildId);
+  const snapshot = sync.getSnapshot(guildId);
+  const icon = discordGuild?.icon || snapshot?.icon || null;
+  const size = Math.min(4096, Math.max(16, Number(req.query.size) || 128));
+  const url = guildIconUrl(guildId, icon, size);
+  if (!url) return res.status(404).end();
+  return res.redirect(url);
+});
+
 /* ------------------------------------ بيانات سيرفر ------------------------------------ */
 router.get('/guilds/:guildId', async (req, res) => {
   const { guildId } = req.params;
@@ -201,7 +224,7 @@ router.get('/guilds/:guildId', async (req, res) => {
     guild: {
       id: guildId,
       name: discordGuild?.name ?? snapshot?.name ?? guildId,
-      icon: guildIconUrl(guildId, discordGuild?.iconURL?.({ size: 128, extension: 'png' }) || discordGuild?.icon) || guildIconUrl(guildId, snapshot?.icon) || null,
+      icon: (discordGuild?.icon || snapshot?.icon) ? '/api/guild-icon?size=128' : null,
       memberCount: discordGuild?.memberCount ?? snapshot?.memberCount ?? null,
       ownerId: trusted ? (discordGuild?.ownerId ?? snapshot?.ownerId ?? null) : null,
       botPresent: Boolean(discordGuild) || Boolean(snapshot),
@@ -452,9 +475,9 @@ router.post('/guilds/:guildId/settings', async (req, res) => {
  * يرجّع صورة الترحيب (PNG) حسب إعدادات السيرفر الحالية — تُعرض مباشرة في اللوحة.
  * الصورة تُبنى بنفس كود البوت تمامًا (src/lib/welcomeCard.js).
  */
-router.get('/guilds/:guildId/welcome/card', async (req, res, next) => {
+async function sendWelcomeCard(req, res, next) {
   try {
-  const { guildId } = req.params;
+  const guildId = String(req.params.guildId || req.session?.activeGuildId || '');
   if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
 
   require('../../systems/welcome').ensureStyle(guildId);
@@ -531,7 +554,9 @@ router.get('/guilds/:guildId/welcome/card', async (req, res, next) => {
   } catch (err) {
     return next(err);
   }
-});
+}
+router.get('/welcome-card', sendWelcomeCard);
+router.get('/guilds/:guildId/welcome/card', sendWelcomeCard);
 
 /* ------------------------------- مكتبة الأوامر ------------------------------- */
 
