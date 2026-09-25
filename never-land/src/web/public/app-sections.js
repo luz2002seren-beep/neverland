@@ -88,7 +88,6 @@ const SECTIONS = {
       const statusRows = [
         dField('حالة البوت', '', [el('span', { class: 'd-chip', html: state.guild.botOnline ? `<span class="state-on">متصل</span>` : `<span class="state-off">غير متصل</span>` })]),
         dField('عدد الأعضاء', '', [el('b', { class: 'accent', text: (state.guild.memberCount || 0).toLocaleString(numLoc()) })]),
-        dField('معرّف السيرفر', '', [el('code', { class: 'd-kbd', text: state.guild.id })]),
         dField('أولوية الدعم', 'مدة الرد المتوقّعة في التذاكر', [dInput('tickets.responseTime', { narrow: true })]),
       ];
       frag.appendChild(dCard('معلومات السيرفر', '', 'info', statusRows));

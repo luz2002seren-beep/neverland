@@ -1134,8 +1134,8 @@ async function loadSiteMembers(note, box) {
       const line = el('div', { class: 'sm-who' });
       line.appendChild(el('span', { class: 'sm-av', text: (m.globalName || m.username || '؟').trim().charAt(0).toUpperCase() }));
       const names = el('div');
-      names.appendChild(el('b', { text: m.globalName || m.username || m.id }));
-      names.appendChild(el('span', { class: 'sm-id', text: `${m.isOwner ? 'مالك الموقع · ' : ''}${m.id}` }));
+      names.appendChild(el('b', { text: m.globalName || m.username || 'بدون اسم' }));
+      if (m.isOwner) names.appendChild(el('span', { class: 'sm-id', text: 'مالك الموقع' }));
       line.appendChild(names);
       who.appendChild(line);
       tr.appendChild(who);
