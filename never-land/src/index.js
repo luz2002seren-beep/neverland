@@ -89,11 +89,40 @@ async function startBot() {
     }
   });
 
-  await client.login(config.bot.token).catch((err) => {
-  console.error('[خطأ] فشل تسجيل الدخول:', err.message);
-    console.error('   تأكد من صحة DISCORD_TOKEN وأن Intents مفعّلة في Developer Portal.');
-    return null;
+  client.on('error', (err) => console.error('[ديسكورد] خطأ:', err?.message || err));
+  client.on('shardError', (err) => console.error('[ديسكورد] خطأ اتصال:', err?.message || err));
+  client.on('shardDisconnect', (event, id) => console.error('[ديسكورد] انقطع الاتصال', id, event?.code || ''));
+  client.on('debug', (msg) => {
+    const line = String(msg || '');
+    if (/token|authorization/i.test(line)) return;
+    console.log('[ديسكورد]', line.slice(0, 220));
   });
+
+  const token = String(config.bot.token || '').trim();
+  let connected = false;
+  for (let attempt = 1; attempt <= 4 && !connected; attempt += 1) {
+    console.log(`[دخول] محاولة الاتصال ${attempt}`);
+    try {
+      await Promise.race([
+        client.login(token),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 20000)),
+      ]);
+      connected = Boolean(client.isReady());
+    } catch (err) {
+      console.error(`[دخول] فشلت المحاولة ${attempt}:`, err?.message || err);
+      try { client.destroy(); } catch { /* إعادة المحاولة */ }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+  if (!connected) {
+    console.error('[دخول] البوت ما اتصل. الموقع يبقى شغال، والمحاولة تتكرر كل دقيقة.');
+    setInterval(() => {
+      if (client.isReady()) return;
+      client.login(token).catch((err) => console.error('[دخول] إعادة:', err?.message || err));
+    }, 60000);
+  } else {
+    console.log('[دخول] البوت اتصل');
+  }
 
   if (problems.length) {
   console.warn('[تنبيه] ملاحظات على الإعدادات:');

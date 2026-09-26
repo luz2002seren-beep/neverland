@@ -165,9 +165,12 @@ function createApp() {
 
   // فحص صحة عام (للنشر: Railway/Render/Docker) — بلا تسجيل دخول وبلا بيانات حساسة
   app.get('/healthz', (_req, res) => {
+    let bot = false;
+    try { bot = Boolean(require('../client').isReady?.()); } catch { bot = false; }
     res.status(200).json({
       ok: true,
       site: config.web.siteName,
+      bot,
       uptime: Math.round(process.uptime()),
       time: new Date().toISOString(),
     });
