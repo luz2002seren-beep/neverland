@@ -102,58 +102,8 @@ async function startBot() {
   });
 
   const token = String(config.bot.token || '').trim();
-  try {
-    const { Agent } = require('undici');
-    client.rest.setAgent(new Agent({
-      connect: { timeout: 8000, family: 4 },
-      headersTimeout: 8000,
-      bodyTimeout: 8000,
-      allowH2: false,
-    }));
-  } catch (err) {
-    console.error('[دخول] تعذّر ضبط الاتصال:', err?.message || err);
-  }
-  await new Promise((resolve) => {
-    const https = require('node:https');
-    const req = https.get('https://discord.com/api/v10/gateway', { family: 4, timeout: 8000 }, (res) => {
-      res.resume();
-      console.log('[دخول] فحص ديسكورد:', res.statusCode);
-      resolve();
-    });
-    req.on('timeout', () => {
-      req.destroy();
-      console.error('[دخول] فحص ديسكورد: انتهت المهلة');
-      resolve();
-    });
-    req.on('error', (err) => {
-      console.error('[دخول] فحص ديسكورد:', err.code || err.message);
-      resolve();
-    });
-  });
-  let connected = false;
-  for (let attempt = 1; attempt <= 4 && !connected; attempt += 1) {
-    console.log(`[دخول] محاولة الاتصال ${attempt}`);
-    try {
-      await Promise.race([
-        client.login(token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 20000)),
-      ]);
-      connected = Boolean(client.isReady());
-    } catch (err) {
-      console.error(`[دخول] فشلت المحاولة ${attempt}:`, err?.message || err);
-      try { client.destroy(); } catch { /* إعادة المحاولة */ }
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    }
-  }
-  if (!connected) {
-    console.error('[دخول] البوت ما اتصل. الموقع يبقى شغال، والمحاولة تتكرر كل دقيقة.');
-    setInterval(() => {
-      if (client.isReady()) return;
-      client.login(token).catch((err) => console.error('[دخول] إعادة:', err?.message || err));
-    }, 60000);
-  } else {
-    console.log('[دخول] البوت اتصل');
-  }
+  const connected = await connectDiscord(client, token);
+  if (!connected) console.error('[دخول] البوت ما اتصل بعد. الموقع يبقى شغال.');
 
   if (problems.length) {
   console.warn('[تنبيه] ملاحظات على الإعدادات:');
@@ -161,6 +111,70 @@ async function startBot() {
   }
 
   return client;
+}
+
+function discordGate(token) {
+  const https = require('node:https');
+  return new Promise((resolve) => {
+    const req = https.request({
+      hostname: 'discord.com',
+      path: '/api/v10/gateway/bot',
+      method: 'GET',
+      family: 4,
+      timeout: 10000,
+      headers: { Authorization: `Bot ${token}`, 'User-Agent': 'NeverLand (bot)' },
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        let retryAfter = Number(res.headers['retry-after'] || 0);
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
+          if (!retryAfter && body.retry_after) retryAfter = Number(body.retry_after);
+        } catch { /* الرد مو JSON */ }
+        resolve({ status: res.statusCode, retryAfter });
+      });
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ status: 0, retryAfter: 30 });
+    });
+    req.on('error', () => resolve({ status: 0, retryAfter: 30 }));
+    req.end();
+  });
+}
+
+async function connectDiscord(client, token) {
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    const gate = await discordGate(token);
+    if (gate.status === 429) {
+      const wait = Math.min(Math.max(gate.retryAfter || 45, 20), 180);
+      console.error(`[دخول] ديسكورد طلب الانتظار ${wait} ثانية`);
+      await new Promise((resolve) => setTimeout(resolve, wait * 1000));
+      continue;
+    }
+    if (gate.status !== 200) {
+      console.error(`[دخول] البوابة ردّت ${gate.status || 'بدون رد'} — محاولة بعد نصف دقيقة`);
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+      continue;
+    }
+    console.log(`[دخول] محاولة الاتصال ${attempt}`);
+    try {
+      await Promise.race([
+        client.login(token),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 25000)),
+      ]);
+      if (client.isReady()) {
+        console.log('[دخول] البوت اتصل');
+        return true;
+      }
+    } catch (err) {
+      console.error('[دخول] فشل الدخول:', err?.message || err);
+      try { client.destroy(); } catch { /* المحاولة الجاية */ }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 30000));
+  }
+  return false;
 }
 
 function startWeb() {

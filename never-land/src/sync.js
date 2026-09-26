@@ -205,7 +205,10 @@ function syncFromClient(client) {
 }
 
 /** مزامنة عبر REST (البوت متوقّف لكن التوكن موجود) */
+let restBlockedUntil = 0;
+
 async function syncViaRest() {
+  if (Date.now() < restBlockedUntil) return { guilds: listIds().length, source: 'rest' };
   const token = config.bot.token;
   if (!config.bot.hasToken) throw new Error('لا يوجد توكن');
 
@@ -213,6 +216,11 @@ async function syncViaRest() {
     headers: { Authorization: `Bot ${token}`, 'User-Agent': 'NeverLand (dashboard)' },
   });
 
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get('retry-after') || 60);
+    restBlockedUntil = Date.now() + Math.min(Math.max(retryAfter, 30), 300) * 1000;
+    throw new Error('واجهة ديسكورد طلبت الانتظار');
+  }
   if (!res.ok) throw new Error(`واجهة ديسكورد ردّت ${res.status}`);
   const guilds = await res.json();
   const seen = new Set();
