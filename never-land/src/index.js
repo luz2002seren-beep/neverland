@@ -102,6 +102,34 @@ async function startBot() {
   });
 
   const token = String(config.bot.token || '').trim();
+  try {
+    const { Agent } = require('undici');
+    client.rest.setAgent(new Agent({
+      connect: { timeout: 8000, family: 4 },
+      headersTimeout: 8000,
+      bodyTimeout: 8000,
+      allowH2: false,
+    }));
+  } catch (err) {
+    console.error('[دخول] تعذّر ضبط الاتصال:', err?.message || err);
+  }
+  await new Promise((resolve) => {
+    const https = require('node:https');
+    const req = https.get('https://discord.com/api/v10/gateway', { family: 4, timeout: 8000 }, (res) => {
+      res.resume();
+      console.log('[دخول] فحص ديسكورد:', res.statusCode);
+      resolve();
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      console.error('[دخول] فحص ديسكورد: انتهت المهلة');
+      resolve();
+    });
+    req.on('error', (err) => {
+      console.error('[دخول] فحص ديسكورد:', err.code || err.message);
+      resolve();
+    });
+  });
   let connected = false;
   for (let attempt = 1; attempt <= 4 && !connected; attempt += 1) {
     console.log(`[دخول] محاولة الاتصال ${attempt}`);
