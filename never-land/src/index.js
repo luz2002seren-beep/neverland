@@ -149,7 +149,7 @@ async function connectDiscord(client, token) {
     const gate = await discordGate(token);
     if (gate.status === 429) {
       const raw = Number(gate.retryAfter) || 0;
-      const wait = Math.min(Math.max(raw || 300, 90), 900);
+      const wait = Math.min(Math.max(raw || 300, 90), 86400);
       console.error(`[دخول] ديسكورد طلب الانتظار. الأصلي ${raw || 'غير محدد'} ثانية، سننتظر ${wait}`);
       await new Promise((resolve) => setTimeout(resolve, wait * 1000));
       continue;

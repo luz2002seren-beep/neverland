@@ -218,7 +218,7 @@ async function syncViaRest() {
 
   if (res.status === 429) {
     const retryAfter = Number(res.headers.get('retry-after') || 60);
-    restBlockedUntil = Date.now() + Math.min(Math.max(retryAfter, 30), 300) * 1000;
+    restBlockedUntil = Date.now() + Math.min(Math.max(retryAfter, 60), 86400) * 1000;
     throw new Error('واجهة ديسكورد طلبت الانتظار');
   }
   if (!res.ok) throw new Error(`واجهة ديسكورد ردّت ${res.status}`);
