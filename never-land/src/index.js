@@ -126,6 +126,9 @@ function startWeb() {
   console.log('║     مودريشن • حماية • تذاكر • مستويات • لوحة  ║');
   console.log('╚═══════════════════════════════════════════════╝');
 
+  // الموقع يفتح قبل انتظار ديسكورد، حتى لا يبقى الزائر على صفحة فارغة لو تأخر الدخول.
+  if (runWeb) startWeb();
+
   const botClient = runBot ? await startBot() : null;
   if (!runBot) console.log('[ملاحظة] تم تجاوز تشغيل البوت (--no-bot)');
 
@@ -152,9 +155,7 @@ function startWeb() {
     }
   }
 
-  if (runWeb) {
-    startWeb();
-  } else {
+  if (!runWeb) {
     console.log('[تنبيه] الموقع غير شغّال في هذه الجلسة (--no-web أو web.enabled=false).');
     console.log('        لذلك زر «افتح الموقع» في ديسكورد لن يفتح شيئًا حتى تشغّله.');
   }
