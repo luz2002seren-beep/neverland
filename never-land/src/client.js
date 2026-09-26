@@ -23,8 +23,9 @@ const client = new Client({
   ],
   partials: [Partials.Channel, Partials.GuildMember, Partials.Message, Partials.User, Partials.Reaction],
   allowedMentions: { parse: ['users', 'roles'], repliedUser: false },
-  // إيقاف تشغيل الجاهزية يمنح إقلاعًا أسرع
-  shards: 'auto',
+  shards: [0],
+  rest: { timeout: 10000 },
+  waitGuildTimeout: 8000,
 });
 
 /** كل أوامر السلاش: name -> command module */
