@@ -78,6 +78,28 @@ function premiumStatusNode(view) {
   return wrap;
 }
 
+function premiumCompare() {
+  const rows = [
+    ['شارة على اسم السيرفر', 'نعم', 'ذهبية أقوى'],
+    ['الخبرة', '+25٪', '+50٪ وزيادة'],
+    ['الترحيب والتذكرة', 'سطر درجة ثانية', 'أولوية أوضح'],
+    ['الوحدات الحالية', 'تبقى مجانية', 'تبقى مجانية'],
+    ['السعر', '4 يورو / 25 يورو', '7 يورو / 60 يورو'],
+  ];
+  const table = el('div', { class: 'd-compare' });
+  const head = el('div', { class: 'd-compare-row head' });
+  ['الميزة', 'درجة ثانية', 'درجة أولى'].forEach((label) => head.appendChild(el('span', { text: label })));
+  table.appendChild(head);
+  rows.forEach(([feature, low, high]) => {
+    const row = el('div', { class: 'd-compare-row' });
+    row.appendChild(el('b', { text: feature }));
+    row.appendChild(el('span', { text: low }));
+    row.appendChild(el('span', { text: high }));
+    table.appendChild(row);
+  });
+  return table;
+}
+
 function gradeCard(view, tier) {
   const card = el('div', { class: `d-grade tier-${tier}${view.active && view.tier === tier ? ' on' : ''}` });
   card.appendChild(el('b', { text: tier === 1 ? 'درجة أولى' : 'درجة ثانية' }));
@@ -126,6 +148,7 @@ function renderPremium() {
   grid.appendChild(gradeCard(view, 2));
   grid.appendChild(gradeCard(view, 1));
   frag.appendChild(dCard('الدرجتان', 'درجة ٢ أرخص. درجة ١ ميزاتها أقوى داخل البوت.', 'star', [grid]));
+  frag.appendChild(dCard('مقارنة الاشتراك', 'نفس شكل صفحة الأسعار: درجة أرخص، ودرجة أقوى.', 'check', [premiumCompare()]));
 
   const pay = view.pay || {};
   const order = pay.order;

@@ -18,6 +18,26 @@ const siteUsers = require('../siteUsers');
 const db = require('../../database');
 const premiumLib = require('../../lib/premium');
 
+function commandBoard() {
+  const { COMMANDS } = require('../../data/commandCatalog');
+  const groups = [
+    ['معلومات', ['help', 'ping', 'botinfo', 'serverinfo', 'userinfo', 'avatar']],
+    ['مستويات', ['top', 'leveling']],
+    ['إشراف', ['ban', 'kick', 'timeout', 'warn', 'purge', 'lock', 'unban', 'slowmode', 'role', 'member']],
+    ['إعدادات', ['welcome', 'logs', 'automod', 'tickets', 'autorole', 'autoreply', 'autoline', 'autoreact', 'settings', 'setup']],
+    ['اشتراك', ['premium']],
+    ['أدوات', ['poll', 'remind']],
+  ];
+  return groups.map(([title, names]) => {
+    const cards = names.filter((name) => COMMANDS[name]).map((name) => {
+      const cmd = COMMANDS[name];
+      const usage = Array.isArray(cmd.usage) && cmd.usage[0] ? cmd.usage[0] : name;
+      return `<article class="cmd-card"><b>/${escapeHtml(name)}</b><span>${escapeHtml(cmd.what || '')}</span><code>${escapeHtml(usage)}</code></article>`;
+    }).join('');
+    return `<section class="cmd-group"><h3>${title}</h3><div class="cmd-grid">${cards}</div></section>`;
+  }).join('');
+}
+
 const router = express.Router();
 const { icon, logoMark } = require('../public/icons');
 const access = require('../access');
@@ -159,6 +179,7 @@ ${extraHead}
   </a>
   <nav class="nav">
     <a href="/#features">الميزات</a>
+    <a href="/#plans">الاشتراك</a>
     <a href="/dashboard">لوحة التحكم</a>
     <a href="/#commands">الأوامر</a>
   </nav>
@@ -507,8 +528,42 @@ router.get('/', requireAuth, (req, res) => {
       .join('')}
   </div>
 
+  <div class="section-title" id="plans"><h2>مقارنة الاشتراك</h2><span class="hr"></span></div>
+  <p class="muted pb-note">درجة ٢ أرخص. درجة ١ أقوى داخل البوت. الدفع تحويل، والخطة تتفعل لما يوصل المبلغ.</p>
+  <div class="plan-board">
+    <article class="plan-col">
+      <b>درجة ثانية</b>
+      <span class="plan-price">4 يورو / شهر</span>
+      <span class="plan-price">25 يورو / سنة</span>
+      <ul>
+        <li>شارة على اسم السيرفر</li>
+        <li>خبرة +25٪</li>
+        <li>سطر في الترحيب والتذكرة</li>
+        <li>الوحدات الحالية تبقى مجانية</li>
+      </ul>
+    </article>
+    <article class="plan-col is-strong">
+      <b>درجة أولى</b>
+      <span class="prem-pill">أقوى</span>
+      <span class="plan-price">7 يورو / شهر</span>
+      <span class="plan-price">60 يورو / سنة</span>
+      <ul>
+        <li>شارة ذهبية أقوى</li>
+        <li>خبرة +50٪ وزيادة</li>
+        <li>أولوية أوضح من درجة ثانية</li>
+        <li>الوحدات الحالية تبقى مجانية</li>
+      </ul>
+    </article>
+  </div>
+  <ul class="plan-faq">
+    <li>كل سيرفر له اشتراك واحد. التحويل برقم عملية، والتفعيل بعد تأكيد وصول المبلغ.</li>
+    <li>لو درجة أولى شغالة، دفع درجة ثانية يمدّد المدة وما ينزّل الدرجة.</li>
+    <li>إلغاء البريميوم يوقف الشارة والزيادة، والوحدات المجانية تبقى شغالة.</li>
+  </ul>
+
   <div class="section-title" id="commands"><h2>الأوامر</h2><span class="hr"></span></div>
-  <p class="muted pb-note">الأوامر اختيارية. الإعداد الأساسي من اللوحة، والأمر المكافئ يبقى في ديسكورد.</p>
+  <p class="muted pb-note">الأوامر اختيارية. الإعداد الأساسي من اللوحة، والأمر المكافئ يبقى في ديسكورد. الرد قصير: الإجراء، السبب، ورقم الحالة.</p>
+  <div class="cmd-groups">${commandBoard()}</div>
   <pre class="cmd-preview">${commands
     .map((parts) => `<b>${escapeHtml(parts[0])}</b>  ${parts.slice(1).map((x) => escapeHtml(x)).join('  ')}`)
     .join('\n')}</pre>

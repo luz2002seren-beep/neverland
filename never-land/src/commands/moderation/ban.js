@@ -93,12 +93,7 @@ module.exports = {
       }),
       {
         thumbnail: user.displayAvatarURL({ size: 256 }),
-        fields: [
-          { name: t(lang, 'common.case'), value: `#${result.caseId}`, inline: true },
-          { name: 'الإداري', value: `${interaction.user}`, inline: true },
-          { name: 'النوع', value: durationMs ? `مؤقت (${durationInput})` : 'دائم', inline: true },
-          { name: 'مكان العضو', value: member ? 'داخل السيرفر' : 'خارج السيرفر (حظر بالآيدي)', inline: false },
-        ],
+        fields: durationMs ? [{ name: 'المدة', value: String(durationInput), inline: true }] : [],
       },
     );
 

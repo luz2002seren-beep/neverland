@@ -1364,3 +1364,7 @@ html[data-theme='light'] .prem-tag { color: #8a6a12; }
 .prem-tag.tier-1 { color: #e6c15a; }
 .d-pay-box { display: flex; flex-direction: column; gap: 8px; }
 .d-pay-box .d-input { width: 100%; min-width: 0; }
+.d-compare { display: flex; flex-direction: column; gap: 6px; }
+.d-compare-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+.d-compare-row.head { color: var(--muted); font-size: .78rem; }
+.d-compare-row span, .d-compare-row b { overflow-wrap: anywhere; }

@@ -733,6 +733,22 @@ html[data-theme='light'] .prem-pill { color: #8a6a12; }
   .servers-toolbar .seg button { min-height: 40px; padding: 8px 4px; }
   .page-head p { overflow-wrap: anywhere; }
 }
+.plan-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 8px 0 16px; }
+.plan-col { border: 1px solid var(--border); border-radius: 16px; padding: 16px; background: var(--bg-card); display: flex; flex-direction: column; gap: 6px; }
+.plan-col.is-strong { border-color: #e6c15a; }
+.plan-price { font-weight: 800; }
+.plan-col ul, .plan-faq { margin: 8px 0 0; padding-inline-start: 18px; color: var(--muted); line-height: 1.8; }
+.plan-faq { margin-bottom: 22px; }
+.cmd-groups { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+.cmd-group h3 { margin: 0 0 8px; }
+.cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 8px; }
+.cmd-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cmd-card b { color: var(--text); }
+.cmd-card span, .cmd-card code { color: var(--muted); overflow-wrap: anywhere; }
+.cmd-card code { direction: ltr; text-align: left; font-size: .82rem; }
+@media (max-width: 620px) {
+  .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (hover: none) {
   a, button, .btn, .guild-card, .lang-btn { touch-action: manipulation; }
 }
