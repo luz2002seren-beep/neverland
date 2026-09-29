@@ -23,6 +23,7 @@
 const { MessageFlags } = require('discord.js');
 const db = require('../database');
 const catalog = require('../data/commandCatalog');
+const appConfig = require('../config');
 const { t } = require('../lib/i18n');
 
 /** الأمر: شغّال بلا بريفيكست؟ وما هي اختصاراته؟ */
@@ -1059,10 +1060,30 @@ function replyToMessage(message, payload) {
     return sent;
   };
 
-  const restSend = () => client.rest.post(`/channels/${channelId}/messages`, { body }).then(remember);
-  if (client?.rest && channelId) {
-    return restSend().catch((err) => {
-      console.error('[أوامر] REST فشل:', err?.message || err);
+  const directSend = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bot ${appConfig.bot.token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'NeverLandBot (https://never-land-production.up.railway.app, 1.0)',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(`${res.status} ${data?.message || res.statusText}`);
+      return remember(data);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  if (channelId) {
+    return directSend().catch((err) => {
+      console.error('[أوامر] HTTP مباشر فشل:', err?.message || err);
       if (!message.channel?.send) return null;
       return message.channel.send({
         content: body.content || 'تم.',

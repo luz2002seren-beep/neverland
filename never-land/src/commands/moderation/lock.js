@@ -3,6 +3,42 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const embeds = require('../../lib/embeds');
 const { t } = require('../../lib/i18n');
+const config = require('../../config');
+
+const SEND_BITS = BigInt(PermissionFlagsBits.SendMessages) | BigInt(PermissionFlagsBits.SendMessagesInThreads);
+
+async function putOverwrite(channel, role, lock, reason) {
+  const current = channel.permissionOverwrites.cache.get(role.id);
+  let allow = BigInt(current?.allow?.bitfield ?? current?.allow ?? 0);
+  let deny = BigInt(current?.deny?.bitfield ?? current?.deny ?? 0);
+  if (lock) {
+    allow &= ~SEND_BITS;
+    deny |= SEND_BITS;
+  } else {
+    allow &= ~SEND_BITS;
+    deny &= ~SEND_BITS;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`https://discord.com/api/v10/channels/${channel.id}/permissions/${role.id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bot ${config.bot.token}`,
+        'Content-Type': 'application/json',
+        'X-Audit-Log-Reason': encodeURIComponent(reason).slice(0, 512),
+        'User-Agent': 'NeverLandBot (https://never-land-production.up.railway.app, 1.0)',
+      },
+      body: JSON.stringify({ type: 0, allow: allow.toString(), deny: deny.toString() }),
+      signal: controller.signal,
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(`${res.status} ${data?.message || res.statusText}`);
+    return true;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 module.exports = {
   permissions: [PermissionFlagsBits.ManageChannels],
@@ -50,16 +86,26 @@ module.exports = {
     const reason = interaction.options.getString('السبب') || 'بدون سبب';
 
     const applyLock = async (channel, lock) => {
-      await channel.permissionOverwrites
-        .edit(
-          interaction.guild.roles.everyone,
-          {
-            SendMessages: lock ? false : null,
-            SendMessagesInThreads: lock ? false : null,
-          },
-          { reason: `${lock ? 'قفل' : 'فتح'} بواسطة ${interaction.user.tag} | ${reason}` },
-        )
-        .catch(() => {});
+      const auditReason = `${lock ? 'قفل' : 'فتح'} بواسطة ${interaction.user.tag} | ${reason}`;
+      try {
+        await putOverwrite(channel, interaction.guild.roles.everyone, lock, auditReason);
+      } catch (err) {
+        console.error('[lock] تعديل الصلاحيات المباشر فشل:', err?.message || err);
+        await Promise.race([
+          channel.permissionOverwrites.edit(
+            interaction.guild.roles.everyone,
+            {
+              SendMessages: lock ? false : null,
+              SendMessagesInThreads: lock ? false : null,
+            },
+            { reason: auditReason },
+          ),
+          new Promise((_, reject) => {
+            const timer = setTimeout(() => reject(new Error('مهلة تعديل الصلاحيات')), 5000);
+            timer.unref?.();
+          }),
+        ]).catch((err2) => console.error('[lock] تعديل الصلاحيات فشل:', err2?.message || err2));
+      }
     };
 
     if (sub === 'channel') {
