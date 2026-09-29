@@ -5,7 +5,7 @@
  * يُطبَّق مرة واحدة لكل نسخة ربط حتى ما يمسح تعديل لاحق من اللوحة.
  */
 const GUILD_ID = '1160219059921629276';
-const LINK_VERSION = 2;
+const LINK_VERSION = 3;
 
 const ROOMS = {
   member: '1553824779545616464',

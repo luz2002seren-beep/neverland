@@ -248,11 +248,11 @@ function boundChannelId(guildId, eventKey) {
 }
 
 function isEventEnabled(guildId, eventKey) {
+  if (boundChannelId(guildId, eventKey)) return true;
   const settings = db.getGuildSettings(guildId);
+  if (settings.logs?.enabled === false) return false;
   const events = settings.logs?.events || {};
-  if (events[eventKey] === false) return false;
-  if (settings.logs?.enabled === false && !boundChannelId(guildId, eventKey)) return false;
-  return events[eventKey] === true || Boolean(boundChannelId(guildId, eventKey));
+  return events[eventKey] === true;
 }
 
 /**
@@ -340,12 +340,21 @@ async function deliverLog(client, channel, channelId, payload) {
   return client.rest.post(`/channels/${channelId}/messages`, { body });
 }
 
+const recentLog = new Map();
+
 async function send(client, guild, eventKey, data = {}) {
   try {
     if (!guild) return null;
     if (!isEventEnabled(guild.id, eventKey)) {
-      console.log(`[لوق] متوقف ${eventKey}`);
+      console.log(`[لوق] متوقف ${eventKey} ${guild.id}`);
       return null;
+    }
+    const stamp = `${eventKey}:${data.footer || ''}:${data.channelId || ''}:${String(data.description || '').slice(0, 80)}`;
+    const now = Date.now();
+    if (recentLog.has(stamp) && now - recentLog.get(stamp) < 5000) return null;
+    recentLog.set(stamp, now);
+    if (recentLog.size > 300) {
+      for (const [key, at] of recentLog) if (now - at > 5000) recentLog.delete(key);
     }
     if (shouldIgnore(guild.id, { channelId: data.channelId, member: data.member })) {
       console.log(`[لوق] متجاهل ${eventKey}`);
