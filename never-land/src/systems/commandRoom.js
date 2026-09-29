@@ -511,6 +511,28 @@ async function runOnce(client, guildId, { force = false } = {}) {
 }
 
 /**
+ * 🔎 تشخيص الفشل: هل ديسكورد حاجب IP السيرفر؟
+ * (Cloudflare يرجّع 429 مع retry-after طويلة ⇒ كل طلبات BOT معلّقة — مو مشكلة كود.)
+ * نطلب نقطة عامة بلا توكن مرة وحدة عند أول فشل.
+ * @returns {Promise<?string>} وصف قصير للسبب أو null
+ */
+async function probeBlockReason() {
+  try {
+    const res = await raceTimeout(fetch('https://discord.com/api/v10/gateway', { headers: { 'User-Agent': 'NeverLand-Diag/1.0' } }), 8000, null);
+    if (!res) return 'لا استجابة من ديسكورد (مهلة)';
+    const retry = res.headers?.get?.('retry-after');
+    const ray = res.headers?.get?.('cf-ray');
+    if (res.status === 429 && ray) {
+      const hours = retry ? (Number(retry) / 3600).toFixed(1) : '؟';
+      return `ديسكورد (Cloudflare) حاجب IP السيرفر — 429 · retry-after ${retry || '؟'} ثانية (~${hours} ساعة)`;
+    }
+    return `رد غير متوقّع من ديسكورد: ${res.status}`;
+  } catch (err) {
+    return err.message;
+  }
+}
+
+/**
  * يشغّل المؤقّت العام: كل ١٠ ثوانٍ يفحص السيرفرات اللي حان وقت تنظيفها.
  * (كل سيرفر له مدته — الافتراضي ٦٠ ثانية)
  */
@@ -570,8 +592,14 @@ function start(client, { heartbeatMs = 10000 } = {}) {
               : `clean:${result.cleaned?.reason}${result.cleaned?.error ? ` (${result.cleaned.error})` : ''}`);
           if (STATE.guilds[guild.id]?.reportedReason !== reason) {
             STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), reportedReason: reason };
+            /* نسأل مرة وحدة: هل السبب حجب من ديسكورد نفسه؟ */
+            const blocked = await probeBlockReason();
+            STATE.blockReason = blocked;
             console.warn(`[روم الأوامر] تعذّرت الدورة — ${reason} · الروم ${cfg.channelId}`);
+            if (blocked) console.warn(`[روم الأوامر] السبب المرجّح: ${blocked}`);
           }
+          /* فشل ⇒ نرجع بعد ٣٠ دقيقة بدل ما نكرّر الطلبات كل دقيقة (ما نزيد الحجب سوءًا) */
+          STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), skipUntil: Date.now() + 30 * 60 * 1000, lastRunAt: Date.now() };
         } else {
           if (STATE.guilds[guild.id]?.reportedReason) {
             STATE.guilds[guild.id] = { ...STATE.guilds[guild.id], reportedReason: null };
@@ -601,7 +629,7 @@ function start(client, { heartbeatMs = 10000 } = {}) {
 
 /** حالة حيّة للتشخيص (تظهر في /api/status) */
 function status() {
-  return { startedAt: STATE.startedAt, guilds: STATE.guilds };
+  return { startedAt: STATE.startedAt, blockReason: STATE.blockReason || null, guilds: STATE.guilds };
 }
 
 module.exports = {
