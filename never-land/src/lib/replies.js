@@ -375,6 +375,10 @@ function wrapInteraction(interaction) {
       const attempt = (payload) => {
         STATS.lastSendAt = Date.now();
         if (payload !== options) STATS.decorated += 1;
+        if (method === 'reply' && (interaction.deferred || interaction.replied) && typeof interaction.editReply === 'function') {
+          return interaction.editReply(payload, ...rest);
+        }
+        if (method === 'deferReply' && (interaction.deferred || interaction.replied)) return Promise.resolve(null);
         const result = original.call(interaction, payload, ...rest);
         /* أخطاء ديسكورد تجي كرفض للـ promise: لو فشل المزيّن نرسل الأصل بدل ما يضيع الرد */
         if (result && typeof result.catch === 'function' && payload !== options) {

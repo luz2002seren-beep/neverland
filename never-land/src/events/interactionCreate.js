@@ -122,7 +122,16 @@ module.exports = {
         }
 
     console.log(`[تنفيذ] ${interaction.user.tag} استخدم /${interaction.commandName} في ${interaction.guild?.name ?? 'الخاص'}`);
+        if (!interaction.deferred && !interaction.replied) {
+          const hidden = Boolean(command.permissions?.length);
+          await interaction.deferReply(hidden ? { flags: MessageFlags.Ephemeral } : {}).catch((err) => {
+            console.error('[أوامر] تعذّر تأكيد السلاش:', err?.message || err);
+          });
+        }
         await command.run(client, interaction, lang);
+        if (!interaction.replied && interaction.deferred) {
+          await interaction.editReply({ content: 'تم.' }).catch(() => {});
+        }
         return;
       }
 

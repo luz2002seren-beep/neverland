@@ -798,8 +798,14 @@ async function handleMessage(client, message) {
   }
 
   try {
-    console.log(`[أوامر] نص ${message.author?.username || message.author?.id} «${parts.slice(0, usedWords).join(' ')}» → ${name}${sub ? ' ' + sub : ''}`);
-    await command.run(client, fake, 'ar');
+    console.log(`[أوامر] نص ${message.author?.username || message.author?.id} «${parts.slice(0, usedWords).join(' ')}» → ${name}${sub ? ' ' + sub : ''} في ${message.channel?.id}`);
+    await Promise.race([
+      command.run(client, fake, 'ar'),
+      new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error('الأمر تعدّى ٨ ثوانٍ بلا رد')), 8000);
+        timer.unref?.();
+      }),
+    ]);
 
     /* سجل النشاط: من استعمل أي أمر */
     try {
@@ -1007,37 +1013,72 @@ function rememberReply(message, sent) {
   deleteWithMessage.set(message.id, { replyId: sent.id, channelId: message.channel?.id });
 }
 
-function replyToMessage(message, payload) {
+function payloadBody(payload) {
   const safe = { ...(payload || {}) };
-  delete safe.flags; // أوامر السلاش قد ترسل ردًا خاصًا — في الشات نرد عادي
+  delete safe.flags;
   delete safe.ephemeral;
+  delete safe.ephemeral;
+  const body = { allowed_mentions: { parse: [] } };
+  if (typeof safe.content === 'string' && safe.content.trim()) body.content = safe.content.slice(0, 2000);
+  if (safe.embeds) {
+    const embeds = (Array.isArray(safe.embeds) ? safe.embeds : [safe.embeds])
+      .map((embed) => (embed && typeof embed.toJSON === 'function' ? embed.toJSON() : embed))
+      .filter(Boolean)
+      .slice(0, 10);
+    if (embeds.length) body.embeds = embeds;
+  }
+  if (!body.content && !body.embeds) body.content = 'تم.';
+  return body;
+}
 
+function replyToMessage(message, payload) {
   const rules = pendingRules.get(message) || {};
-  /* ردود الأوامر ما تختفي أبدًا — الحذف بس لو شغّلت خيار «حذف الرد بعد ٥ ثوانٍ» من قواعد الأمر */
   const lifetime = rules.autoDeleteReplyAfter5s ? 5000 : 0;
+  const channelId = message.channel?.id || message.channelId;
+  const client = message.client || message.guild?.client;
+  const body = payloadBody(payload);
+  if (message.id) body.message_reference = { message_id: message.id };
+  console.log(`[أوامر] إرسال ${channelId}`);
 
-  return message.reply({ allowedMentions: { repliedUser: false }, ...safe }).then((sent) => {
+  const remember = (sent) => {
+    if (!sent?.id) return sent;
+    console.log(`[أوامر] وصل ${sent.id} في ${channelId}`);
     if (lifetime > 0) {
-      const timer = setTimeout(() => sent?.delete?.().catch?.(() => {}), lifetime);
+      const timer = setTimeout(() => {
+        client?.rest?.delete(`/channels/${channelId}/messages/${sent.id}`).catch(() => {});
+      }, lifetime);
       timer.unref?.();
     }
-
-    /* حذف الرد لما يحذف العضو رسالته الأصلية — بمستمع واحد لكل البوت */
-    if (rules.autoDeleteWithMessage && sent?.id) {
+    if (rules.autoDeleteWithMessage) {
       try {
-        watchDeletes(message.client);
+        watchDeletes(client);
         rememberReply(message, sent);
       } catch { /* ما نوقف الأمر */ }
     }
     return sent;
-  }).catch(async (err) => {
-    console.error('[أوامر] الرد فشل:', err?.message || err);
-    if (!message.channel?.send) return null;
-    return message.channel.send({ allowedMentions: { repliedUser: false }, ...safe }).catch((err2) => {
-      console.error('[أوامر] الإرسال فشل:', err2?.message || err2);
+  };
+
+  const restSend = () => client.rest.post(`/channels/${channelId}/messages`, { body }).then(remember);
+  if (client?.rest && channelId) {
+    return restSend().catch((err) => {
+      console.error('[أوامر] REST فشل:', err?.message || err);
+      if (!message.channel?.send) return null;
+      return message.channel.send({
+        content: body.content || 'تم.',
+        embeds: body.embeds,
+        allowedMentions: { repliedUser: false },
+      }).then(remember).catch((err2) => {
+        console.error('[أوامر] الإرسال فشل:', err2?.message || err2);
+        return null;
+      });
+    });
+  }
+  return message.reply({ allowedMentions: { repliedUser: false }, content: body.content || 'تم.' })
+    .then(remember)
+    .catch((err) => {
+      console.error('[أوامر] الرد فشل:', err?.message || err);
       return null;
     });
-  });
 }
 
 const TYPE_NAME = { 3: 'string', 4: 'int', 5: 'bool', 6: 'user', 7: 'channel', 8: 'role', 9: 'mention', 10: 'number', 11: 'attachment' };

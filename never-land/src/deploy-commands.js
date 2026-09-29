@@ -39,6 +39,13 @@ async function deployCommands(client, { global = false } = {}) {
    console.warn(`  [تنبيه] فشل التسجيل في ${guild.name}: ${err.message}`);
     }
   }
+  /* النسخة العالمية بنفس الأسماء كانت تظهر مع نسخة السيرفر وتعارض السلاش. نبقي نسخة السيرفر فقط. */
+  try {
+    await rest.put(Routes.applicationCommands(config.bot.clientId), { body: [] });
+    console.log('[أوامر] تم حذف النسخة العالمية المكررة. السلاش يبقى من السيرفر فقط.');
+  } catch (err) {
+    console.warn('[تنبيه] تعذّر حذف الأوامر العالمية:', err.message);
+  }
  console.log(`[تم] تم تسجيل ${commands.length} أمر في ${client.guilds.cache.size} سيرفر (ظهور فوري).`);
   return total;
 }
