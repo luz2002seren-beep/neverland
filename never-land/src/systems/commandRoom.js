@@ -556,7 +556,7 @@ function start(client, { heartbeatMs = 10000 } = {}) {
       const last = state.lastRunAt || 0;
       if (Date.now() - last < cfg.intervalSeconds * 1000) continue;
       try {
-        const result = await raceTimeout(runOnce(client, guild.id), 90000, { ok: false, reason: 'دورة معلّقة (مهلة ٤٥ ثانية)' }, 45000);
+        const result = await raceTimeout(runOnce(client, guild.id), 45000, { ok: false, reason: 'دورة معلّقة (مهلة ٤٥ ثانية)' });
         const roomMissing = result.published?.reason === 'noChannel' || result.cleaned?.reason === 'noChannel';
         if (roomMissing) {
           /* ما نعلّق الدورات: نوقف هذا السيرفر ٣٠ دقيقة ونكمّل الباقي */
