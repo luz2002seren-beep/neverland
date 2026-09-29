@@ -184,6 +184,20 @@ async function downloadEmoji(ref, fetchImpl) {
   return { ok: true, buffer, hash: crypto.createHash('sha256').update(buffer).digest('hex') };
 }
 
+/**
+ * حماية: أي وعد ما يخلّص بمدة معيّنة يُتجاوز بقيمة بديلة —
+ * عشان سيرفر واحد (رومه مش موجود مثلًا) ما يعلّق باقي السيرفرات كلها.
+ */
+function raceTimeout(promise, ms, fallback = null) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      const t = setTimeout(() => resolve(fallback), ms);
+      t.unref?.();
+    }),
+  ]);
+}
+
 /* فهرس إيموجيات السيرفر بالبصمة — نتجنّب إضافة إيموجي موجود بنفس الصورة */
 const EMOJI_INDEX = new Map();
 
@@ -354,7 +368,12 @@ async function publish(client, guild, { force = false } = {}) {
 
   let fetchError = null;
   const channel = guild.channels.cache.get(cfg.channelId)
-    || (await guild.channels.fetch(cfg.channelId).catch((err) => { fetchError = err.message; return null; }));
+    || (await raceTimeout(
+      guild.channels.fetch(cfg.channelId).catch((err) => { fetchError = err.message || 'fetch_failed'; return null; }),
+      8000,
+      null,
+    ));
+  if (!channel && !fetchError) fetchError = 'fetch_timeout';
   if (!channel?.isTextBased?.()) {
     return { ok: false, reason: 'noChannel', error: fetchError || `cacheSize=${guild.channels.cache.size} type=${channel?.type}` };
   }
@@ -397,12 +416,12 @@ async function publish(client, guild, { force = false } = {}) {
 
   /* ٢) ننشر رسالة جديدة (ونمسح النسخ القديمة لو موجودة) */
   let sendError = null;
-  const sent = await channel.send(payload()).catch((err) => {
+  const sent = await raceTimeout(channel.send(payload()).catch((err) => {
     sendError = err.message;
     STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), lastError: `publish: ${err.message}` };
     return null;
-  });
-  if (!sent) return { ok: false, reason: 'sendFailed', error: sendError };
+  }), 25000, null);
+  if (!sent) return { ok: false, reason: 'sendFailed', error: sendError || 'send_timeout' };
 
   saveBanner(guild.id, sent.id);
   /* التثبيت ما إله معنى مع إعادة النشر كل دورة (الرسالة تُحذف وتُستبدل) — فما نثبّت */
@@ -423,8 +442,12 @@ async function clean(client, guild, { keepId = null } = {}) {
 
   const keep = keepId || cfg.bannerId;
   let fetchError = null;
-  const fetched = await channel.messages.fetch({ limit: 100 }).catch((err) => { fetchError = err.message; return null; });
-  if (!fetched) return { ok: false, deleted: 0, reason: 'fetchFailed', error: fetchError };
+  const fetched = await raceTimeout(
+    channel.messages.fetch({ limit: 100 }).catch((err) => { fetchError = err.message; return null; }),
+    15000,
+    null,
+  );
+  if (!fetched) return { ok: false, deleted: 0, reason: 'fetchFailed', error: fetchError || 'fetch_timeout' };
 
   const toDelete = [...fetched.values()].filter((m) => m.id !== keep && !m.pinned);
   if (!toDelete.length) return { ok: true, deleted: 0, channelId: channel.id };
@@ -526,14 +549,24 @@ function start(client, { heartbeatMs = 10000 } = {}) {
         };
         continue;
       }
-      const last = STATE.guilds[guild.id]?.lastRunAt || 0;
+      const state = STATE.guilds[guild.id] || {};
+      /* سيرفر رومه غير موجود (إعداد عام أو روم انحذف): نتخطّاه مدة ونعيد المحاولة بعدين */
+      if (state.skipUntil && state.skipUntil > Date.now()) continue;
+      const last = state.lastRunAt || 0;
       if (Date.now() - last < cfg.intervalSeconds * 1000) continue;
       try {
-        const result = await runOnce(client, guild.id);
+        const result = await raceTimeout(runOnce(client, guild.id), 90000, { ok: false, reason: 'دورة معلّقة (مهلة ٩٠ ثانية)' });
+        const roomMissing = result.published?.reason === 'noChannel' || result.cleaned?.reason === 'noChannel';
+        if (roomMissing) {
+          /* ما نعلّق الدورات: نوقف هذا السيرفر ٣٠ دقيقة ونكمّل الباقي */
+          STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), skipUntil: Date.now() + 30 * 60 * 1000, lastRunAt: Date.now() };
+        }
         if (!result.ok) {
-          const reason = result.published?.ok === false
-            ? `publish:${result.published.reason}${result.published.error ? ` (${result.published.error})` : ''}`
-            : `clean:${result.cleaned?.reason}${result.cleaned?.error ? ` (${result.cleaned.error})` : ''}`;
+          const reason = result.reason && !result.published
+            ? result.reason
+            : (result.published?.ok === false
+              ? `publish:${result.published.reason}${result.published.error ? ` (${result.published.error})` : ''}`
+              : `clean:${result.cleaned?.reason}${result.cleaned?.error ? ` (${result.cleaned.error})` : ''}`);
           if (STATE.guilds[guild.id]?.reportedReason !== reason) {
             STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), reportedReason: reason };
             console.warn(`[روم الأوامر] تعذّرت الدورة — ${reason} · الروم ${cfg.channelId}`);
