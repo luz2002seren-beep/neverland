@@ -63,14 +63,27 @@ module.exports = {
       db.getGuild(guild.id);
     }
 
+    /* حماية الإقلاع: أي طلب بطيء (معاينة اللوقات · الدعوات · vanity) يُتجاهل بعد مدة —
+       المهم أن المؤقتات (روم الأوامر · التذكيرات · لوحة التذاكر) تشتغل دائمًا. */
+    const withTimeout = (promise, ms) => Promise.race([
+      promise,
+      new Promise((resolve) => {
+        const t = setTimeout(() => resolve(null), ms);
+        t.unref?.();
+      }),
+    ]);
+
     try {
       const onePieceLogs = require('../systems/onePieceLogs');
       const linked = onePieceLogs.apply(db);
       if (linked) {
         console.log('[لوقات] تم ربط رومات لوق One Piece بالنظام.');
-        await onePieceLogs.preview(client).catch((err) => {
-          console.warn('[لوقات] تعذّرت معاينة الشكل:', err.message);
-        });
+        await withTimeout(
+          onePieceLogs.preview(client).catch((err) => {
+            console.warn('[لوقات] تعذّرت معاينة الشكل:', err.message);
+          }),
+          10000,
+        );
       }
     } catch (err) {
       console.warn('[لوقات] تعذّر ربط رومات One Piece:', err.message);
@@ -85,11 +98,11 @@ module.exports = {
         continue;
       }
 
-      const invites = await guild.invites.fetch().catch(() => null);
+      const invites = await withTimeout(guild.invites.fetch().catch(() => null), 8000);
 
       if (invites) {
         const map = new Map(invites.map((inv) => [inv.code, inv.uses ?? 0]));
-        const vanity = await guild.fetchVanityData().catch(() => null);
+        const vanity = await withTimeout(guild.fetchVanityData().catch(() => null), 8000);
         if (vanity?.code) map.set(`vanity:${vanity.code}`, vanity.uses ?? 0);
         client.invites.set(guild.id, map);
       }
