@@ -113,69 +113,84 @@ async function startBot() {
   return client;
 }
 
-function discordGate(token) {
-  const https = require('node:https');
-  return new Promise((resolve) => {
-    const req = https.request({
-      hostname: 'discord.com',
-      path: '/api/v10/gateway/bot',
-      method: 'GET',
-      family: 4,
-      timeout: 10000,
-      headers: { Authorization: `Bot ${token}`, 'User-Agent': 'NeverLand (bot)' },
-    }, (res) => {
-      const chunks = [];
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => {
-        let retryAfter = Number(res.headers['retry-after'] || res.headers['x-ratelimit-reset-after'] || 0);
-        try {
-          const body = JSON.parse(Buffer.concat(chunks).toString() || '{}');
-          if (!retryAfter && body.retry_after) retryAfter = Number(body.retry_after);
-        } catch { /* الرد مو JSON */ }
-        resolve({ status: res.statusCode, retryAfter });
-      });
-    });
-    req.on('timeout', () => {
-      req.destroy();
-      resolve({ status: 0, retryAfter: 30 });
-    });
-    req.on('error', () => resolve({ status: 0, retryAfter: 30 }));
-    req.end();
+function allowOneIdentify(client) {
+  let used = false;
+  client.options.ws = client.options.ws || {};
+  client.options.ws.buildIdentifyThrottler = () => ({
+    waitForIdentify() {
+      if (used) return Promise.reject(new Error('ممنوع نعاودو الدخول'));
+      used = true;
+      return Promise.resolve();
+    },
+    destroy() {},
   });
 }
 
+/** عنوان البوابة ثابت. ما نطلبش /gateway/bot لأن هاد الطلب هو اللي جا منه الحظر. */
+function skipBannedGatewayLookup(client) {
+  const original = client.rest.get.bind(client.rest);
+  client.rest.get = (fullRoute, options) => {
+    const route = typeof fullRoute === 'string' ? fullRoute : String(fullRoute || '');
+    if (route.includes('gateway/bot')) {
+      return Promise.resolve({
+        url: 'wss://gateway.discord.gg',
+        shards: 1,
+        session_start_limit: {
+          total: 1,
+          remaining: 1,
+          reset_after: 0,
+          max_concurrency: 1,
+        },
+      });
+    }
+    return original(fullRoute, options);
+  };
+}
+
 async function connectDiscord(client, token) {
-  for (let attempt = 1; attempt <= 5; attempt += 1) {
-    const gate = await discordGate(token);
-    if (gate.status === 429) {
-      const raw = Number(gate.retryAfter) || 0;
-      const wait = Math.min(Math.max(raw || 300, 90), 86400);
-      console.error(`[دخول] ديسكورد طلب الانتظار. الأصلي ${raw || 'غير محدد'} ثانية، سننتظر ${wait}`);
-      await new Promise((resolve) => setTimeout(resolve, wait * 1000));
-      continue;
+  allowOneIdentify(client);
+  skipBannedGatewayLookup(client);
+  let stopped = false;
+  const stop = async (why) => {
+    if (stopped) return;
+    stopped = true;
+    console.error(`[دخول] وقفنا بلا إعادة محاولة: ${why}`);
+    try { await client.destroy(); } catch { /* الاتصال طايح */ }
+  };
+  client.on('shardDisconnect', (event) => {
+    const code = Number(event?.code || 0);
+    if (code === 4008 || code === 4014) stop(`ديسكورد قفل الاتصال ${code}`);
+  });
+  client.on('debug', (msg) => {
+    const line = String(msg || '');
+    if (/rate limit has been hit|Not enough sessions remaining/i.test(line)) stop(line.slice(0, 180));
+  });
+
+  console.log('[دخول] محاولة واحدة من غير مسار البوابة المحظور');
+  try {
+    await Promise.race([
+      client.login(token),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 20000)),
+    ]);
+    if (!client.isReady()) {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 20000);
+        client.once(Events.ClientReady, () => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
     }
-    if (gate.status !== 200) {
-      console.error(`[دخول] البوابة ردّت ${gate.status || 'بدون رد'} — محاولة بعد نصف دقيقة`);
-      await new Promise((resolve) => setTimeout(resolve, 30000));
-      continue;
-    }
-    console.log(`[دخول] محاولة الاتصال ${attempt}`);
-    try {
-      await Promise.race([
-        client.login(token),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('انتهت مهلة الدخول')), 25000)),
-      ]);
-      if (client.isReady()) {
-        console.log('[دخول] البوت اتصل');
-        return true;
-      }
-    } catch (err) {
-      console.error('[دخول] فشل الدخول:', err?.message || err);
-      try { client.destroy(); } catch { /* المحاولة الجاية */ }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 30000));
+  } catch (err) {
+    await stop(err?.message || err);
+    return false;
   }
-  return false;
+  if (!client.isReady() || stopped) {
+    await stop('ما كملش الدخول');
+    return false;
+  }
+  console.log('[دخول] البوت اتصل');
+  return true;
 }
 
 function startWeb() {
