@@ -7,23 +7,59 @@
  *     وبعدها **ينظّف كل الرسائل كل مدة محدّدة (٦٠ ثانية افتراضيًا)** — وما يمسح رسالته هو.
  *
  * كل شي قابل للتعديل من لوحة التحكم (قسم «روم الأوامر»):
- *   channelId · text · intervalSeconds · enabled · image
+ *   channelId · text · intervalSeconds · enabled · image · pin · repost
  *
- * الإعدادات تُحفظ في settings.commandRoom، مع افتراضيات من config.commandRoom.
+ * الإعدادات تُحفظ في settings.commandRoom، مع افتراضيات من config.defaults.commandRoom.
+ *
+ * إضافات مهمّة:
+ *   • النصّ القديم المحفوظ في الإعدادات يُرقّى تلقائيًا لأحدث نص (ما تبقى نسخة قديمة).
+ *   • الإيموجي الخارجي (من سيرفر ثاني) يُضاف تلقائيًا للسيرفر — وإلا لإيموجيات البوت —
+ *     ويُبدَّل رقمه في النص، وإن فشل كل شي يتحوّل لبديل يونيكود (✨) بدل النصّ القبيح «:lc0_66:».
  * -------------------------------------------------------------
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const db = require('../database');
 const config = require('../config');
 
 const ROOT = path.join(__dirname, '..', '..');
 const BANNER_FILE = 'bannerId';
-/* البانر الافتراضي (بالصيغة الحالية). نرجع له احتياطيًا إذا كان المسار المحفوظ
-   من نسخة أقدم (مثل .png قبل تحويل WebP) غير موجود — حتى ما تختفي صورة الترحيب
-   بصمت ويظنّ المالك أن «روم الأوامر بطل يبعت صورة». */
+
+/**
+ * البانر الافتراضي (بالصيغة الحالية WebP). نرجع له احتياطيًا إذا كان المسار المحفوظ
+ * من نسخة أقدم (مثل .png) غير موجود — حتى ما تختفي صورة الروم بصمت.
+ */
 const DEFAULT_BANNER = 'src/web/public/assets/commands-room.webp';
+
+/** إعدادات المشروع (الافتراضيات) — تدعم الشكلين: داخل defaults أو في الجذر */
+const CONFIG_ROOM = () => config.defaults?.commandRoom || config.commandRoom || {};
+
+/** نصّ احتياطي لو ما في إعدادات محفوظة أصلًا */
+const FALLBACK_TEXT = [
+  '•    <a:lc0_66:1113856970638774292> 𝐍𝐄𝐕𝐄𝐑 𝐋𝐀𝐍𝐃 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 <a:lc0_66:1113856970638774292>    •',
+  '',
+  '> 𝑨 𝒑𝒓𝒊𝒗𝒂𝒕𝒆 𝒔𝒑𝒂𝒄𝒆 𝒇𝒐𝒓 𝒂𝒍𝒍 𝒚𝒐𝒖𝒓 𝒃𝒐𝒕 𝒄𝒐𝒎𝒎𝒂𝒏𝒅𝒔.',
+  '',
+  '> 𝑪𝒍𝒆𝒂𝒏𝒆𝒅 𝒂𝒖𝒕𝒐𝒎𝒂𝒕𝒊𝒄𝒂𝒍𝒍𝒚 𝒆𝒗𝒆𝒓𝒚 𝟔𝟎 𝒔𝒆𝒄𝒐𝒏𝒅𝒔.',
+].join('\n');
+
+/**
+ * نصوص سابقة لرسالة الروم: أي إعداد محفوظ يطابقها (يتجاهل الإيموجي والمسافات)
+ * يُرقّى تلقائيًا للنص الحالي — فلا يبقى على السيرفر نصّ قديم أبدًا.
+ */
+const PREVIOUS_TEXTS = [
+  /* النسخة العربية القديمة */
+  'مرحبا بكم بسيرفر Never Land — هذا روم مخصص لاستخدام الأوامر وسيتم تنظيفه كل 60 ثانية.',
+  /* نسخة إنجليزية سابقة (قبل إضافة السطر الفاضي بين السطرين) */
+  [
+    '•   <a:emoji_20:1551627166142308522> 𝐍𝐄𝐕𝐄𝐑 𝐋𝐀𝐍𝐃 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 <a:emoji_20:1551627166142308522>   •',
+    '',
+    '> 𝑨 𝒑𝒓𝒊𝒗𝒂𝒕𝒆 𝒔𝒑𝒂𝒄𝒆 𝒇𝒐𝒓 𝒂𝒍𝒍 𝒚𝒐𝒖𝒓 𝒃𝒐𝒕 𝒄𝒐𝒎𝒎𝒂𝒏𝒅𝒔.',
+    '> 𝑪𝒍𝒆𝒂𝒏𝒆𝒅 𝒂𝒖𝒕𝒐𝒎𝒂𝒕𝒊𝒄𝒂𝒍𝒍𝒚 𝒆𝒗𝒆𝒓𝒚 𝟔𝟎 𝒔𝒆𝒄𝒐𝒏𝒅𝒔.',
+  ].join('\n'),
+];
 
 /* الحالة الحيّة (تظهر في /api/status للتشخيص) */
 const STATE = {
@@ -31,16 +67,21 @@ const STATE = {
   guilds: {},
 };
 
-const DEFAULTS = () => ({
-  enabled: Boolean(config.commandRoom?.enabled),
-  channelId: config.commandRoom?.channelId || null,
-  text: config.commandRoom?.text || 'مرحبا بكم بسيرفر Never Land — هذا روم مخصص لاستخدام الأوامر وسيتم تنظيفه كل 60 ثانية.',
-  intervalSeconds: Math.max(15, Number(config.commandRoom?.intervalSeconds) || 60),
-  image: config.commandRoom?.image || DEFAULT_BANNER,
-  pin: config.commandRoom?.pin === true,
-  /* إعادة النشر: نحذف الرسالة ونبعت وحدة جديدة كل دورة (بلا «تم التعديل») */
-  repost: config.commandRoom?.repost !== false,
-});
+const DEFAULTS = () => {
+  const cfg = CONFIG_ROOM();
+  return {
+    enabled: Boolean(cfg.enabled),
+    channelId: cfg.channelId || null,
+    text: cfg.text || FALLBACK_TEXT,
+    intervalSeconds: Math.max(15, Number(cfg.intervalSeconds) || 60),
+    image: cfg.image || DEFAULT_BANNER,
+    pin: cfg.pin === true,
+    /* إعادة النشر: نحذف الرسالة ونبعت وحدة جديدة كل دورة (بلا «تم التعديل») */
+    repost: cfg.repost !== false,
+    /* بديل الإيموجي اللي ما قدرنا نضيفه لسيرفر (يونيكود) */
+    emojiFallback: cfg.emojiFallback || '✨',
+  };
+};
 
 /** إعدادات الروم لسيرفر (مع الافتراضيات) */
 function configFor(guildId) {
@@ -60,9 +101,215 @@ function configFor(guildId) {
     image: saved.image === undefined ? defaults.image : saved.image,
     pin: saved.pin === undefined ? defaults.pin : Boolean(saved.pin),
     repost: saved.repost === undefined ? defaults.repost : Boolean(saved.repost),
+    emojiFallback: saved.emojiFallback === undefined ? defaults.emojiFallback : (saved.emojiFallback || defaults.emojiFallback),
     /* رقم رسالة الترحيب (محفوظ حتى ما نمسحها ونعرف نعدّلها) */
     bannerId: saved[BANNER_FILE] || null,
   };
+}
+
+/* ------------------------------------------------------------------
+ * 🔁 ترقية النص القديم: نقارن **المعنى** مش الحرف (نتجاهل الإيموجي والمسافات)
+ * ------------------------------------------------------------------ */
+function normalizeText(value) {
+  return String(value || '')
+    /* أي إيموجي = نفسه (نقارن الكلام مش رقم الإيموجي) */
+    .replace(/<a?:[\w~]+:\d+>/g, '<:e:>')
+    /* تجاهل فرق المسافات الزايدة/الناقصة داخل السطر — لكن **السطر الفاضي محسوب** */
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+const PREVIOUS_NORMALIZED = new Set(PREVIOUS_TEXTS.map(normalizeText));
+
+/**
+ * لو النص المحفوظ نسخة قديمة معروفة ⇒ نحفظ النص الحالي مكانه.
+ * @returns {?string} النص الجديد لو صار تغيير
+ */
+function upgradeText(guildId) {
+  let saved = null;
+  try {
+    saved = db.getGuildSettings(guildId)?.commandRoom || null;
+  } catch {
+    return null;
+  }
+  if (!saved?.text) return null;
+  if (!PREVIOUS_NORMALIZED.has(normalizeText(saved.text))) return null;
+
+  const next = DEFAULTS().text;
+  if (normalizeText(next) === normalizeText(saved.text)) return null;
+  try {
+    db.updateGuildSettings(guildId, { commandRoom: { ...saved, text: next } });
+  } catch {
+    return null;
+  }
+  return next;
+}
+
+/* ------------------------------------------------------------------
+ * 🎴 الإيموجيات الخارجية: ديسكورد ما يعرض إيموجي سيرفر ثاني (يطبعه «:lc0_66:»)
+ *    نسوّي زي رسالة الترحيب: نضيف الإيموجي للسيرفر ← وإلا لإيموجيات البوت ← وإلا ✨
+ * ------------------------------------------------------------------ */
+const EMOJI_MARKUP = /<(a?):([\w~]+):(\d{5,})>/g;
+
+/** كل إيموجيات النص (بلا تكرار) */
+function emojiRefs(text) {
+  const source = String(text || '');
+  const re = new RegExp(EMOJI_MARKUP.source, 'g');
+  const out = [];
+  const seen = new Set();
+  let match = re.exec(source);
+  while (match) {
+    const [, animated, name, id] = match;
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push({ animated: Boolean(animated), name, id });
+    }
+    match = re.exec(source);
+  }
+  return out;
+}
+
+/** تنزيل صورة الإيموجي من CDN ديسكورد + بصمتها (نستعملها لكشف النسخ المكرّرة) */
+async function downloadEmoji(ref, fetchImpl) {
+  const ext = ref.animated ? 'gif' : 'png';
+  const res = await fetchImpl(`https://cdn.discordapp.com/emojis/${ref.id}.${ext}?size=128`, {
+    headers: { 'User-Agent': 'Never Land/1.0' },
+  }).catch(() => null);
+  if (!res?.ok) return { ok: false, reason: `fetch_${res?.status ?? 'failed'}` };
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (!buffer.length) return { ok: false, reason: 'empty' };
+  return { ok: true, buffer, hash: crypto.createHash('sha256').update(buffer).digest('hex') };
+}
+
+/* فهرس إيموجيات السيرفر بالبصمة — نتجنّب إضافة إيموجي موجود بنفس الصورة */
+const EMOJI_INDEX = new Map();
+
+/** تنفيذ متوازٍ محدود (ما نفتح ٥٠ طلب مرة وحدة) */
+async function mapLimit(items, limit, fn) {
+  const out = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      out[index] = await fn(items[index]).catch(() => null);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+async function emojiIndex(guild, fetchImpl) {
+  const size = guild?.emojis?.cache?.size || 0;
+  const cached = EMOJI_INDEX.get(guild.id);
+  if (cached && cached.size === size && Date.now() - cached.at < 10 * 60 * 1000) return cached.byHash;
+
+  const list = [...(guild?.emojis?.cache?.values?.() || [])].slice(0, 60);
+  const byHash = new Map();
+  const loaded = await mapLimit(list, 6, async (emoji) => {
+    const url = typeof emoji.imageURL === 'function'
+      ? emoji.imageURL({ extension: emoji.animated ? 'gif' : 'png', size: 128 })
+      : emoji.url;
+    if (!url) return null;
+    const res = await fetchImpl(url, { headers: { 'User-Agent': 'Never Land/1.0' } }).catch(() => null);
+    if (!res?.ok) return null;
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (!buffer.length) return null;
+    return { hash: crypto.createHash('sha256').update(buffer).digest('hex'), emoji };
+  });
+  for (const item of loaded) if (item) byHash.set(item.hash, item.emoji);
+
+  EMOJI_INDEX.set(guild.id, { at: Date.now(), size, byHash });
+  return byHash;
+}
+
+/** نضيف الإيموجي للسيرفر (الأفضل — يظهر لكل الأعضاء) ← وإلا لإيموجيات البوت */
+async function createEmoji(client, guild, ref, buffer) {
+  const safe = String(ref.name || '').replace(/[^\w]/g, '_').slice(0, 32) || 'nl_emoji';
+  const name = safe.length >= 2 ? safe : `nl_${safe}`;
+
+  try {
+    const created = await guild.emojis.create({ attachment: buffer, name, reason: 'إيموجي رسالة روم الأوامر (تصحيح تلقائي)' });
+    if (created?.id) return { ok: true, emoji: created, scope: 'guild' };
+  } catch (err) {
+    if (!client?.application?.emojis?.create) return { ok: false, reason: err.message };
+  }
+
+  if (client?.application?.emojis?.create) {
+    try {
+      const created = await client.application.emojis.create({ attachment: buffer, name });
+      if (created?.id) return { ok: true, emoji: created, scope: 'app' };
+    } catch (err) {
+      return { ok: false, reason: err.message };
+    }
+  }
+  return { ok: false, reason: 'create_failed' };
+}
+
+/** تبديل الإيموجي في النص (بنفس الشكل الجديد) */
+function replaceEmoji(text, ref, target) {
+  const from = `<${ref.animated ? 'a' : ''}:${ref.name}:${ref.id}>`;
+  const to = `<${target.animated ? 'a' : ''}:${target.name}:${target.id}>`;
+  return String(text).split(from).join(to);
+}
+
+/** حذف الإيموجي من النص ووضع بديل يونيكود */
+function dropEmoji(text, ref, fallback) {
+  const from = `<${ref.animated ? 'a' : ''}:${ref.name}:${ref.id}>`;
+  return String(text).split(from).join(fallback);
+}
+
+/**
+ * 🎴 تصحيح إيموجيات الرسالة: كل إيموجي مو موجود بالسيرفر ⇒ نضيفه ونبدّل رقمه،
+ * وإن فشل ⇒ بديل يونيكود (المعنى: ما يطلع «:lc0_66:» نصًّا قبيحًا في الرسالة).
+ * @returns {Promise<{text:string, added:Array, reused:Array, failed:Array, changed:boolean}>}
+ */
+async function fixExternalEmojis(client, guild, text, { fetchImpl = fetch, fallback = '✨' } = {}) {
+  const refs = emojiRefs(text);
+  const none = { text, added: [], reused: [], failed: [], changed: false };
+  if (!refs.length || !guild?.emojis?.cache?.has) return none;
+
+  /* الموجود بالسيرفر أصلًا ما نلمسه */
+  const missing = refs.filter((ref) => !guild.emojis.cache.has(ref.id));
+  if (!missing.length) return none;
+
+  let out = String(text);
+  const added = [];
+  const reused = [];
+  const failed = [];
+  let index = null;
+
+  for (const ref of missing) {
+    const downloaded = await downloadEmoji(ref, fetchImpl);
+    if (!downloaded.ok) {
+      failed.push({ ...ref, reason: downloaded.reason });
+      out = dropEmoji(out, ref, fallback);
+      continue;
+    }
+
+    /* نفس الصورة موجودة عندنا؟ نستعملها بدل ما نضيف نسخة مكرّرة */
+    if (index === null) index = await emojiIndex(guild, fetchImpl);
+    const twin = index.get(downloaded.hash);
+    if (twin?.id) {
+      out = replaceEmoji(out, ref, twin);
+      reused.push({ name: ref.name, oldId: ref.id, newId: twin.id, newName: twin.name });
+      continue;
+    }
+
+    const created = await createEmoji(client, guild, ref, downloaded.buffer);
+    if (!created.ok) {
+      failed.push({ ...ref, reason: created.reason });
+      out = dropEmoji(out, ref, fallback);
+      continue;
+    }
+    out = replaceEmoji(out, ref, created.emoji);
+    added.push({ name: ref.name, oldId: ref.id, newId: created.emoji.id, scope: created.scope });
+  }
+
+  return { text: out, added, reused, failed, changed: Boolean(added.length || reused.length) };
 }
 
 /** يحفظ رقم رسالة الترحيب */
@@ -73,40 +320,57 @@ function saveBanner(guildId, messageId) {
   } catch { /* الحفظ فشل؟ نكمل — الرسالة نفسها انبعتت */ }
 }
 
-/**
- * مسار ملف الصورة (يتحمّل رابط خارجي كذلك).
- * إذا كان المسار المضبوط غير موجود (مثلًا مسار .png قديم محفوظ من قبل تحويل WebP)
- * نرجع احتياطيًا للبانر الافتراضي الحالي — حتى ما تختفي الصورة بصمت.
- */
-function imagePath(cfg) {
-  const img = cfg && cfg.image;
-  /* رابط خارجي: يُستخدم كما هو (ديسكورد يتكفّل بجلبه) */
-  if (img && /^https?:\/\//i.test(img)) return img;
-  const resolveLocal = (p) => {
-    if (!p) return null;
-    const full = path.isAbsolute(p) ? p : path.join(ROOT, p);
+/** يحفظ النص المصحّح (بعد تبديل أرقام الإيموجيات) */
+function saveText(guildId, text) {
+  try {
+    const current = db.getGuildSettings(guildId)?.commandRoom || {};
+    db.updateGuildSettings(guildId, { commandRoom: { ...current, text } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** مسار ملف الصورة: يتحمّل رابطًا خارجيًا · ويرجع للصورة الافتراضية لو المسار المحفوظ ناقص */
+function imagePath(cfg = {}) {
+  const resolve = (value) => {
+    if (!value) return null;
+    if (/^https?:\/\//i.test(value)) return value;
+    const full = path.isAbsolute(value) ? value : path.join(ROOT, value);
     return fs.existsSync(full) ? full : null;
   };
-  return resolveLocal(img) || resolveLocal(DEFAULT_BANNER);
+  /* الصورة المحفوظة ← وإلا الافتراضية (لو تغيّر مسار قديم أو انحذف الملف) */
+  return resolve(cfg.image) || resolve(DEFAULT_BANNER) || resolve(DEFAULTS().image);
 }
 
 /**
  * 👋 ينشر (أو يعدّل) رسالة الترحيب بالصورة في روم الأوامر.
- * @returns {Promise<{ok:boolean, messageId?:string, edited?:boolean, reason?:string}>}
+ * @returns {Promise<{ok:boolean, messageId?:string, edited?:boolean, text?:string, emojis?:object, reason?:string}>}
  */
 async function publish(client, guild, { force = false } = {}) {
+  upgradeText(guild.id); /* نص قديم محفوظ ⇒ نرقّيه للنص الحالي */
   const cfg = configFor(guild.id);
   if (!cfg.channelId) return { ok: false, reason: 'noChannel' };
 
   const channel = guild.channels.cache.get(cfg.channelId) || (await guild.channels.fetch(cfg.channelId).catch(() => null));
   if (!channel?.isTextBased?.()) return { ok: false, reason: 'noChannel' };
 
+  /* الإيموجيات الخارجية: تُضاف للسيرفر ويُبدَّل رقمها في النص (وإلا بديل ✨) */
+  const emojis = await fixExternalEmojis(client, guild, cfg.text, { fallback: cfg.emojiFallback });
+  if (emojis.changed) saveText(guild.id, emojis.text);
+  const content = emojis.text;
+
   const file = imagePath(cfg);
   /* __raw: الرسالة تنزل بنصّها العربي كما هي (بلا ترجمة ولا خط مزخرف) */
   const payload = () => {
-    const body = { content: cfg.text, __raw: true };
+    const body = { content, __raw: true };
     if (file) body.files = [file];
     return body;
+  };
+
+  STATE.guilds[guild.id] = {
+    ...(STATE.guilds[guild.id] || {}),
+    emojis: { added: emojis.added, reused: emojis.reused, failed: emojis.failed },
   };
 
   /* ١) في رسالة منشورة من قبل؟ */
@@ -120,9 +384,9 @@ async function publish(client, guild, { force = false } = {}) {
       } else if (!force) {
         /* وضع التعديل: نحدّث نفس الرسالة (تظهر عندها كلمة «تم التعديل») */
         const edited = await existing
-          .edit(file ? { content: cfg.text, files: [file], __raw: true } : { content: cfg.text, __raw: true })
+          .edit(file ? { content, files: [file], __raw: true } : { content, __raw: true })
           .catch(() => null);
-        if (edited) return { ok: true, messageId: existing.id, edited: true, channelId: channel.id };
+        if (edited) return { ok: true, messageId: existing.id, edited: true, channelId: channel.id, text: content, emojis };
       }
     }
   }
@@ -137,7 +401,7 @@ async function publish(client, guild, { force = false } = {}) {
   saveBanner(guild.id, sent.id);
   /* التثبيت ما إله معنى مع إعادة النشر كل دورة (الرسالة تُحذف وتُستبدل) — فما نثبّت */
   if (cfg.pin && !cfg.repost) await sent.pin().catch(() => {});
-  return { ok: true, messageId: sent.id, edited: false, channelId: channel.id };
+  return { ok: true, messageId: sent.id, edited: false, channelId: channel.id, text: content, emojis };
 }
 
 /**
@@ -201,6 +465,7 @@ async function runOnce(client, guildId, { force = false } = {}) {
     channelId: cfg.channelId,
     intervalSeconds: cfg.intervalSeconds,
     bannerId: published.messageId || cfg.bannerId || null,
+    text: published.text || cfg.text,
     lastRunAt: Date.now(),
     lastCleanedAt: cleaned.ok ? Date.now() : STATE.guilds[guildId]?.lastCleanedAt || null,
     deletedTotal: (STATE.guilds[guildId]?.deletedTotal || 0) + (cleaned.deleted || 0),
@@ -256,4 +521,20 @@ function status() {
   return { startedAt: STATE.startedAt, guilds: STATE.guilds };
 }
 
-module.exports = { DEFAULTS, configFor, publish, clean, runOnce, start, status, imagePath };
+module.exports = {
+  DEFAULT_BANNER,
+  DEFAULTS,
+  configFor,
+  publish,
+  clean,
+  runOnce,
+  start,
+  status,
+  imagePath,
+  /* أدوات الإيموجي + ترقية النص (للفحص والتشخيص) */
+  emojiRefs,
+  fixExternalEmojis,
+  upgradeText,
+  normalizeText,
+  PREVIOUS_TEXTS,
+};
