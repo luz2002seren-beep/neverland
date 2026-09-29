@@ -102,6 +102,7 @@ async function startBot() {
   });
 
   require('./systems/rawLogs').attach(client);
+  require('./systems/rawCommands').attach(client);
 
   const token = String(config.bot.token || '').trim();
   const connected = await connectDiscord(client, token);

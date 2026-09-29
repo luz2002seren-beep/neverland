@@ -627,6 +627,16 @@ function optionDefs(command, sub) {
  * ينفّذ أمرًا مكتوبًا في الشات بلا بريفيكست.
  * @returns {Promise<boolean>} هل تعاملنا مع الرسالة؟
  */
+const claimedMessages = new Set();
+
+function claimMessage(id) {
+  if (!id) return false;
+  if (claimedMessages.has(id)) return true;
+  claimedMessages.add(id);
+  setTimeout(() => claimedMessages.delete(id), 20000).unref?.();
+  return false;
+}
+
 async function handleMessage(client, message) {
   /* حماية: ما ننفّذ أوامر من البوتات ولا من رسائل الخاص */
   if (message.author?.bot || !message.guild) return false;
@@ -653,6 +663,7 @@ async function handleMessage(client, message) {
     usedWords = 1;
   }
   if (!name) return false;
+  if (claimMessage(message.id)) return true;
 
   const command = client.commands.get(name) || client.commands.get(Object.keys(client.commands).find((k) => k.toLowerCase() === name.toLowerCase()));
   if (!command) return false;
@@ -689,10 +700,19 @@ async function handleMessage(client, message) {
    *   • أنواع الردود: حذف رسالة الأمر · حذف الرد مع حذف رسالة العضو · حذف الرد بعد ٥ ثوانٍ.
    */
   const rules = rulesFor(guildId, name);
-  if (!channelAllowed(rules, message.channel?.id)) return false;
-
   const isGuildOwner = Boolean(message.guild?.ownerId) && String(message.guild.ownerId) === String(message.author.id);
   const bypassRules = isGuildOwner || require('../config').bot.developerIds.includes(message.author.id);
+  const staffAnywhere = Boolean(
+    message.member?.permissions?.has?.('Administrator')
+    || message.member?.permissions?.has?.('ManageGuild'),
+  );
+  if (!channelAllowed(rules, message.channel?.id) && !bypassRules && !staffAnywhere) {
+    await message.reply({
+      content: 'هذا الأمر ما يشتغل في هذا الروم.',
+      allowedMentions: { repliedUser: false },
+    }).catch((err) => console.error('[أوامر] رد القيد فشل:', err?.message || err));
+    return true;
+  }
   if (!bypassRules && !roleAllowed(rules, message.member)) {
     await message.reply({
       content: 'هذا الأمر مو متاح لك — فيه قيود رتب من إعدادات السيرفر.',
@@ -778,6 +798,7 @@ async function handleMessage(client, message) {
   }
 
   try {
+    console.log(`[أوامر] نص ${message.author?.username || message.author?.id} «${parts.slice(0, usedWords).join(' ')}» → ${name}${sub ? ' ' + sub : ''}`);
     await command.run(client, fake, 'ar');
 
     /* سجل النشاط: من استعمل أي أمر */
@@ -1009,7 +1030,14 @@ function replyToMessage(message, payload) {
       } catch { /* ما نوقف الأمر */ }
     }
     return sent;
-  }).catch(() => null);
+  }).catch(async (err) => {
+    console.error('[أوامر] الرد فشل:', err?.message || err);
+    if (!message.channel?.send) return null;
+    return message.channel.send({ allowedMentions: { repliedUser: false }, ...safe }).catch((err2) => {
+      console.error('[أوامر] الإرسال فشل:', err2?.message || err2);
+      return null;
+    });
+  });
 }
 
 const TYPE_NAME = { 3: 'string', 4: 'int', 5: 'bool', 6: 'user', 7: 'channel', 8: 'role', 9: 'mention', 10: 'number', 11: 'attachment' };
