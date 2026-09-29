@@ -278,6 +278,7 @@ const config = {
         // --- الدعوات ---
         inviteCreate: true,
         inviteDelete: false,
+        inviteUsed: true,
         // --- المواضيع (Threads) ---
         threadCreate: false,
         threadDelete: false,

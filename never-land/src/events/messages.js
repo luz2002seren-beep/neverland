@@ -19,8 +19,8 @@ module.exports = [
     async execute(client, message) {
       if (!message.guild || message.author?.bot) return;
 
-      // حذف الخط الفاصل التابع للرسالة (AutoLine)
-      await autoline.handleMessageDelete(client, message).catch(() => {});
+      // الخط الفاصل ما يأخّر اللوق
+      const lineTask = autoline.handleMessageDelete(client, message).catch(() => {});
 
       const { executor } = await findExecutor(message.guild, AuditLogEvent.MessageDelete, {
         targetId: message.author.id,
@@ -28,17 +28,19 @@ module.exports = [
       });
 
       await logging.send(client, message.guild, 'messageDelete', {
-        title: 'حذف رسالة',
-        description: truncate(message.content || '(رسالة تحتوي مرفقات/embed فقط)', 1024),
+        title: 'Message Deleted',
+        description: truncate(message.content || 'Attachment or embed only', 1024),
+        thumbnail: message.author.displayAvatarURL({ size: 256 }),
         fields: [
-          { name: 'الكاتب', value: `${message.author} \`${message.author.tag}\``, inline: true },
-          { name: 'القناة', value: `${message.channel}`, inline: true },
-          ...(executor ? [{ name: 'حُذفت بواسطة', value: `${executor}`, inline: true }] : []),
+          { name: 'Author', value: `${message.author} \`${message.author.tag}\``, inline: true },
+          { name: 'Channel', value: `${message.channel}`, inline: true },
+          ...(executor ? [{ name: 'Deleted By', value: `${executor}`, inline: true }] : []),
         ],
-        footer: `ID: ${message.id}`,
+        footer: `ID ${message.id}`,
         channelId: message.channelId,
         member: message.member,
       });
+      await lineTask;
     },
   },
   {

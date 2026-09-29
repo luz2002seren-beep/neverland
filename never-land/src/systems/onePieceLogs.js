@@ -5,7 +5,7 @@
  * يُطبَّق مرة واحدة لكل نسخة ربط حتى ما يمسح تعديل لاحق من اللوحة.
  */
 const GUILD_ID = '1160219059921629276';
-const LINK_VERSION = 1;
+const LINK_VERSION = 2;
 
 const ROOMS = {
   member: '1553824779545616464',
@@ -55,6 +55,7 @@ function channelMap() {
     stickerDelete: ROOMS.server,
     inviteCreate: ROOMS.invite,
     inviteDelete: ROOMS.invite,
+    inviteUsed: ROOMS.invite,
     threadCreate: ROOMS.thread,
     threadDelete: ROOMS.thread,
     voiceJoin: ROOMS.voice,
@@ -86,4 +87,61 @@ function apply(db) {
   return true;
 }
 
-module.exports = { apply, GUILD_ID, LINK_VERSION, channelMap };
+async function preview(client) {
+  const guild = client.guilds?.cache?.get(GUILD_ID);
+  if (!guild) return;
+  const logging = require('./logging');
+  const me = guild.members?.me;
+  const thumb = me?.displayAvatarURL?.({ size: 256 });
+  const who = me ? `${me}` : 'Never Land';
+  const cards = [
+    ['voiceJoin', {
+      title: 'Voice Join',
+      description: `${who} joined a voice channel`,
+      thumbnail: thumb,
+      fields: [
+        { name: 'Member', value: who, inline: true },
+        { name: 'Channel', value: 'Voice', inline: true },
+      ],
+      footer: 'Style preview',
+    }],
+    ['voiceLeave', {
+      title: 'Voice Leave',
+      description: `${who} left a voice channel`,
+      thumbnail: thumb,
+      fields: [
+        { name: 'Member', value: who, inline: true },
+        { name: 'Channel', value: 'Voice', inline: true },
+      ],
+      footer: 'Style preview',
+    }],
+    ['messageDelete', {
+      title: 'Message Deleted',
+      description: 'This message was removed.',
+      thumbnail: thumb,
+      fields: [
+        { name: 'Author', value: who, inline: true },
+        { name: 'Channel', value: 'Messages', inline: true },
+        { name: 'Deleted By', value: who, inline: true },
+      ],
+      footer: 'Style preview',
+    }],
+    ['inviteUsed', {
+      title: 'Invite Used',
+      description: `${who} joined the server`,
+      thumbnail: thumb,
+      fields: [
+        { name: 'Member', value: who, inline: true },
+        { name: 'Link', value: 'https://discord.gg/example', inline: true },
+        { name: 'Invited By', value: who, inline: true },
+        { name: 'Uses', value: '1', inline: true },
+      ],
+      footer: 'Style preview',
+    }],
+  ];
+  for (const [key, data] of cards) {
+    await logging.send(client, guild, key, data);
+  }
+}
+
+module.exports = { apply, preview, GUILD_ID, LINK_VERSION, channelMap };

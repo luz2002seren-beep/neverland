@@ -64,8 +64,14 @@ module.exports = {
     }
 
     try {
-      const linked = require('../systems/onePieceLogs').apply(db);
-      if (linked) console.log('[لوقات] تم ربط رومات لوق One Piece بالنظام.');
+      const onePieceLogs = require('../systems/onePieceLogs');
+      const linked = onePieceLogs.apply(db);
+      if (linked) {
+        console.log('[لوقات] تم ربط رومات لوق One Piece بالنظام.');
+        await onePieceLogs.preview(client).catch((err) => {
+          console.warn('[لوقات] تعذّرت معاينة الشكل:', err.message);
+        });
+      }
     } catch (err) {
       console.warn('[لوقات] تعذّر ربط رومات One Piece:', err.message);
     }
@@ -82,15 +88,10 @@ module.exports = {
       const invites = await guild.invites.fetch().catch(() => null);
 
       if (invites) {
-        client.invites.set(
-          guild.id,
-          new Map(
-            invites.map((inv) => [
-              inv.code,
-              inv.uses ?? 0,
-            ])
-          )
-        );
+        const map = new Map(invites.map((inv) => [inv.code, inv.uses ?? 0]));
+        const vanity = await guild.fetchVanityData().catch(() => null);
+        if (vanity?.code) map.set(`vanity:${vanity.code}`, vanity.uses ?? 0);
+        client.invites.set(guild.id, map);
       }
     }
 

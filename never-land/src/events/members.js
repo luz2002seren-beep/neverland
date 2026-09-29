@@ -16,45 +16,92 @@ const welcome = require('../systems/welcome');
 const { findExecutor } = require('../lib/audit');
 const { truncate } = require('../lib/utils');
 
+async function resolveInvite(client, member) {
+  const guild = member.guild;
+  const cached = client.invites.get(guild.id) || new Map();
+  let used = null;
+  try {
+    const fresh = await guild.invites.fetch();
+    used = fresh.find((inv) => (cached.get(inv.code) ?? 0) < (inv.uses ?? 0)) || null;
+    const next = new Map(fresh.map((inv) => [inv.code, inv.uses ?? 0]));
+    for (const [key, value] of cached) {
+      if (String(key).startsWith('vanity:')) next.set(key, value);
+    }
+    client.invites.set(guild.id, next);
+  } catch {
+    /* الدعوة العادية ما انجلبت */
+  }
+  if (!used) {
+    try {
+      const vanity = await guild.fetchVanityData();
+      if (vanity?.code) {
+        const key = `vanity:${vanity.code}`;
+        const prev = cached.get(key);
+        const map = client.invites.get(guild.id) || cached;
+        if (prev != null && (vanity.uses ?? 0) > prev) {
+          used = { code: vanity.code, uses: vanity.uses, vanity: true };
+        }
+        map.set(key, vanity.uses ?? 0);
+        client.invites.set(guild.id, map);
+      }
+    } catch {
+      /* ما في رابط مخصّص أو ما في صلاحية */
+    }
+  }
+  if (!used) return null;
+  return {
+    code: used.code,
+    inviter: used.inviter || null,
+    uses: used.uses ?? null,
+    vanity: !!used.vanity,
+  };
+}
+
 module.exports = [
   {
     name: Events.GuildMemberAdd,
     async execute(client, member) {
-      /* ---- تتبّع الدعوة المستخدمة ---- */
-      let inviteInfo = null;
-      try {
-        const cached = client.invites.get(member.guild.id);
-        if (cached) {
-          const fresh = await member.guild.invites.fetch();
-          const used = fresh.find((inv) => (cached.get(inv.code) ?? 0) < (inv.uses ?? 0));
-          if (used) inviteInfo = { code: used.code, inviter: used.inviter, uses: used.uses };
-          client.invites.set(member.guild.id, new Map(fresh.map((inv) => [inv.code, inv.uses ?? 0])));
-        }
-      } catch {
-        /* تجاهل */
-      }
+      /* جلب الدعوة يشتغل بالتوازي — لوق الدخول ما ينتظره */
+      const inviteTask = resolveInvite(client, member);
+      const avatar = member.user.displayAvatarURL({ size: 256 });
 
       if (member.user.bot) {
         await logging.send(client, member.guild, 'botStatus', {
-          title: 'بوت دخل السيرفر',
+          title: 'Bot Joined',
           description: `${member} (${member.user.tag})`,
-          thumbnail: member.user.displayAvatarURL({ size: 256 }),
+          thumbnail: avatar,
         });
       }
 
       await logging.send(client, member.guild, 'memberJoin', {
-        title: 'عضو جديد',
+        title: 'Member Joined',
         description: `${member} \`${member.user.tag}\``,
-        thumbnail: member.user.displayAvatarURL({ size: 256 }),
+        thumbnail: avatar,
         fields: [
-          { name: 'الحساب أُنشئ', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-          { name: 'الأعضاء الآن', value: `${member.guild.memberCount}`, inline: true },
-          { name: 'بوت؟', value: member.user.bot ? 'نعم 🤖' : 'لا 👤', inline: true },
-          ...(inviteInfo
-            ? [{ name: 'الدعوة', value: `\`${inviteInfo.code}\` بواسطة ${inviteInfo.inviter ?? 'غير معروف'} (${inviteInfo.uses} استخدام)`, inline: false }]
-            : []),
+          { name: 'Account Created', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+          { name: 'Members', value: `${member.guild.memberCount}`, inline: true },
+          { name: 'Bot', value: member.user.bot ? 'Yes' : 'No', inline: true },
         ],
       });
+
+      const inviteInfo = await inviteTask;
+      if (!member.user.bot) {
+        const link = inviteInfo?.code ? `https://discord.gg/${inviteInfo.code}` : 'Unknown';
+        const inviter = inviteInfo?.vanity
+          ? 'Vanity URL'
+          : (inviteInfo?.inviter ? `${inviteInfo.inviter}` : 'Unknown');
+        await logging.send(client, member.guild, 'inviteUsed', {
+          title: 'Invite Used',
+          description: `${member} joined the server`,
+          thumbnail: avatar,
+          fields: [
+            { name: 'Member', value: `${member} \`${member.user.tag}\``, inline: true },
+            { name: 'Link', value: link, inline: true },
+            { name: 'Invited By', value: inviter, inline: true },
+            { name: 'Uses', value: inviteInfo?.uses != null ? String(inviteInfo.uses) : '—', inline: true },
+          ],
+        });
+      }
 
       await welcome.handleMemberAdd(client, member, { inviteInfo });
       db.bumpDaily(member.guild.id, 'joins');

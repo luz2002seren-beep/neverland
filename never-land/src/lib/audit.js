@@ -157,7 +157,7 @@ function stats({ guildId = undefined } = {}) {
  * من نفّذ الحدث في ديسكورد؟ يُقرأ من سجل التدقيق.
  * يرجع { executor, reason } أو كائنًا فاضيًا لو ما لقى أو ما عنده صلاحية.
  */
-async function findExecutor(guild, type, options = {}) {
+async function lookupExecutor(guild, type, options = {}) {
   const targetId = options.targetId || null;
   const maxAgeMs = Number.isFinite(options.maxAgeMs) ? options.maxAgeMs : 5000;
   try {
@@ -173,6 +173,20 @@ async function findExecutor(guild, type, options = {}) {
     return { executor: entry.executor || null, reason: entry.reason || null };
   } catch {
     return {};
+  }
+}
+
+/** ما نخلّي اللوق ينتظر سجل التدقيق أكثر من جزء من الثانية */
+async function findExecutor(guild, type, options = {}) {
+  const waitMs = Number.isFinite(options.waitMs) ? options.waitMs : 400;
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({}), waitMs);
+  });
+  try {
+    return await Promise.race([lookupExecutor(guild, type, options), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

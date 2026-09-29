@@ -33,24 +33,31 @@ module.exports = [
       if (!guild) return;
 
       if (!oldState.channelId && newState.channelId) {
+        const member = newState.member;
         await logging.send(client, guild, 'voiceJoin', {
-          title: 'دخول قناة صوتية',
+          title: 'Voice Join',
+          description: member ? `${member} joined <#${newState.channelId}>` : `<#${newState.channelId}>`,
+          thumbnail: member?.displayAvatarURL?.({ size: 256 }),
           fields: [
-            { name: 'العضو', value: `${newState.member}`, inline: true },
-            { name: 'القناة', value: `<#${newState.channelId}>`, inline: true },
+            { name: 'Member', value: `${member}`, inline: true },
+            { name: 'Channel', value: `<#${newState.channelId}>`, inline: true },
           ],
         });
       } else if (oldState.channelId && !newState.channelId) {
+        const member = oldState.member;
         const kicked = await findExecutor(guild, AuditLogEvent.MemberDisconnect, {
           targetId: oldState.id,
-          maxAgeMs: 6000,
+          maxAgeMs: 4000,
+          waitMs: 350,
         });
         await logging.send(client, guild, 'voiceLeave', {
-          title: kicked.executor ? 'طرد من روم صوتي' : 'خروج من قناة صوتية',
+          title: kicked.executor ? 'Voice Kick' : 'Voice Leave',
+          description: member ? `${member} left <#${oldState.channelId}>` : `<#${oldState.channelId}>`,
+          thumbnail: member?.displayAvatarURL?.({ size: 256 }),
           fields: [
-            { name: 'العضو', value: `${oldState.member}`, inline: true },
-            { name: 'القناة', value: `<#${oldState.channelId}>`, inline: true },
-            ...(kicked.executor ? [{ name: 'بواسطة', value: `${kicked.executor}`, inline: true }] : []),
+            { name: 'Member', value: `${member}`, inline: true },
+            { name: 'Channel', value: `<#${oldState.channelId}>`, inline: true },
+            ...(kicked.executor ? [{ name: 'By', value: `${kicked.executor}`, inline: true }] : []),
           ],
         });
         if (oldState.member?.user?.bot && kicked.executor) {
@@ -72,12 +79,15 @@ module.exports = [
           await logging.send(client, guild, 'voiceDeafen', { title: 'إلغاء الإصمام', fields: [{ name: 'العضو', value: `${newState.member}`, inline: true }] });
         }
       } else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+        const member = newState.member;
         await logging.send(client, guild, 'voiceMove', {
-          title: 'تنقّل بين قنوات صوتية',
+          title: 'Voice Move',
+          description: member ? `${member} moved to <#${newState.channelId}>` : `<#${newState.channelId}>`,
+          thumbnail: member?.displayAvatarURL?.({ size: 256 }),
           fields: [
-            { name: 'العضو', value: `${newState.member}`, inline: true },
-            { name: 'من', value: `<#${oldState.channelId}>`, inline: true },
-            { name: 'إلى', value: `<#${newState.channelId}>`, inline: true },
+            { name: 'Member', value: `${member}`, inline: true },
+            { name: 'From', value: `<#${oldState.channelId}>`, inline: true },
+            { name: 'To', value: `<#${newState.channelId}>`, inline: true },
           ],
         });
       }
