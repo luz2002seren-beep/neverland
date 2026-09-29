@@ -398,12 +398,12 @@ async function publish(client, guild, { force = false } = {}) {
 
   /* ١) في رسالة منشورة من قبل؟ */
   if (cfg.bannerId) {
-    const existing = await channel.messages.fetch(cfg.bannerId).catch(() => null);
+    const existing = await raceTimeout(channel.messages.fetch(cfg.bannerId).catch(() => null), 10000, null);
     if (existing) {
       if (cfg.repost) {
         /* إعادة النشر: نحذف القديمة (ونفك التثبيت إن كان مثبّتًا) ونبعت وحدة جديدة كل دورة */
-        await existing.unpin().catch(() => {});
-        await existing.delete().catch(() => {});
+        await raceTimeout(existing.unpin().catch(() => {}), 10000, null);
+        await raceTimeout(existing.delete().catch(() => {}), 10000, null);
       } else if (!force) {
         /* وضع التعديل: نحدّث نفس الرسالة (تظهر عندها كلمة «تم التعديل») */
         const edited = await existing
@@ -437,7 +437,8 @@ async function clean(client, guild, { keepId = null } = {}) {
   const cfg = configFor(guild.id);
   if (!cfg.channelId) return { ok: false, deleted: 0, reason: 'noChannel' };
 
-  const channel = guild.channels.cache.get(cfg.channelId) || (await guild.channels.fetch(cfg.channelId).catch(() => null));
+  const channel = guild.channels.cache.get(cfg.channelId)
+    || (await raceTimeout(guild.channels.fetch(cfg.channelId).catch(() => null), 8000, null));
   if (!channel?.isTextBased?.()) return { ok: false, deleted: 0, reason: 'noChannel' };
 
   const keep = keepId || cfg.bannerId;
@@ -457,12 +458,12 @@ async function clean(client, guild, { keepId = null } = {}) {
   /* ١) الحذف الجماعي أسرع — filterOld=true تخليه يتجاوز الأقدم من ١٤ يومًا */
   const bulkable = toDelete.filter((m) => Date.now() - m.createdTimestamp < 14 * 24 * 3600 * 1000);
   if (bulkable.length && typeof channel.bulkDelete === 'function') {
-    const result = await channel.bulkDelete(bulkable, true).catch(() => null);
+    const result = await raceTimeout(channel.bulkDelete(bulkable, true).catch(() => null), 20000, null);
     if (result && typeof result.size === 'number') deleted += result.size;
     else {
       /* فشل الجماعي: نحذف واحد واحد */
       for (const message of bulkable) {
-        const ok = await message.delete().then(() => true).catch(() => false);
+        const ok = await raceTimeout(message.delete().then(() => true).catch(() => false), 10000, false);
         if (ok) deleted += 1;
       }
     }
@@ -471,7 +472,7 @@ async function clean(client, guild, { keepId = null } = {}) {
   /* ٢) القديمة (أكثر من ١٤ يومًا) تُحذف فرديًا */
   const old = toDelete.filter((m) => Date.now() - m.createdTimestamp >= 14 * 24 * 3600 * 1000);
   for (const message of old) {
-    const ok = await message.delete().then(() => true).catch(() => false);
+    const ok = await raceTimeout(message.delete().then(() => true).catch(() => false), 10000, false);
     if (ok) deleted += 1;
   }
 
@@ -555,7 +556,7 @@ function start(client, { heartbeatMs = 10000 } = {}) {
       const last = state.lastRunAt || 0;
       if (Date.now() - last < cfg.intervalSeconds * 1000) continue;
       try {
-        const result = await raceTimeout(runOnce(client, guild.id), 90000, { ok: false, reason: 'دورة معلّقة (مهلة ٩٠ ثانية)' });
+        const result = await raceTimeout(runOnce(client, guild.id), 90000, { ok: false, reason: 'دورة معلّقة (مهلة ٤٥ ثانية)' }, 45000);
         const roomMissing = result.published?.reason === 'noChannel' || result.cleaned?.reason === 'noChannel';
         if (roomMissing) {
           /* ما نعلّق الدورات: نوقف هذا السيرفر ٣٠ دقيقة ونكمّل الباقي */
