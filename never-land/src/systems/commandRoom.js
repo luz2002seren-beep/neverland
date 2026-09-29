@@ -352,8 +352,12 @@ async function publish(client, guild, { force = false } = {}) {
   const cfg = configFor(guild.id);
   if (!cfg.channelId) return { ok: false, reason: 'noChannel' };
 
-  const channel = guild.channels.cache.get(cfg.channelId) || (await guild.channels.fetch(cfg.channelId).catch(() => null));
-  if (!channel?.isTextBased?.()) return { ok: false, reason: 'noChannel' };
+  let fetchError = null;
+  const channel = guild.channels.cache.get(cfg.channelId)
+    || (await guild.channels.fetch(cfg.channelId).catch((err) => { fetchError = err.message; return null; }));
+  if (!channel?.isTextBased?.()) {
+    return { ok: false, reason: 'noChannel', error: fetchError || `cacheSize=${guild.channels.cache.size} type=${channel?.type}` };
+  }
 
   /* الإيموجيات الخارجية: تُضاف للسيرفر ويُبدَّل رقمها في النص (وإلا بديل ✨) */
   const emojis = await fixExternalEmojis(client, guild, cfg.text, { fallback: cfg.emojiFallback });
@@ -392,11 +396,13 @@ async function publish(client, guild, { force = false } = {}) {
   }
 
   /* ٢) ننشر رسالة جديدة (ونمسح النسخ القديمة لو موجودة) */
+  let sendError = null;
   const sent = await channel.send(payload()).catch((err) => {
+    sendError = err.message;
     STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), lastError: `publish: ${err.message}` };
     return null;
   });
-  if (!sent) return { ok: false, reason: 'sendFailed' };
+  if (!sent) return { ok: false, reason: 'sendFailed', error: sendError };
 
   saveBanner(guild.id, sent.id);
   /* التثبيت ما إله معنى مع إعادة النشر كل دورة (الرسالة تُحذف وتُستبدل) — فما نثبّت */
@@ -416,8 +422,9 @@ async function clean(client, guild, { keepId = null } = {}) {
   if (!channel?.isTextBased?.()) return { ok: false, deleted: 0, reason: 'noChannel' };
 
   const keep = keepId || cfg.bannerId;
-  const fetched = await channel.messages.fetch({ limit: 100 }).catch(() => null);
-  if (!fetched) return { ok: false, deleted: 0, reason: 'fetchFailed' };
+  let fetchError = null;
+  const fetched = await channel.messages.fetch({ limit: 100 }).catch((err) => { fetchError = err.message; return null; });
+  if (!fetched) return { ok: false, deleted: 0, reason: 'fetchFailed', error: fetchError };
 
   const toDelete = [...fetched.values()].filter((m) => m.id !== keep && !m.pinned);
   if (!toDelete.length) return { ok: true, deleted: 0, channelId: channel.id };
@@ -499,7 +506,26 @@ function start(client, { heartbeatMs = 10000 } = {}) {
       const last = STATE.guilds[guild.id]?.lastRunAt || 0;
       if (Date.now() - last < cfg.intervalSeconds * 1000) continue;
       try {
-        await runOnce(client, guild.id);
+        const result = await runOnce(client, guild.id);
+        if (!result.ok) {
+          const reason = result.published?.ok === false
+            ? `publish:${result.published.reason}${result.published.error ? ` (${result.published.error})` : ''}`
+            : `clean:${result.cleaned?.reason}${result.cleaned?.error ? ` (${result.cleaned.error})` : ''}`;
+          if (STATE.guilds[guild.id]?.reportedReason !== reason) {
+            STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), reportedReason: reason };
+            console.warn(`[روم الأوامر] تعذّرت الدورة — ${reason} · الروم ${cfg.channelId}`);
+          }
+        } else {
+          if (STATE.guilds[guild.id]?.reportedReason) {
+            STATE.guilds[guild.id] = { ...STATE.guilds[guild.id], reportedReason: null };
+            console.log('[روم الأوامر] رجع يشتغل تمام.');
+          }
+          /* أول دورة ناجحة لكل سيرفر: نطبع سطرًا واحدًا للتأكيد (بعدها بلا إغراق) */
+          if (!STATE.guilds[guild.id]?.loggedOnce) {
+            STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), loggedOnce: true };
+            console.log(`[روم الأوامر] دورة ناجحة: الرسالة ${result.published?.messageId} · انمسح ${result.cleaned?.deleted || 0} رسالة · كل ${cfg.intervalSeconds} ثانية`);
+          }
+        }
       } catch (err) {
         STATE.guilds[guild.id] = { ...(STATE.guilds[guild.id] || {}), lastError: err.message };
         console.error('[تنبيه] روم الأوامر:', err.message);
