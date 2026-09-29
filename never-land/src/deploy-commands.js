@@ -21,12 +21,9 @@ const config = require('./config');
 async function deployCommands(client, { global = false } = {}) {
   const commands = [...client.commands.values()].map((cmd) => cmd.data.toJSON());
   const rest = new REST({ version: '10' }).setToken(config.bot.token);
-  const isGlobal = global || process.argv.includes('--global');
-
-  if (isGlobal) {
-    const data = await rest.put(Routes.applicationCommands(config.bot.clientId), { body: commands });
-  console.log(`[الويب] تم تسجيل ${data.length} أمر عالمي (قد يستغرق حتى ساعة للظهور).`);
-    return data;
+  const requestedGlobal = global || process.argv.includes('--global');
+  if (requestedGlobal) {
+    console.warn('[أوامر] تم تجاهل التسجيل العالمي لأنه يكرر أوامر السيرفر ويعارضها.');
   }
 
   // تسجيل محلي في كل سيرفر (ظهور فوري)
@@ -69,9 +66,8 @@ if (require.main === module) {
     const commands = [...fakeClient.commands.values()].map((cmd) => cmd.data.toJSON());
 
     if (process.argv.includes('--global')) {
-      const data = await rest.put(Routes.applicationCommands(config.bot.clientId), { body: commands });
-   console.log(`[الويب] تم تسجيل ${data.length} أمر عالمي.`);
-      process.exit(0);
+      console.warn('[أوامر] --global معطل: سنحذف الأوامر العالمية ونسجل أوامر السيرفر بدلها.');
+      await rest.put(Routes.applicationCommands(config.bot.clientId), { body: [] });
     }
 
     // تسجيل محلي: نحتاج قائمة السيرفرات من الـ API
