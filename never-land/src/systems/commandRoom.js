@@ -458,7 +458,10 @@ async function clean(client, guild, { keepId = null } = {}) {
 /** دورة كاملة: تأكيد وجود رسالة الترحيب + تنظيف الباقي */
 async function runOnce(client, guildId, { force = false } = {}) {
   const guild = client.guilds.cache.get(guildId);
-  if (!guild) return { ok: false, reason: 'noGuild' };
+  if (!guild) {
+    console.warn('[روم الأوامر] السيرفر غير موجود في الكاش:', guildId);
+    return { ok: false, reason: 'noGuild' };
+  }
 
   const cfg = configFor(guildId);
   if (!cfg.enabled) return { ok: false, reason: 'disabled' };
@@ -492,8 +495,28 @@ function start(client, { heartbeatMs = 10000 } = {}) {
   STATE.startedAt = Date.now();
 
   const tick = async () => {
-    for (const guild of client.guilds.cache.values()) {
-      const cfg = configFor(guild.id);
+    const guilds = [...client.guilds.cache.values()];
+    if (!STATE.sawGuilds) {
+      STATE.sawGuilds = guilds.length;
+      console.log(`[روم الأوامر] الفحص الدوري بدأ — البوت يشوف ${guilds.length} سيرفر.`);
+    }
+    for (const guild of guilds) {
+      let cfg;
+      try {
+        cfg = configFor(guild.id);
+      } catch (err) {
+        console.error('[روم الأوامر] تعذّر قراءة الإعدادات:', err.message);
+        continue;
+      }
+      if (!STATE.guilds[guild.id]?.loggedCfg) {
+        STATE.guilds[guild.id] = {
+          ...(STATE.guilds[guild.id] || {}),
+          loggedCfg: true,
+          enabled: cfg.enabled,
+          channelId: cfg.channelId,
+        };
+        console.log(`[روم الأوامر] فحص: ${guild.name} · مفعّل=${cfg.enabled} · الروم=${cfg.channelId} · كل ${cfg.intervalSeconds}ث`);
+      }
       if (!cfg.enabled || !cfg.channelId) {
         STATE.guilds[guild.id] = {
           ...(STATE.guilds[guild.id] || {}),
