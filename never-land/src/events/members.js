@@ -34,6 +34,14 @@ module.exports = [
         /* تجاهل */
       }
 
+      if (member.user.bot) {
+        await logging.send(client, member.guild, 'botStatus', {
+          title: 'بوت دخل السيرفر',
+          description: `${member} (${member.user.tag})`,
+          thumbnail: member.user.displayAvatarURL({ size: 256 }),
+        });
+      }
+
       await logging.send(client, member.guild, 'memberJoin', {
         title: 'عضو جديد',
         description: `${member} \`${member.user.tag}\``,
@@ -97,6 +105,14 @@ module.exports = [
               inline: false,
             },
           ],
+        });
+      }
+
+      if (member.user?.bot) {
+        await logging.send(client, guild, 'botStatus', {
+          title: executor ? 'بوت انطرد من السيرفر' : 'بوت خرج من السيرفر',
+          description: `${member.user} (${member.user.tag})`,
+          fields: executor ? [{ name: 'بواسطة', value: `${executor}`, inline: true }] : [],
         });
       }
 
@@ -165,6 +181,13 @@ module.exports = [
       }
 
       /* ---- اسم المستخدم ---- */
+      if (newMember.user.bot && (oldMember.user.username !== newMember.user.username || oldMember.user.avatar !== newMember.user.avatar)) {
+        await logging.send(client, guild, 'botStatus', {
+          title: 'تغيّر بوت',
+          description: `${newMember} (${newMember.user.tag})`,
+        });
+      }
+
       if (oldMember.user.username !== newMember.user.username) {
         await logging.send(client, guild, 'memberUsername', {
           title: 'تغيير اسم المستخدم',

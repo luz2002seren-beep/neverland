@@ -291,6 +291,7 @@ const config = {
         modActions: true,
         automod: true,
         ticket: true,
+        botStatus: true,
       },
       /** تجاهل القنوات/الرتب في اللوقات */
       ignoredChannels: [],

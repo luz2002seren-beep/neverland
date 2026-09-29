@@ -7,10 +7,22 @@
  * -------------------------------------------------------------
  */
 
-const { Events } = require('discord.js');
+const { AuditLogEvent, Events } = require('discord.js');
 const logging = require('../systems/logging');
 const db = require('../database');
+const { findExecutor } = require('../lib/audit');
 const { base } = require('../lib/embeds');
+
+async function reportBot(client, guild, data) {
+  if (!guild) return;
+  await logging.send(client, guild, 'botStatus', data);
+}
+
+async function reportBotEverywhere(client, data) {
+  for (const guild of client.guilds?.cache?.values?.() || []) {
+    await reportBot(client, guild, data);
+  }
+}
 
 module.exports = [
   /* ------------------------------- الصوت ------------------------------- */
@@ -29,13 +41,24 @@ module.exports = [
           ],
         });
       } else if (oldState.channelId && !newState.channelId) {
+        const kicked = await findExecutor(guild, AuditLogEvent.MemberDisconnect, {
+          targetId: oldState.id,
+          maxAgeMs: 6000,
+        });
         await logging.send(client, guild, 'voiceLeave', {
-          title: 'خروج من قناة صوتية',
+          title: kicked.executor ? 'طرد من روم صوتي' : 'خروج من قناة صوتية',
           fields: [
             { name: 'العضو', value: `${oldState.member}`, inline: true },
             { name: 'القناة', value: `<#${oldState.channelId}>`, inline: true },
+            ...(kicked.executor ? [{ name: 'بواسطة', value: `${kicked.executor}`, inline: true }] : []),
           ],
         });
+        if (oldState.member?.user?.bot && kicked.executor) {
+          await reportBot(client, guild, {
+            title: 'مشكلة: بوت انطرد من الصوت',
+            description: `${oldState.member} طُرد من <#${oldState.channelId}> بواسطة ${kicked.executor}`,
+          });
+        }
       } else if (oldState.channelId === newState.channelId && oldState.channelId) {
         // كتم / إصمام
         if (!oldState.serverMute && newState.serverMute) {
@@ -108,7 +131,27 @@ module.exports = [
     name: Events.Error,
     async execute(client, error) {
       client.errorCount += 1;
-   console.error('[خطأ] خطأ في عميل ديسكورد:', error?.message || error);
+      const message = error?.message || String(error);
+      console.error('[خطأ] خطأ في عميل ديسكورد:', message);
+      await reportBotEverywhere(client, { title: 'مشكلة في البوت', description: message.slice(0, 500) });
+    },
+  },
+  {
+    name: Events.ShardDisconnect,
+    async execute(client, event, shardId) {
+      await reportBotEverywhere(client, {
+        title: 'انقطع اتصال البوت',
+        description: `الشارد ${shardId ?? 0}${event?.code ? ` · كود ${event.code}` : ''}`,
+      });
+    },
+  },
+  {
+    name: Events.ShardResume,
+    async execute(client, shardId) {
+      await reportBotEverywhere(client, {
+        title: 'رجع اتصال البوت',
+        description: `الشارد ${shardId ?? 0} اتصل من جديد.`,
+      });
     },
   },
   {

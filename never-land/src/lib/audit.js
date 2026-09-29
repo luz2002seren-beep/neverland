@@ -153,4 +153,27 @@ function stats({ guildId = undefined } = {}) {
   return { total, danger, warn, today };
 }
 
-module.exports = { record, site, guild, list, stats, describeChange, ACTION_LABELS, MASK };
+/**
+ * من نفّذ الحدث في ديسكورد؟ يُقرأ من سجل التدقيق.
+ * يرجع { executor, reason } أو كائنًا فاضيًا لو ما لقى أو ما عنده صلاحية.
+ */
+async function findExecutor(guild, type, options = {}) {
+  const targetId = options.targetId || null;
+  const maxAgeMs = Number.isFinite(options.maxAgeMs) ? options.maxAgeMs : 5000;
+  try {
+    if (!guild?.members?.me?.permissions?.has('ViewAuditLog')) return {};
+    const logs = await guild.fetchAuditLogs({ type, limit: 6 });
+    const now = Date.now();
+    const entry = logs.entries.find((item) => {
+      if (!item?.createdTimestamp || now - item.createdTimestamp > maxAgeMs) return false;
+      if (targetId && item.targetId && item.targetId !== targetId) return false;
+      return true;
+    });
+    if (!entry) return {};
+    return { executor: entry.executor || null, reason: entry.reason || null };
+  } catch {
+    return {};
+  }
+}
+
+module.exports = { record, site, guild, list, stats, describeChange, findExecutor, ACTION_LABELS, MASK };

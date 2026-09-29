@@ -11,6 +11,16 @@ const { Events, AuditLogEvent, ChannelType } = require('discord.js');
 const logging = require('../systems/logging');
 const { findExecutor } = require('../lib/audit');
 
+function isVoiceRoom(channel) {
+  return channel.type === ChannelType.GuildVoice || channel.type === ChannelType.GuildStageVoice;
+}
+
+function isTextRoom(channel) {
+  return channel.type === ChannelType.GuildText
+    || channel.type === ChannelType.GuildAnnouncement
+    || channel.type === ChannelType.GuildForum;
+}
+
 /** وصف نوع القناة بالعربي */
 function channelKind(channel) {
   switch (channel.type) {
@@ -29,6 +39,18 @@ module.exports = [
     async execute(client, channel) {
       if (!channel.guild) return;
       const { executor } = await findExecutor(channel.guild, AuditLogEvent.ChannelCreate, { targetId: channel.id });
+      if (isVoiceRoom(channel)) {
+        await logging.send(client, channel.guild, 'voiceJoin', {
+          title: 'إنشاء روم صوتي',
+          footer: 'الرومات الصوتية',
+          fields: [
+            { name: 'الروم', value: `${channel} \`${channel.name}\``, inline: true },
+            ...(executor ? [{ name: 'بواسطة', value: `${executor}`, inline: true }] : []),
+          ],
+        });
+        return;
+      }
+      if (!isTextRoom(channel) && channel.type !== ChannelType.GuildCategory) return;
       await logging.send(client, channel.guild, 'channelCreate', {
         title: 'إنشاء قناة',
         fields: [
@@ -44,6 +66,18 @@ module.exports = [
     async execute(client, channel) {
       if (!channel.guild) return;
       const { executor } = await findExecutor(channel.guild, AuditLogEvent.ChannelDelete, { targetId: channel.id });
+      if (isVoiceRoom(channel)) {
+        await logging.send(client, channel.guild, 'voiceLeave', {
+          title: 'حذف روم صوتي',
+          footer: 'الرومات الصوتية',
+          fields: [
+            { name: 'الروم', value: `\`${channel.name}\``, inline: true },
+            ...(executor ? [{ name: 'بواسطة', value: `${executor}`, inline: true }] : []),
+          ],
+        });
+        return;
+      }
+      if (!isTextRoom(channel) && channel.type !== ChannelType.GuildCategory) return;
       await logging.send(client, channel.guild, 'channelDelete', {
         title: 'حذف قناة',
         fields: [
@@ -58,6 +92,16 @@ module.exports = [
     name: Events.ChannelUpdate,
     async execute(client, oldChannel, newChannel) {
       if (!newChannel.guild) return;
+      if (isVoiceRoom(newChannel)) {
+        if (oldChannel.name !== newChannel.name) {
+          await logging.send(client, newChannel.guild, 'voiceMove', {
+            title: 'تعديل روم صوتي',
+            footer: 'الرومات الصوتية',
+            fields: [{ name: 'الروم', value: `${oldChannel.name} ➜ ${newChannel.name}`, inline: false }],
+          });
+        }
+        return;
+      }
 
       // تغيير الصلاحيات (Overwrites)
       const oldPerms = [...(oldChannel.permissionOverwrites?.cache?.values?.() ?? [])];

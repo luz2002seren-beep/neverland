@@ -63,6 +63,13 @@ module.exports = {
       db.getGuild(guild.id);
     }
 
+    try {
+      const linked = require('../systems/onePieceLogs').apply(db);
+      if (linked) console.log('[لوقات] تم ربط رومات لوق One Piece بالنظام.');
+    } catch (err) {
+      console.warn('[لوقات] تعذّر ربط رومات One Piece:', err.message);
+    }
+
     /* ---------------------------------------------------------
      * تحميل كاش الدعوات
      * --------------------------------------------------------- */
