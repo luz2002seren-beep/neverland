@@ -17,23 +17,23 @@ module.exports = [
   {
     name: Events.MessageDelete,
     async execute(client, message) {
-      if (!message.guild || message.author?.bot) return;
+      if (message.partial) message = await message.fetch().catch(() => message);
+      const guild = message.guild || client.guilds?.cache?.get(message.guildId);
+      if (!guild || message.author?.bot) return;
 
-      // الخط الفاصل ما يأخّر اللوق
       const lineTask = autoline.handleMessageDelete(client, message).catch(() => {});
+      const author = message.author;
+      const { executor } = author
+        ? await findExecutor(guild, AuditLogEvent.MessageDelete, { targetId: author.id, maxAgeMs: 5000 })
+        : {};
 
-      const { executor } = await findExecutor(message.guild, AuditLogEvent.MessageDelete, {
-        targetId: message.author.id,
-        maxAgeMs: 5000,
-      });
-
-      await logging.send(client, message.guild, 'messageDelete', {
+      await logging.send(client, guild, 'messageDelete', {
         title: 'Message Deleted',
         description: truncate(message.content || 'Attachment or embed only', 1024),
-        thumbnail: message.author.displayAvatarURL({ size: 256 }),
+        thumbnail: author?.displayAvatarURL?.({ size: 256 }),
         fields: [
-          { name: 'Author', value: `${message.author} \`${message.author.tag}\``, inline: true },
-          { name: 'Channel', value: `${message.channel}`, inline: true },
+          { name: 'Author', value: author ? `${author} \`${author.tag}\`` : 'Unknown', inline: true },
+          { name: 'Channel', value: message.channel ? `${message.channel}` : `<#${message.channelId}>`, inline: true },
           ...(executor ? [{ name: 'Deleted By', value: `${executor}`, inline: true }] : []),
         ],
         footer: `ID ${message.id}`,

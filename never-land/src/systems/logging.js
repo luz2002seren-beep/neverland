@@ -234,11 +234,25 @@ function englishSnippet(text) {
 }
 
 /** هل الحدث مُفعّل في هذا السيرفر؟ (مع مراعاة قناة اللوقات فقط) */
+function boundChannelId(guildId, eventKey) {
+  const settings = db.getGuildSettings(guildId);
+  const ids = channelCandidates(settings, eventKey);
+  if (ids[0]) return ids[0];
+  try {
+    const piece = require('./onePieceLogs');
+    if (String(guildId) === piece.GUILD_ID) return piece.channelMap()[eventKey] || null;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function isEventEnabled(guildId, eventKey) {
   const settings = db.getGuildSettings(guildId);
-  if (!settings.logs?.enabled) return false;
-  const events = settings.logs.events || {};
-  return events[eventKey] !== false && events[eventKey] !== undefined;
+  const events = settings.logs?.events || {};
+  if (events[eventKey] === false) return false;
+  if (settings.logs?.enabled === false && !boundChannelId(guildId, eventKey)) return false;
+  return events[eventKey] === true || Boolean(boundChannelId(guildId, eventKey));
 }
 
 /**
@@ -300,15 +314,49 @@ function shouldIgnore(guildId, { channelId = null, member = null } = {}) {
  * @param {string} eventKey مفتاح الحدث
  * @param {object} data { title, description, fields, thumbnail, image, footer, color, files, channelId, member }
  */
+async function resolveLogTarget(client, guild, eventKey) {
+  const channelId = boundChannelId(guild.id, eventKey);
+  if (!channelId) return { channel: null, channelId: null };
+  let channel = guild.channels?.cache?.get(channelId) || null;
+  if (!channel && guild.channels?.fetch) {
+    channel = await guild.channels.fetch(channelId).catch(() => null);
+  }
+  if (channel && !channel.isTextBased?.()) channel = null;
+  return { channel, channelId };
+}
+
+async function deliverLog(client, channel, channelId, payload) {
+  if (channel?.send) {
+    try {
+      return await channel.send(payload);
+    } catch (err) {
+      console.error('[لوق] إرسال الروم فشل، نجرب الواجهة:', err.message);
+    }
+  }
+  if (!channelId || !client?.rest?.post) return null;
+  const body = {
+    embeds: (payload.embeds || []).map((embed) => (typeof embed.toJSON === 'function' ? embed.toJSON() : embed)),
+  };
+  return client.rest.post(`/channels/${channelId}/messages`, { body });
+}
+
 async function send(client, guild, eventKey, data = {}) {
   try {
     if (!guild) return null;
-    if (!isEventEnabled(guild.id, eventKey)) return null;
-    if (shouldIgnore(guild.id, { channelId: data.channelId, member: data.member })) return null;
+    if (!isEventEnabled(guild.id, eventKey)) {
+      console.log(`[لوق] متوقف ${eventKey}`);
+      return null;
+    }
+    if (shouldIgnore(guild.id, { channelId: data.channelId, member: data.member })) {
+      console.log(`[لوق] متجاهل ${eventKey}`);
+      return null;
+    }
 
-    /* كل حدث لرومه: روم الحدث ← روم المجموعة ← القناة العامة */
-    const channel = getLogChannel(client, guild.id, eventKey);
-    if (!channel) return null;
+    const { channel, channelId } = await resolveLogTarget(client, guild, eventKey);
+    if (!channel && !channelId) {
+      console.log(`[لوق] بلا روم ${eventKey}`);
+      return null;
+    }
 
     const meta = EVENT_META[eventKey] || { emoji: '📌', color: config.bot.colors.primary, label: eventKey, en: eventKey, icon: ICON('1f4cc') };
     const heading = englishHeading(data.title, meta);
@@ -335,8 +383,9 @@ async function send(client, guild, eventKey, data = {}) {
     });
 
     const started = Date.now();
-    const sent = await channel.send({ embeds: [embed], files: data.files, components: data.components });
-    console.log(`[لوق] ${eventKey} ${Date.now() - started}ms`);
+    const payload = { embeds: [embed], files: data.files, components: data.components };
+    const sent = await deliverLog(client, channel, channelId, payload);
+    console.log(`[لوق] ${eventKey} ${Date.now() - started}ms -> ${channelId}`);
     return sent;
   } catch (err) {
     console.error('[تنبيه] فشل إرسال اللوق:', err.message);

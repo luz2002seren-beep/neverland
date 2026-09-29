@@ -101,6 +101,11 @@ async function startBot() {
     console.log('[ديسكورد]', line.slice(0, 220));
   });
 
+  const watch = new Set(['MESSAGE_DELETE', 'MESSAGE_UPDATE', 'MESSAGE_DELETE_BULK', 'CHANNEL_CREATE', 'CHANNEL_DELETE', 'CHANNEL_UPDATE', 'GUILD_MEMBER_ADD', 'GUILD_MEMBER_REMOVE']);
+  client.on('raw', (packet) => {
+    if (watch.has(packet?.t)) console.log('[حدث]', packet.t);
+  });
+
   const token = String(config.bot.token || '').trim();
   const connected = await connectDiscord(client, token);
   if (!connected) console.error('[دخول] البوت ما اتصل بعد. الموقع يبقى شغال.');
