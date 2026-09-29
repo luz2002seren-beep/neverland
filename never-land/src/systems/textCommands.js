@@ -637,9 +637,10 @@ function claimMessage(id) {
   return false;
 }
 
-async function handleMessage(client, message) {
-  /* حماية: ما ننفّذ أوامر من البوتات ولا من رسائل الخاص */
-  if (message.author?.bot || !message.guild) return false;
+async function handleMessage(client, message, options = {}) {
+  /* حماية: ما ننفّذ أوامر من البوتات ولا من رسائل الخاص — إلا فحصنا الداخلي في روم الاختبارات */
+  const allowSelfTest = Boolean(options.allowSelfTest) && String(message.author?.id) === String(client.user?.id);
+  if ((message.author?.bot && !allowSelfTest) || !message.guild) return false;
 
   const guildId = message.guild.id;
   const { config, map } = aliasIndex(guildId);

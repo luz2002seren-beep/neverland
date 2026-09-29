@@ -33,8 +33,12 @@ async function channelOf(client, data) {
   return client.channels?.cache?.get(id) || (await client.channels.fetch(id).catch(() => null));
 }
 
+const TEST_CHANNEL_ID = '1553824667167629334';
+
 async function runTextFromPacket(client, data) {
-  if (!data?.guild_id || data.author?.bot || data.webhook_id) return;
+  const selfTest = String(data?.channel_id || '') === TEST_CHANNEL_ID && String(data?.author?.id || '') === String(client.user?.id || '');
+  if (!data?.guild_id || data.webhook_id) return;
+  if (data.author?.bot && !selfTest) return;
   const content = String(data.content || '').trim();
   if (!content) return;
   const first = content.split(/\s+/)[0];
@@ -50,7 +54,7 @@ async function runTextFromPacket(client, data) {
     console.error('[أوامر] الرسالة وصلت وما قدرناش نجيبها', data.id);
     return;
   }
-  await textCommands.handleMessage(client, message);
+  await textCommands.handleMessage(client, message, { allowSelfTest: selfTest });
 }
 
 function restReply(client, interaction, payload) {
