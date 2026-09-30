@@ -23,7 +23,7 @@ async function request(method, path, body, extra = {}) {
     const message = data?.message || data?.error || res.statusText;
     throw new Error(`proxy ${res.status}: ${message}`);
   }
-  return data?.data ?? null;
+  return Object.prototype.hasOwnProperty.call(data || {}, 'data') ? data.data : true;
 }
 
 function install(rest) {
@@ -32,6 +32,7 @@ function install(rest) {
     const original = rest[method];
     if (typeof original !== 'function') continue;
     rest[method] = async function proxied(path, options = {}) {
+      if (options?.files?.length) return original.call(this, path, options);
       try {
         return await request(method.toUpperCase(), path, options.body ?? null, options);
       } catch (err) {
