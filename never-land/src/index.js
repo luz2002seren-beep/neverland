@@ -60,6 +60,11 @@ async function startBot() {
   }
 
   const client = require('./client');
+  try {
+    require('./lib/discordRestProxy').install(client.rest);
+  } catch (err) {
+    console.error('[DiscordProxy] تعذّر تفعيل proxy:', err?.message || err);
+  }
 
   /* شكل موحّد لكل ردود البوت: إنجليزي + خط مزخرف (يُطفأ من لوحة التحكم) */
   try {

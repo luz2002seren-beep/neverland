@@ -24,6 +24,7 @@ const { MessageFlags } = require('discord.js');
 const db = require('../database');
 const catalog = require('../data/commandCatalog');
 const appConfig = require('../config');
+const discordProxy = require('../lib/discordRestProxy');
 const { t } = require('../lib/i18n');
 
 /** الأمر: شغّال بلا بريفيكست؟ وما هي اختصاراته؟ */
@@ -1061,6 +1062,11 @@ function replyToMessage(message, payload) {
   };
 
   const directSend = async () => {
+    const viaProxy = await discordProxy.request('POST', `/channels/${channelId}/messages`, body).catch((err) => {
+      if (discordProxy.enabled()) throw err;
+      return null;
+    });
+    if (viaProxy) return remember(viaProxy);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {

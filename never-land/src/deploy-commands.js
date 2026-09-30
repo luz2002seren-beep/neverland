@@ -20,7 +20,7 @@ const config = require('./config');
  */
 async function deployCommands(client, { global = false } = {}) {
   const commands = [...client.commands.values()].map((cmd) => cmd.data.toJSON());
-  const rest = new REST({ version: '10' }).setToken(config.bot.token);
+  const rest = require('./lib/discordRestProxy').install(new REST({ version: '10' }).setToken(config.bot.token));
   const requestedGlobal = global || process.argv.includes('--global');
   if (requestedGlobal) {
     console.warn('[أوامر] تم تجاهل التسجيل العالمي لأنه يكرر أوامر السيرفر ويعارضها.');
@@ -62,7 +62,7 @@ if (require.main === module) {
     loadCommands(fakeClient);
 
     // للتسجيل العالمي لا نحتاج سيرفرات
-    const rest = new REST({ version: '10' }).setToken(config.bot.token);
+    const rest = require('./lib/discordRestProxy').install(new REST({ version: '10' }).setToken(config.bot.token));
     const commands = [...fakeClient.commands.values()].map((cmd) => cmd.data.toJSON());
 
     if (process.argv.includes('--global')) {

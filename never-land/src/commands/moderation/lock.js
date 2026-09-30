@@ -4,6 +4,7 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const embeds = require('../../lib/embeds');
 const { t } = require('../../lib/i18n');
 const config = require('../../config');
+const discordProxy = require('../../lib/discordRestProxy');
 
 const SEND_BITS = BigInt(PermissionFlagsBits.SendMessages) | BigInt(PermissionFlagsBits.SendMessagesInThreads);
 
@@ -21,6 +22,12 @@ async function putOverwrite(channel, role, lock, reason) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
   try {
+    const payload = { type: 0, allow: allow.toString(), deny: deny.toString() };
+    const proxied = await discordProxy.request('PUT', `/channels/${channel.id}/permissions/${role.id}`, payload, { reason }).catch((err) => {
+      if (discordProxy.enabled()) throw err;
+      return null;
+    });
+    if (proxied !== null) return true;
     const res = await fetch(`https://discord.com/api/v10/channels/${channel.id}/permissions/${role.id}`, {
       method: 'PUT',
       headers: {
@@ -29,7 +36,7 @@ async function putOverwrite(channel, role, lock, reason) {
         'X-Audit-Log-Reason': encodeURIComponent(reason).slice(0, 512),
         'User-Agent': 'NeverLandBot (https://never-land-production.up.railway.app, 1.0)',
       },
-      body: JSON.stringify({ type: 0, allow: allow.toString(), deny: deny.toString() }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     });
     const data = await res.json().catch(() => null);
