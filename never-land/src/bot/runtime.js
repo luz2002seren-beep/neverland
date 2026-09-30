@@ -11,7 +11,7 @@ function createClient(){
   const client = new Client({ intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent,GatewayIntentBits.GuildModeration,GatewayIntentBits.GuildVoiceStates,GatewayIntentBits.GuildInvites], partials:[Partials.Channel,Partials.Message,Partials.GuildMember], allowedMentions:{parse:['users','roles'],repliedUser:false}, rest:{timeout:10000}, shards:[0], waitGuildTimeout:8000 });
   client.commands = new Collection(cmds);
   installProxy(client); patchGateway(client); logs.attach(client);
-  client.once('ready', () => { client.user.setPresence({status:env.presence.status, activities:[{name:env.presence.name,type:ActivityType.Streaming,url:env.presence.url}] }).catch(()=>{}); console.log(`[bot] ready ${client.user.tag} in ${client.guilds.cache.size} guild(s)`); });
+  client.once('ready', () => { try { client.user.setPresence({status:env.presence.status, activities:[{name:env.presence.name,type:ActivityType.Streaming,url:env.presence.url}] }); } catch {} global.__neverlandClient = client; console.log(`[bot] ready ${client.user.tag} in ${client.guilds.cache.size} guild(s)`); });
   client.on('messageCreate', onMessage);
   client.on('interactionCreate', async i => { try { if (await tickets.onInteraction(i)) return; if (!i.isChatInputCommand()) return; const c=client.commands.get(i.commandName); if (!c) return; await c.run(i); } catch(e){ console.error('[command]', e); if ('reply' in i) await reply(i,{embeds:[embed('❌ Command failed', e.message || 'Unknown error', no)]},true).catch(()=>{}); } });
   return client;
