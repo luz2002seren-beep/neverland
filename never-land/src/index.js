@@ -13,7 +13,7 @@ async function startWeb(){ try { const db=require('./database'); db.init?.(); co
   let client=null;
   if (runBot) {
     client = await require('./bot/runtime').start().catch(e => (console.error('[bot]', e.message), null));
-    if (client?.isReady?.()) await require('./deploy-commands').deployCommands(client).catch(e => console.error('[deploy]', e.message));
+    if (client?.isReady?.()) setTimeout(() => require('./deploy-commands').deployCommands(client).catch(e => console.error('[deploy]', e.message)), 3000).unref();
   } else console.log('[bot] skipped');
   console.log('[ready] service boot complete');
 })();
