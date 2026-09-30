@@ -23,7 +23,7 @@ async function request(method, path, body, extra = {}) {
     const message = data?.message || data?.error || res.statusText;
     throw new Error(`proxy ${res.status}: ${message}`);
   }
-  return Object.prototype.hasOwnProperty.call(data || {}, 'data') ? data.data : true;
+  return data?.data == null ? true : data.data;
 }
 
 function install(rest) {
