@@ -14,5 +14,10 @@ add(new SlashCommandBuilder().setName('ban').setDescription('Ban a member').addU
 add(new SlashCommandBuilder().setName('warn').setDescription('Warn a member').addUserOption(o=>o.setName('user').setDescription('Target').setRequired(true)).addStringOption(o=>o.setName('reason').setDescription('Reason').setRequired(true)).setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers), async i => { const u=i.options.getUser('user'), r=safe(i.options.getString('reason')); await u.send({embeds:[embed('⚠️ Warning', r, warn)]}).catch(()=>{}); return reply(i,{embeds:[embed('⚠️ Warning sent', `${u} — ${r}`, warn)]}); });
 add(new SlashCommandBuilder().setName('server').setDescription('Show server stats'), async i => reply(i,{embeds:[embed('📊 Server', `Members: **${i.guild.memberCount}**\nChannels: **${i.guild.channels.cache.size}**\nRoles: **${i.guild.roles.cache.size}**`, info)]}, true));
 add(new SlashCommandBuilder().setName('ticket-panel').setDescription('Send ticket open button').setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild), async i => { const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js'); await i.channel.send({ embeds:[embed('🎫 Support Tickets','Click the button to open a private ticket.',info)], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('ticket:open').setLabel('Open Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary))] }); return reply(i,'Panel sent.',true); });
-async function lock(ctx, closed){ await ctx.channel.permissionOverwrites.edit(ctx.guild.roles.everyone, { SendMessages: closed ? false : null }); return reply(ctx,{embeds:[embed(closed?'🔒 𝑳𝒐𝒄𝒌𝒆𝒅':'🔓 𝑼𝒏𝒍𝒐𝒄𝒌𝒆𝒅', `${closed?'Locked':'Unlocked'} the channel ${ctx.channel}.`, closed?no:ok)]}); }
+async function lock(ctx, closed){
+  const target = ctx.guild.roles.everyone;
+  if (closed) await ctx.channel.permissionOverwrites.edit(target, { SendMessages: false });
+  else await ctx.channel.permissionOverwrites.edit(target, { SendMessages: true });
+  return reply(ctx,{embeds:[embed(closed?'🔒 𝑳𝒐𝒄𝒌𝒆𝒅':'🔓 𝑼𝒏𝒍𝒐𝒄𝒌𝒆𝒅', `${closed?'Locked':'Unlocked'} the channel ${ctx.channel}.`, closed?no:ok)]});
+}
 module.exports = { cmds, lock };
