@@ -4,7 +4,8 @@ const env = require('./env');
 const { lock } = require('./commands');
 const { reply, embed, ok, canMod, safe } = require('./fx');
 async function onMessage(m){
-  if (!m.guild) return;
+  // Never accept text commands outside the configured One Piece guild.
+  if (!m.guild || !env.guildId || String(m.guild.id) !== env.guildId) return;
   const body = m.content.trim();
   const selfTest = m.author.bot && m.author.id === m.client.user?.id && (!env.guildId || m.guild.id === env.guildId) && /^(قفل|فتح|lock|unlock)$/i.test(body);
   if (m.author.bot && !selfTest) return;

@@ -1,0 +1,22 @@
+[Unit]
+Description=Never Land / One Piece Discord REST proxy
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+WorkingDirectory=/opt/neverland-proxy
+EnvironmentFile=/etc/neverland-proxy/proxy.env
+ExecStart=/usr/bin/python3 /opt/neverland-proxy/discord_rest_proxy.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/tmp
+
+[Install]
+WantedBy=multi-user.target

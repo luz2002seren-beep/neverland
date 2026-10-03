@@ -1,9 +1,18 @@
 'use strict';
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const env = require('./env');
 const { reply, embed, ok, no, info, warn, safe } = require('./fx');
 const ms = s => { const n=parseInt(s,10); return /h/i.test(s)?n*3600000:/d/i.test(s)?n*86400000:/m/i.test(s)?n*60000:n*1000; };
 const cmds = new Map();
-function add(data, run){ cmds.set(data.name, { data, run }); }
+function inPrimaryGuild(ctx) {
+  const id = ctx?.guildId || ctx?.guild?.id;
+  return Boolean(env.guildId && id && String(id) === env.guildId);
+}
+function add(data, run) {
+  // A second guard here protects direct calls to command handlers as well as
+  // interaction events guarded by runtime.js.
+  cmds.set(data.name, { data, run: async ctx => inPrimaryGuild(ctx) ? run(ctx) : null });
+}
 add(new SlashCommandBuilder().setName('ping').setDescription('Check bot latency'), async i => reply(i, { embeds:[embed('🏓 Pong', `Gateway: **${Math.round(i.client.ws.ping)}ms**`, ok)] }, true));
 add(new SlashCommandBuilder().setName('lock').setDescription('Lock this channel').setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels), async i => lock(i, true));
 add(new SlashCommandBuilder().setName('unlock').setDescription('Unlock this channel').setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels), async i => lock(i, false));
@@ -15,9 +24,10 @@ add(new SlashCommandBuilder().setName('warn').setDescription('Warn a member').ad
 add(new SlashCommandBuilder().setName('server').setDescription('Show server stats'), async i => reply(i,{embeds:[embed('📊 Server', `Members: **${i.guild.memberCount}**\nChannels: **${i.guild.channels.cache.size}**\nRoles: **${i.guild.roles.cache.size}**`, info)]}, true));
 add(new SlashCommandBuilder().setName('ticket-panel').setDescription('Send ticket open button').setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild), async i => { const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js'); await i.channel.send({ embeds:[embed('🎫 Support Tickets','Click the button to open a private ticket.',info)], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('ticket:open').setLabel('Open Ticket').setEmoji('🎫').setStyle(ButtonStyle.Primary))] }); return reply(i,'Panel sent.',true); });
 async function lock(ctx, closed){
+  if (!inPrimaryGuild(ctx)) return null;
   const target = ctx.guild.roles.everyone;
   if (closed) await ctx.channel.permissionOverwrites.edit(target, { SendMessages: false });
   else await ctx.channel.permissionOverwrites.edit(target, { SendMessages: true });
   return reply(ctx,{embeds:[embed(closed?'🔒 𝑳𝒐𝒄𝒌𝒆𝒅':'🔓 𝑼𝒏𝒍𝒐𝒄𝒌𝒆𝒅', `${closed?'Locked':'Unlocked'} the channel ${ctx.channel}.`, closed?no:ok)]});
 }
-module.exports = { cmds, lock };
+module.exports = { cmds, lock, inPrimaryGuild };

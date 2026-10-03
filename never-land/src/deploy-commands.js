@@ -4,8 +4,9 @@ const { REST, Routes } = require('discord.js');
 const env = require('./bot/env');
 const { cmds } = require('./bot/commands');
 async function deployCommands(client, opt={}){
-  const token = env.token, appId = env.clientId || client?.application?.id, guildId = env.guildId || client?.guilds?.cache?.first()?.id;
-  if (!token || !appId) throw new Error('DISCORD_TOKEN/CLIENT_ID missing');
+  const token = env.token, appId = env.clientId || client?.application?.id, guildId = env.guildId;
+  // Never use the first cached guild as a fallback: commands belong only to PRIMARY_GUILD_ID.
+  if (!token || !appId || !guildId) throw new Error('DISCORD_TOKEN, CLIENT_ID, or PRIMARY_GUILD_ID missing');
   const rest = new REST({ version:'10', timeout:10000 }).setToken(token);
   try { require('./lib/discordRestProxy').install(rest); } catch {}
   const body = [...cmds.values()].map(c => c.data.toJSON());

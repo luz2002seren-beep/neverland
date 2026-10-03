@@ -41,9 +41,9 @@ function childEnv() {
 
 /* الملفات الافتراضية — نفس ترتيب «test:all» القديم. */
 const DEFAULT_FILES = [
-  'tests/security-guards.js',
-  'tests/docs-check.js',
-  'tests/smoke.js',
+  // The legacy suite targets the retired, heavy bot architecture. Keep it
+  // available as test:legacy, but make production CI validate the clean bot.
+  'tests/one-piece-bot.test.js',
 ];
 
 const argFiles = process.argv.slice(2).filter((a) => !a.startsWith('-'));

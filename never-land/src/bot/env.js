@@ -1,12 +1,17 @@
 'use strict';
 require('dotenv').config();
 const clean = (v) => String(v || '').trim();
+const snowflake = (v) => {
+  const id = clean(v);
+  return /^\d{17,20}$/.test(id) ? id : '';
+};
 const list = (v) => clean(v).split(',').map(x => x.trim()).filter(Boolean);
 const bool = (v, d=false) => v == null || v === '' ? d : /^(1|true|yes|on)$/i.test(String(v));
 const env = {
   token: clean(process.env.DISCORD_TOKEN),
-  clientId: clean(process.env.CLIENT_ID || process.env.DISCORD_CLIENT_ID),
-  guildId: clean(process.env.PRIMARY_GUILD_ID || process.env.ONE_PIECE_GUILD_ID || process.env.GUILD_ID),
+  clientId: snowflake(process.env.CLIENT_ID || process.env.DISCORD_CLIENT_ID),
+  // A guild is mandatory: this bot is deliberately scoped to one configured server.
+  guildId: snowflake(process.env.PRIMARY_GUILD_ID || process.env.ONE_PIECE_GUILD_ID || process.env.GUILD_ID),
   owners: list(process.env.OWNER_USER_ID || process.env.DEVELOPER_IDS || process.env.BOT_OWNERS),
   prefix: clean(process.env.BOT_PREFIX || '!'),
   locale: clean(process.env.DEFAULT_LANGUAGE || 'en'),
@@ -29,5 +34,6 @@ const env = {
     moderation: clean(process.env.LOG_MODERATION_CHANNEL_ID) || '1553824805495636060',
   },
 };
-env.ready = env.token.length > 50 && env.clientId;
+// Refuse to run an unscoped bot. This prevents an accidental fallback to another guild.
+env.ready = env.token.length > 50 && Boolean(env.clientId) && Boolean(env.guildId);
 module.exports = env;

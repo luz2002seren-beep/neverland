@@ -166,11 +166,19 @@ function createApp() {
   // فحص صحة عام (للنشر: Railway/Render/Docker) — بلا تسجيل دخول وبلا بيانات حساسة
   app.get('/healthz', (_req, res) => {
     let bot = false;
+    let restProxy = { configured: false, healthy: null, checkedAt: null };
     try { bot = Boolean(global.__neverlandClient?.isReady?.()); } catch { bot = false; }
+    try { restProxy = require('../lib/discordRestProxy').status(); } catch { /* keep safe defaults */ }
+    // The endpoint never returns a proxy URL, secret, token, or failure detail.
     res.status(200).json({
       ok: true,
       site: config.web.siteName,
       bot,
+      restProxy: {
+        configured: Boolean(restProxy.configured),
+        healthy: restProxy.healthy === true ? true : restProxy.healthy === false ? false : null,
+        checkedAt: restProxy.checkedAt || null,
+      },
       uptime: Math.round(process.uptime()),
       time: new Date().toISOString(),
     });
