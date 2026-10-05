@@ -20,6 +20,7 @@ const config = require('../config');
 const db = require('../database');
 const security = require('../lib/security');
 const audit = require('../lib/audit');
+const botRuntime = require('../bot/runtime');
 
 let server = null;
 /** مرجع مخزن الجلسات (يُستخدم لقطع جلسات عضو عند الحظر/الطرد) */
@@ -163,12 +164,14 @@ function createApp() {
     }),
   );
 
-  // فحص صحة عام للموقع فقط. بوت Discord أُزيل من هذا النشر عمدًا.
+  // صحة الموقع تبقى متاحة حتى إن كان Bot V2 معطّلًا أو يحتاج إعدادًا.
   app.get('/healthz', (_req, res) => {
+    const bot = botRuntime.status();
     res.status(200).json({
       ok: true,
       site: config.web.siteName,
-      bot: false,
+      bot: bot.state === 'ready',
+      botState: bot.state,
       uptime: Math.round(process.uptime()),
       time: new Date().toISOString(),
     });
@@ -215,7 +218,10 @@ function createApp() {
   // المسارات
   app.use('/auth', require('./routes/auth'));
   app.use('/api/admin', require('./routes/admin'));
+  const botControl = require('./routes/botControl');
+  app.use('/api/bot-v2', botControl.api);
   app.use('/api', require('./routes/api'));
+  app.use('/bot-control', botControl.page);
   app.use('/', require('./routes/pages'));
 
   // 404

@@ -181,6 +181,7 @@ ${extraHead}
     <a href="/#features">الميزات</a>
     <a href="/#plans">الاشتراك</a>
     <a href="/dashboard">لوحة التحكم</a>
+    <a href="/bot-control">إدارة البوت</a>
     <a href="/#commands">الأوامر</a>
   </nav>
   <div class="auth">

@@ -1,0 +1,8 @@
+{
+  "name": "neverland-discord-rest-proxy",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Minimal persistent Discord REST relay for Never Land Bot V2",
+  "engines": { "node": ">=18.17.0" },
+  "scripts": { "start": "node server.js" }
+}

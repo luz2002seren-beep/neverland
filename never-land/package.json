@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/index.js",
     "web": "node src/index.js",
-    "test": "node tests/site-runtime.test.js",
+    "test": "node tools/run-tests.js",
     "test:watch": "node --watch tests/site-runtime.test.js",
     "test:site": "node tests/site-runtime.test.js",
     "test:all": "node tools/run-tests.js",
@@ -18,7 +18,8 @@
     "deploy:railway": "bash deploy-railway.sh",
     "link:public": "node tools/public-link.js",
     "make:gifs": "node tools/make-autoline-gifs.js",
-    "icons": "node tools/build-icons.js"
+    "icons": "node tools/build-icons.js",
+    "test:bot": "node tests/bot-v2-dashboard.test.js"
   },
   "keywords": [
     "discord",

@@ -41,9 +41,10 @@ function childEnv() {
 
 /* الملفات الافتراضية — نفس ترتيب «test:all» القديم. */
 const DEFAULT_FILES = [
-  // Discord bot runtime was removed; production CI now checks the website-only
-  // process and public health route.
+  // The live bot is never started in tests; the V2 control center is tested
+  // against an isolated local database and the website health remains covered.
   'tests/site-runtime.test.js',
+  'tests/bot-v2-dashboard.test.js',
 ];
 
 const argFiles = process.argv.slice(2).filter((a) => !a.startsWith('-'));
