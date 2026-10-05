@@ -1,5 +1,0 @@
-# Never commit proxy credentials or interpreter artifacts.
-__pycache__/
-*.env
-*.secret
-secrets/

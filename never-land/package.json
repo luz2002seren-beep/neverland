@@ -1,7 +1,7 @@
 {
   "name": "never-land",
   "version": "1.0.0",
-  "description": "Never Land — نظام إدارة سيرفرات ديسكورد (مودة + حماية + تذاكر + ترحيب + سجلات + مستويات) مع لوحة تحكم ويب عربية",
+  "description": "Never Land — موقع ولوحة تحكم ويب عربية",
   "main": "src/index.js",
   "type": "commonjs",
   "engines": {
@@ -9,15 +9,10 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "bot": "node src/index.js --no-web",
-    "web": "node src/index.js --no-bot",
-    "deploy": "node src/deploy-commands.js",
-    "test": "node tests/one-piece-bot.test.js",
-    "test:watch": "node --watch tests/one-piece-bot.test.js",
-    "test:one-piece": "node tests/one-piece-bot.test.js",
-    "test:legacy": "node tests/smoke.js",
-    "test:guards": "node tests/security-guards.js",
-    "test:docs": "node tests/docs-check.js",
+    "web": "node src/index.js",
+    "test": "node tests/site-runtime.test.js",
+    "test:watch": "node --watch tests/site-runtime.test.js",
+    "test:site": "node tests/site-runtime.test.js",
     "test:all": "node tools/run-tests.js",
     "check:site": "node tools/site-check.js",
     "deploy:railway": "bash deploy-railway.sh",

@@ -41,9 +41,9 @@ function childEnv() {
 
 /* الملفات الافتراضية — نفس ترتيب «test:all» القديم. */
 const DEFAULT_FILES = [
-  // The legacy suite targets the retired, heavy bot architecture. Keep it
-  // available as test:legacy, but make production CI validate the clean bot.
-  'tests/one-piece-bot.test.js',
+  // Discord bot runtime was removed; production CI now checks the website-only
+  // process and public health route.
+  'tests/site-runtime.test.js',
 ];
 
 const argFiles = process.argv.slice(2).filter((a) => !a.startsWith('-'));
