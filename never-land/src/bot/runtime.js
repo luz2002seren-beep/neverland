@@ -1,6 +1,12 @@
 'use strict';
 require('node:dns').setDefaultResultOrder('ipv4first');
-const { Client, GatewayIntentBits, Partials, Collection, ActivityType } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  ActivityType,
+  Options,
+} = require('discord.js');
 const env = require('./env');
 const { cmds } = require('./commands');
 const { onMessage } = require('./text');
@@ -8,6 +14,32 @@ const logs = require('./logs');
 const tickets = require('./tickets');
 const { patchGateway, installProxy, probeProxy } = require('./rest-safe');
 const { reply, embed, no } = require('./fx');
+
+// Discord.js caches can grow with every member, presence, message and reaction.
+// This bot needs only a small working set for one guild, so bounded caches keep
+// memory stable even during busy periods without removing required functionality.
+const CACHE_LIMITS = {
+  ...Options.DefaultMakeCacheSettings,
+  MessageManager: 0,
+  GuildMessageManager: 0,
+  GuildMemberManager: {
+    maxSize: 250,
+    keepOverLimit: member => member.id === env.clientId,
+  },
+  UserManager: {
+    maxSize: 250,
+    keepOverLimit: user => user.id === env.clientId,
+  },
+  PresenceManager: 0,
+  VoiceStateManager: 100,
+  ReactionManager: 0,
+  ReactionUserManager: 0,
+  GuildInviteManager: 0,
+  GuildBanManager: 0,
+  GuildEmojiManager: 0,
+  GuildStickerManager: 0,
+  ThreadMemberManager: 0,
+};
 
 function isPrimaryGuild(subject) {
   const id = typeof subject === 'string' ? subject : subject?.id;
@@ -33,9 +65,12 @@ function createClient() {
       GatewayIntentBits.GuildVoiceStates,
       GatewayIntentBits.GuildInvites,
     ],
-    partials: [Partials.Channel, Partials.Message, Partials.GuildMember],
+    // Guild messages are complete events; partials would cause extra REST work
+    // and retain objects that the clean runtime does not need.
+    partials: [],
+    makeCache: Options.cacheWithLimits(CACHE_LIMITS),
     allowedMentions: { parse: ['users', 'roles'], repliedUser: false },
-    rest: { timeout: 10_000 },
+    rest: { timeout: 8_000 },
     shards: [0],
     waitGuildTimeout: 8_000,
   });
@@ -84,6 +119,11 @@ function createClient() {
       if (!interaction.isChatInputCommand()) return;
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
+
+      // Acknowledge slow moderation calls before their REST work starts. This
+      // avoids Discord's 3-second interaction timeout while preserving each
+      // command's intended public/ephemeral response visibility.
+      if (command.defer) await interaction.deferReply({ ephemeral: Boolean(command.ephemeral) });
       await command.run(interaction);
     } catch (error) {
       console.error('[command]', error?.message || error);
@@ -108,4 +148,4 @@ async function start() {
   return client;
 }
 
-module.exports = { start, createClient, isPrimaryGuild };
+module.exports = { start, createClient, isPrimaryGuild, CACHE_LIMITS };

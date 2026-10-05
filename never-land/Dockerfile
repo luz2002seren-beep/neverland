@@ -9,7 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
+# Lockfile install is smaller and reproducible; dev/test packages stay out of production RAM/image.
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY . .
 

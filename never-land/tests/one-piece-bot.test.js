@@ -22,6 +22,7 @@ const { cmds, lock, inPrimaryGuild } = require('../src/bot/commands');
 const { onMessage } = require('../src/bot/text');
 const proxy = require('../src/lib/discordRestProxy');
 const { patchGateway } = require('../src/bot/rest-safe');
+const { createClient, CACHE_LIMITS } = require('../src/bot/runtime');
 
 function context(guildId, edits, replies) {
   return {
@@ -52,6 +53,13 @@ async function main() {
   const names = [...cmds.keys()].sort();
   assert.deepEqual(names, ['ban', 'clear', 'kick', 'lock', 'ping', 'server', 'ticket-panel', 'timeout', 'unlock', 'warn']);
   assert.equal(names.length, 10, 'only the ten One Piece guild commands should be registered');
+  assert.equal(cmds.get('lock').defer, true, 'slow moderation commands must acknowledge immediately');
+  assert.equal(cmds.get('clear').ephemeral, true, 'clear acknowledgement must preserve its ephemeral reply');
+  assert.equal(cmds.get('ping').defer, false, 'fast ping does not need an unnecessary acknowledgement');
+  assert.equal(CACHE_LIMITS.GuildMemberManager.maxSize, 250, 'member cache must be bounded');
+  assert.equal(CACHE_LIMITS.UserManager.maxSize, 250, 'user cache must be bounded');
+  assert.equal(CACHE_LIMITS.MessageManager, 0, 'message cache must be disabled');
+  assert.equal(CACHE_LIMITS.PresenceManager, 0, 'presence cache must be disabled');
   assert.equal(inPrimaryGuild({ guildId: PRIMARY }), true);
   assert.equal(inPrimaryGuild({ guildId: OTHER }), false);
 
@@ -68,6 +76,42 @@ async function main() {
   assert.deepEqual(edits, [{ SendMessages: false }, { SendMessages: true }], 'lock/unlock must deny then allow SendMessages');
   assert.equal(replies[0].embeds[0].data.title, '🔒 𝑳𝒐𝒄𝒌𝒆𝒅');
   assert.equal(replies[1].embeds[0].data.title, '🔓 𝑼𝒏𝒍𝒐𝒄𝒌𝒆𝒅');
+
+  // Slow slash commands must defer first, then edit the response after the work.
+  const client = createClient();
+  try {
+    const deferred = [];
+    const slashEdits = [];
+    const slashPermissions = [];
+    let finishEdit;
+    const editFinished = new Promise(resolve => { finishEdit = resolve; });
+    const slash = {
+      guildId: PRIMARY,
+      guild: { id: PRIMARY, roles: { everyone: { id: PRIMARY } } },
+      channel: {
+        toString: () => '#test-channel',
+        permissionOverwrites: { edit: async (_role, permissions) => { slashPermissions.push(permissions); } },
+      },
+      commandName: 'lock',
+      deferred: false,
+      replied: false,
+      isButton: () => false,
+      isChatInputCommand: () => true,
+      deferReply: async options => { deferred.push(options); slash.deferred = true; },
+      editReply: async payload => { slashEdits.push(payload); finishEdit(); },
+      reply: async () => { throw new Error('reply must not be used after deferReply'); },
+    };
+    client.emit('interactionCreate', slash);
+    await Promise.race([
+      editFinished,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('deferred slash command timed out in test')), 1_000)),
+    ]);
+    assert.deepEqual(deferred, [{ ephemeral: false }]);
+    assert.deepEqual(slashPermissions, [{ SendMessages: false }]);
+    assert.equal(slashEdits[0].embeds[0].data.title, '🔒 𝑳𝒐𝒄𝒌𝒆𝒅');
+  } finally {
+    client.destroy();
+  }
 
   // Text commands must be blocked before they can perform any action outside One Piece.
   await onMessage({ guild: { id: OTHER }, content: 'قفل' });

@@ -32,7 +32,7 @@ function proxyUnavailableError() {
   return new Error('Discord REST proxy is not configured; direct Discord REST is disabled.');
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = 10_000) {
+async function fetchWithTimeout(url, options, timeoutMs = 8_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
