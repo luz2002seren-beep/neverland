@@ -49,7 +49,6 @@ const state = {
   guild: null,
   stats: null,
   daily: [],
-  premium: null,
   section: 'overview',
   dirty: false,
   /** هل هذا الحساب مالك الموقع؟ (يرى قسم «أعضاء الموقع») */
@@ -58,26 +57,16 @@ const state = {
 };
 
 /* ============================ أدوات عامة ============================ */
-function numLoc() {
-  const lang = document.documentElement.lang;
-  return lang === 'fr' ? 'fr-FR' : lang === 'en' ? 'en-US' : 'ar-EG';
-}
-function ui(s) {
-  return window.NL && typeof window.NL.t === 'function' ? window.NL.t(s) : s;
-}
-
 const el = (tag, attrs = {}, html = '') => {
   const node = document.createElement(tag);
-  const tr = (v) => (typeof v === 'string' ? ui(v) : v);
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'class') node.className = v;
-    else if (k === 'html') node.innerHTML = tr(v);
-    else if (k === 'text') node.textContent = tr(v);
+    else if (k === 'html') node.innerHTML = v;
+    else if (k === 'text') node.textContent = v;
     else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
-    else if (k === 'placeholder' || k === 'title' || k === 'aria-label') node.setAttribute(k, tr(v));
     else if (v !== null && v !== undefined && v !== false) node.setAttribute(k, v);
   }
-  if (html) node.innerHTML = tr(html);
+  if (html) node.innerHTML = html;
   return node;
 };
 
@@ -402,7 +391,7 @@ function dSelect(path, options, { noneLabel = '— بدون —', onAfter = null
     select.value = String(current);
     if (select.value !== String(current)) {
       /* القيمة المحفوظة غير موجودة في الخيارات → نضيفها حتى ما تضيع */
-      select.appendChild(el('option', { value: String(current), text: 'محفوظ' }));
+      select.appendChild(el('option', { value: String(current), text: `${String(current)} (محفوظ)` }));
       select.value = String(current);
     }
   } else {
@@ -425,7 +414,7 @@ function pickOption(select, value) {
   select.value = String(value);
   if (select.value !== String(value)) {
     /* القيمة المحفوظة غير موجودة بين الخيارات → نضيفها حتى ما تضيع */
-    select.appendChild(el('option', { value: String(value), text: 'محفوظ' }));
+    select.appendChild(el('option', { value: String(value), text: `${String(value)} (محفوظ)` }));
     select.value = String(value);
   }
   return select;
@@ -454,8 +443,8 @@ function dChips(path, options) {
 const channelOptions = (extra = []) =>
   [...state.meta.channels]
     .filter((c) => [0, 2, 4, 15].includes(c.type))
-    .sort((a, b) => a.type - b.type || String(a.name).localeCompare(String(b.name), document.documentElement.lang || 'ar'))
-    .map((c) => ({ value: c.id, label: `${c.type === 0 || c.type === 15 ? '#' : c.type === 4 ? `[${ui('قسم')}] ` : `[${ui('صوتي')}] `}${c.name}`, type: c.type }))
+    .sort((a, b) => a.type - b.type || String(a.name).localeCompare(String(b.name), 'ar'))
+    .map((c) => ({ value: c.id, label: `${c.type === 0 || c.type === 15 ? '#' : c.type === 4 ? '[قسم] ' : '[صوتي] '}${c.name}`, type: c.type }))
     .concat(extra);
 
 const roleOptions = (filterOut = []) =>
@@ -463,8 +452,8 @@ const roleOptions = (filterOut = []) =>
 
 const categoryOptions = () => state.meta.channels.filter((c) => c.type === 4).map((c) => ({ value: c.id, label: c.name }));
 
-const nameOfChannel = (id) => state.meta.channels.find((c) => c.id === id)?.name || 'قناة محفوظة';
-const nameOfRole = (id) => state.meta.roles.find((r) => r.id === id)?.name || 'رتبة محفوظة';
+const nameOfChannel = (id) => state.meta.channels.find((c) => c.id === id)?.name || id;
+const nameOfRole = (id) => state.meta.roles.find((r) => r.id === id)?.name || id;
 
 function dCard(title, desc, iconName, children, { tail = null, noPad = false, id = '' } = {}) {
   const card = el('div', { class: 'd-card', id });
@@ -496,7 +485,7 @@ function dListEditor(path, { type = 'channel', placeholder = 'اختر...' } = {
 
   current.forEach((id, index) => {
     const found = state.meta.channels.find((c) => c.id === id);
-    const label = type === 'channel' ? (found ? (found.type === 4 ? `[قسم] ${found.name}` : `#${found.name}`) : 'قناة محفوظة') : type === 'role' ? nameOfRole(id) : 'محفوظ';
+    const label = type === 'channel' ? (found ? (found.type === 4 ? `[قسم] ${found.name}` : `#${found.name}`) : id) : type === 'role' ? nameOfRole(id) : id;
     const chip = el('span', { class: 'd-chip', text: label });
     const remove = el('button', { html: ic('close', 13), title: 'إزالة' });
     remove.addEventListener('click', () => {
@@ -575,7 +564,6 @@ function dWordEditor(path, { placeholder = 'أضف عنصرًا...', labeler = n
 /* ============================ الأقسام ============================ */
 const SECTION_ICONS = {
   overview: 'dashboard',
-  premium: 'crown',
   general: 'settings',
   welcome: 'userPlus',
   autorole: 'userCog',
@@ -597,7 +585,7 @@ const SECTION_ICONS = {
   audit: 'scroll',
   security: 'shield',
   siteMembers: 'key',
-  subscriptions: 'star',
+  discordModeration: 'hammer',
 };
 
 /** أنماط خط الفاصل (احتياطي — يأتي الكامل من الـAPI) */
@@ -608,8 +596,2348 @@ const DEFAULT_LINE_STYLES = [
   { key: 'dash', file: 'dash.gif', label: 'شرطات', desc: 'شرطات تتحرّك على طول الخط' },
 ];
 
-/* أقسام اللوحة (SECTIONS) انتقلت إلى app-sections.js — يُحمَّل بعد هذا الملف. */
+const SECTIONS = {
+  /* ------------------------------ نظرة عامة ------------------------------ */
+  overview: {
+    group: 'عام',
+    label: 'مركز التحكم',
+    title: 'مركز التحكم',
+    desc: 'نظرة عامة على حالة السيرفر، وتشغيل الأنظمة أو إيقافها.',
+    render() {
+      const frag = document.createDocumentFragment();
+      const st = state.stats || {};
 
+      const stats = el('div', { class: 'd-stats' });
+      [
+        ['hammer', st.cases ?? 0, 'إجمالي العقوبات'],
+        ['warning', st.warnings ?? 0, 'تحذيرات'],
+        ['ticket', st.openTickets ?? 0, 'تذاكر مفتوحة'],
+        ['chart', (st.messages ?? 0).toLocaleString('ar-EG'), 'رسائل محسوبة'],
+        ['users', (state.guild.memberCount || st.trackedMembers || 0).toLocaleString('ar-EG'), 'عضو'],
+      ].forEach(([iconName, value, label]) => {
+        const card = el('div', { class: 'd-stat' });
+        card.appendChild(el('b', { text: String(value) }));
+        card.appendChild(el('span', { html: `${ic(iconName, 15)} ${label}` }));
+        stats.appendChild(card);
+      });
+      frag.appendChild(stats);
+
+      /* تشغيل/إطفاء الأنظمة بسرعة */
+      const toggles = [
+        ['welcome.enabled', 'userPlus', 'الترحيب', 'رسالة ترحيب بالبطاقة لكل عضو جديد'],
+        ['leave.enabled', 'userMinus', 'الوداع', 'رسالة عند مغادرة عضو'],
+        ['boost.enabled', 'star', 'شكر الدعم', 'رسالة عند دعم السيرفر'],
+        ['logs.enabled', 'scroll', 'السجلات', 'تسجيل أحداث السيرفر'],
+        ['automod.enabled', 'shield', 'الحماية التلقائية', 'منع السبام والروابط'],
+        ['autoline.enabled', 'lines', 'الخط الفاصل', 'خط تلقائي في القنوات'],
+        ['autoreact.enabled', 'emoticon', 'التفاعلات', 'تفاعل تلقائي على الرسائل'],
+        ['tickets.enabled', 'ticket', 'التذاكر', 'نظام التذاكر بأربعة أنواع'],
+        ['staffApplication.enabled', 'clipboard', 'تقديم الإدارة', 'نموذج من خمس خانات مع القبول والرفض'],
+        ['leveling.enabled', 'chart', 'المستويات', 'نقاط الخبرة ومكافآت الرتب'],
+        ['autorole.enabled', 'userCog', 'الرتب التلقائية', 'رتب تُمنح عند الانضمام'],
+      ];
+      const quick = el('div', { class: 'd-quick' });
+      toggles.forEach(([path, iconName, label, desc]) => {
+        const card = el('div', { class: 'd-quick-card' });
+        card.appendChild(el('div', { class: 'ico', html: ic(iconName, 20) }));
+        const txt = el('div', { class: 'txt' });
+        txt.appendChild(el('b', { text: label }));
+        txt.appendChild(el('span', { text: desc }));
+        card.appendChild(txt);
+        card.appendChild(
+          dSwitch(path, () => {
+            const items = window.__dashItems || [];
+            updateDots(items);
+          }),
+        );
+        quick.appendChild(card);
+      });
+      frag.appendChild(dCard('تشغيل الأنظمة وإيقافها', 'يُحفظ أي تغيير من شريط الحفظ السفلي', 'bolt', [quick], { noPad: true }));
+
+      /* رسم النشاط */
+      if (state.daily?.length) {
+        frag.appendChild(dCard('نشاط آخر 14 يومًا', 'الرسائل • الأعضاء الجدد • التذاكر', 'chart', [buildChart()], { noPad: true }));
+      }
+
+      /* حالة البوت */
+      const statusRows = [
+        dField('حالة البوت', '', [el('span', { class: 'd-chip', html: state.guild.botOnline ? `<span class="state-on">متصل</span>` : `<span class="state-off">غير متصل</span>` })]),
+        dField('عدد الأعضاء', '', [el('b', { class: 'accent', text: (state.guild.memberCount || 0).toLocaleString('ar-EG') })]),
+        dField('معرّف السيرفر', '', [el('code', { class: 'd-kbd', text: state.guild.id })]),
+        dField('أولوية الدعم', 'مدة الرد المتوقّعة في التذاكر', [dInput('tickets.responseTime', { narrow: true })]),
+      ];
+      frag.appendChild(dCard('معلومات السيرفر', '', 'info', statusRows));
+
+      return frag;
+    },
+  },
+
+  /* ------------------------------ الإعدادات العامة ------------------------------ */
+  general: {
+    group: 'عام',
+    label: 'الإعدادات العامة',
+    title: 'الإعدادات العامة',
+    desc: 'اللغة والبادئة وقناة الاستفسارات.',
+    render() {
+      /* معاينة حيّة لشكل الردود — نفس محرّك البوت على السيرفر (مو نسخة مكرّرة) */
+      const sampleNode = el('div', { class: 'd-sample' });
+      const paintSample = async () => {
+        const english = getPath('replies.english') === false ? '0' : '1';
+        const font = getPath('replies.fancyFont') === false ? '0' : '1';
+        try {
+          const data = await api(`/guilds/${state.guildId}/replies/preview?english=${english}&font=${font}`);
+          sampleNode.innerHTML = '';
+          data.samples.forEach(({ before, after }) => {
+            const row = el('div', { class: 'd-sample-row' });
+            row.appendChild(el('span', { class: 'old', text: before }));
+            row.appendChild(el('span', { class: 'arrow', html: ic('arrowLeft', 14) }));
+            row.appendChild(el('span', { class: 'new', text: after }));
+            sampleNode.appendChild(row);
+          });
+        } catch {
+          sampleNode.innerHTML = '';
+          sampleNode.appendChild(el('span', { class: 'd-chip', text: 'ما قدرت أجيب المعاينة' }));
+        }
+      };
+      paintSample();
+
+      const repaint = () => setTimeout(paintSample, 120);
+
+      /* --------- معاينة حالة البوت (Presence): بنفسجية وقت البث --------- */
+      const presenceBox = el('div', { class: 'd-sample pres-preview' });
+      const paintPresence = () => {
+        presenceBox.textContent = '';
+        const name = String(getPath('presence.name') || '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅');
+        const type = String(getPath('presence.type') || 'streaming');
+        const status = String(getPath('presence.status') || 'online');
+        const verbs = { streaming: 'يبثّ', playing: 'يشتغل على', watching: 'يشاهد', listening: 'يسمع', competing: 'يتنافس في', custom: 'الحالة' };
+        const statusLabels = { online: 'متصل', idle: 'خامل', dnd: 'عدم الإزعاج', invisible: 'غير ظاهر' };
+        const dotColors = { online: '#23a55a', idle: '#f0b232', dnd: '#f23f43', invisible: '#80848e' };
+        const isStream = type === 'streaming';
+
+        const line = el('div', { class: 'd-sample-row pres-line' });
+        const dot = el('span', { class: `pres-dot${isStream ? ' live' : ''}` });
+        dot.style.background = isStream ? '#9146ff' : (dotColors[status] || '#23a55a');
+        line.appendChild(dot);
+        line.appendChild(el('b', { text: name }));
+        if (isStream) line.appendChild(el('span', { class: 'pres-badge', text: 'مباشر' }));
+        presenceBox.appendChild(line);
+        presenceBox.appendChild(el('div', { class: 'd-chip', text: `${verbs[type] || 'الحالة'} ${name} · ${statusLabels[status] || status}` }));
+        if (isStream && !getPath('presence.url')) {
+          presenceBox.appendChild(el('div', { class: 'd-chip warn', text: 'نوع «بث مباشر» يحتاج رابط بث (افتراضيًا رابط تويش)' }));
+        }
+      };
+      paintPresence();
+
+      const applyPresenceBtn = el('button', { class: 'd-btn sm primary', html: `${ic('check', 15)} طبّق الحالة الآن` });
+      applyPresenceBtn.addEventListener('click', async () => {
+        applyPresenceBtn.disabled = true;
+        try {
+          const result = await api(`/guilds/${state.guildId}/presence`, {
+            method: 'POST',
+            body: {
+              name: getPath('presence.name'),
+              type: getPath('presence.type'),
+              url: getPath('presence.url'),
+              status: getPath('presence.status'),
+            },
+          });
+          toast(result.message || 'تحدّثت حالة البوت.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أضبط الحالة.', true);
+        } finally {
+          applyPresenceBtn.disabled = false;
+        }
+      });
+
+      const presenceFields = [
+        dField('المعاينة', 'شكل الحالة كما تظهر عند الأعضاء', [presenceBox], { wide: true }),
+        dField('اسم الحالة', 'اللي ينكتب جنب «يبثّ» — يدعم الخط المزخرف', [
+          dInput('presence.name', { full: true, placeholder: '𝑵𝒆𝒗𝒆𝒓 𝑳𝒂𝒏𝒅', onChange: () => paintPresence() }),
+        ], { wide: true }),
+        dField('نوع الحالة', '«بث مباشر» = لون بنفسجي + شارة مباشر (زي حالة ستريمنغ)', [
+          dChips('presence.type', [
+            { value: 'streaming', label: 'بث مباشر (بنفسجي)', onAfter: () => paintPresence() },
+            { value: 'playing', label: 'يلعب', onAfter: () => paintPresence() },
+            { value: 'watching', label: 'يشاهد', onAfter: () => paintPresence() },
+            { value: 'listening', label: 'يسمع', onAfter: () => paintPresence() },
+            { value: 'competing', label: 'يتنافس', onAfter: () => paintPresence() },
+          ]),
+        ], { wide: true }),
+        dField('رابط البث', 'مطلوب لنوع «بث مباشر» — رابط تويش أو يوتيوب', [
+          dInput('presence.url', { full: true, placeholder: 'https://www.twitch.tv/never_land', onChange: () => paintPresence() }),
+        ], { wide: true }),
+        dField('حالة الاتصال', 'لون النقطة جنب الاسم', [
+          dChips('presence.status', [
+            { value: 'online', label: 'متصل', onAfter: () => paintPresence() },
+            { value: 'idle', label: 'خامل', onAfter: () => paintPresence() },
+            { value: 'dnd', label: 'عدم الإزعاج', onAfter: () => paintPresence() },
+            { value: 'invisible', label: 'غير ظاهر', onAfter: () => paintPresence() },
+          ]),
+        ], { wide: true }),
+        dField('تطبيق الحالة', 'يُطبَّق فورًا على البوت الشغّال (بلا إعادة تشغيل)', [applyPresenceBtn]),
+      ];
+
+      return [
+        dCard('الأساسيات', 'تنطبق على كل الأنظمة', 'settings', [
+          dField('لغة البوت', 'اللغة الافتراضية للرسائل والأوامر', [
+            dSelect('language', [{ value: 'ar', label: '🇸🇦 العربية' }, { value: 'en', label: '🇬🇧 English' }], { noneLabel: null }),
+          ]),
+          dField('البادئة النصية', 'للأوامر التقليدية بالرسائل (اختياري)', [dInput('prefix', { narrow: true, placeholder: '!' })]),
+          dField('قناة الاستفسارات', 'قناة عامة للأسئلة (اختياري)', [dSelect('reports.channelId', channelOptions())]),
+          dField('نظام الدعوات (Referral)', 'تتبّع من دعا من', [dSwitch('referral.enabled')]),
+          dField('قناة الدعوات', '', [dSelect('referral.channelId', channelOptions())]),
+        ]),
+        dCard('حالة البوت (Presence)', 'اللي تظهر تحت اسم البوت في كل السيرفرات · «بث مباشر» = لون بنفسجي + شارة مباشر · التعديل يطبَّق فورًا بلا إعادة تشغيل.', 'activity', presenceFields, { wide: true }),
+        dCard(
+          'شكل الردود',
+          'ردود البوت كلها بالإنجليزية وبالخط المزخرف — القوائم والأزرار تبقى بنص عادي حتى تكون واضحة.',
+          'message',
+          [
+            dField('ردود بالإنجليزية', 'كل رسائل البوت بالإنجليزية (الأوامر · الترحيب · اللوقات · التذاكر)', [
+              dSwitch('replies.english', repaint),
+            ]),
+            dField('الخط المزخرف', 'الخط المزخرف 𝑪𝒉𝒂𝒕 مع حماية المنشنات والروابط والأكواد', [
+              dSwitch('replies.fancyFont', repaint),
+            ]),
+            dField('معاينة', 'شكل الرد قبل وبعد', [sampleNode], { wide: true }),
+          ],
+        ),
+      ];
+    },
+  },
+
+  /* ------------------------------ الترحيب ------------------------------ */
+  welcome: {
+    group: 'الأعضاء',
+    label: 'الترحيب والوداع',
+    title: 'الترحيب والوداع',
+    desc: 'صورة إطار Never Land وأفتار العضو داخل الدائرة + رسالة عادية بلا إطار، ورسائل الوداع والدعم.',
+    render() {
+      const frag = document.createDocumentFragment();
+
+      /* --------- ١) صورة الترحيب (بطاقة بالأفتار) — الأهم --------- */
+      const previewPath = `/api/guilds/${state.guildId}/welcome/card`;
+      const previewBox = el('div', { class: 'wc-preview' });
+      const previewImg = el('img', { alt: 'معاينة صورة الترحيب', src: `${previewPath}?t=${Date.now()}` });
+      const refreshBtn = el('button', { class: 'd-btn sm', html: `${ic('refresh', 14)} تحديث المعاينة` });
+      refreshBtn.addEventListener('click', () => {
+        previewImg.src = `${previewPath}?t=${Date.now()}`;
+        toast('تم تحديث المعاينة');
+      });
+      const previewNote = el('span', { class: 'wc-note', text: 'المعاينة بالأفتار واسم حسابك المسجّل — وهي نفس الصورة التي تُرسل للأعضاء.' });
+      previewBox.appendChild(previewImg);
+      previewBox.appendChild(el('div', { class: 'wc-side' }, ''));
+      const side = previewBox.querySelector('.wc-side');
+      side.appendChild(previewNote);
+      side.appendChild(refreshBtn);
+
+      const cardFields = [
+        dField('نوع الصورة', `مولّد البطاقات: ${state.meta.cardAvailable ? '<span class="state-on">متاح</span>' : '<span class="state-off">غير متاح — سيُستخدم الأفتار</span>'}`, [
+          dSelect(
+            'welcome.imageMode',
+            [
+              { value: 'frame', label: 'إطار Never Land (الأفتار داخل الدائرة)' },
+              { value: 'card', label: 'بطاقة ترحيب بالأفتار (الطريقة الاحترافية)' },
+              { value: 'avatar', label: 'صورة الأفتار فقط' },
+              { value: 'custom', label: 'رابط صورة مخصّص' },
+              { value: 'none', label: 'بدون صورة' },
+            ],
+            { noneLabel: null, onAfter: () => { previewImg.src = `${previewPath}?t=${Date.now()}`; } },
+          ),
+        ]),
+        dField('صورة الإطار', 'صورة السيرفر اللي فيها الدائرة الفارغة — يُرسم أفتار العضو داخل الدائرة', [dInput('welcome.frameImage', { full: true, onChange: () => { previewImg.src = `${previewPath}?t=${Date.now()}`; } })], { wide: true }),
+        dField('مكان الدائرة داخل الصورة', 'نسب من العرض/الارتفاع: cx (يمين) · cy (تحت) · r (نصف القطر)', [
+          dInput('welcome.frameCircle.cx', { narrow: true, placeholder: 'cx' }),
+          dInput('welcome.frameCircle.cy', { narrow: true, placeholder: 'cy' }),
+          dInput('welcome.frameCircle.r', { narrow: true, placeholder: 'r' }),
+        ]),
+        dField('النص المرسوم على الصورة', 'يُستخدم في «بطاقة ترحيب بالأفتار» — المتغيّرات: {displayName} · {username} · {server} · {memberCount}', [dInput('welcome.cardMessage', { full: true, placeholder: 'مثال: أهلاً بك {displayName} في {server}' })], { wide: true }),
+        dField('خلفية البطاقة', 'رابط صورة (اختياري) — بدونها تُستخدم ألوان التدرّج', [dInput('welcome.cardBackground', { full: true, placeholder: 'https://...' })], { wide: true }),
+        dField('تدرّج لون البطاقة', 'من لون إلى لون', [dInput('welcome.cardTheme.from', { narrow: true }), dInput('welcome.cardTheme.to', { narrow: true })]),
+        dField('رابط الصورة المخصّصة', 'يُستخدم عند اختيار «رابط صورة مخصّص» — يدعم {avatar}', [dInput('welcome.imageUrl', { full: true, placeholder: 'https://...' })], { wide: true }),
+        dField('إرفاق الصورة كملف', 'جودة أفضل من الرابط', [dSwitch('welcome.attachImage')]),
+        dField('اختبار البطاقة', 'يرسل بطاقة نموذجية في قناة الترحيب', [testButton('إرسال بطاقة تجريبية', 'card')]),
+        dField('ترحيب تجريبي كامل', 'يرسل رسالة ترحيب حقيقية (الصورة + النص + الداعي) في قناة الترحيب', [
+          (() => {
+            const btn = el('button', { class: 'd-btn sm primary', html: `${ic('userPlus', 15)} أرسل ترحيب تجريبي` });
+            btn.addEventListener('click', async () => {
+              btn.disabled = true;
+              try {
+                const result = await api(`/guilds/${state.guildId}/actions/welcome`, {
+                  method: 'POST',
+                  body: { channelId: getPath('welcome.channelId') || null },
+                });
+                const r = result.result || {};
+                const extra = r.separateMessages ? ` · رسالة الصورة: ${r.imageMessageId} · رسالة النص: ${r.textMessageId}` : '';
+                toast((result.message || 'انبعت الترحيب التجريبي — شوف الروم.') + extra);
+              } catch (err) {
+                toast(err.message || 'ما قدرت أرسل الترحيب.', true);
+              } finally {
+                btn.disabled = false;
+              }
+            });
+            return btn;
+          })(),
+        ]),
+      ];
+
+      function welcomePublicCodes() {
+        return dList('welcome.publicInviteCodes', { full: true, placeholder: 'مثال: NeverLand · discord.gg/xxxx' });
+      }
+
+      /* فحص الإيموجيات: نبيّن أي إيموجي في النص مو موجود بالسيرفر (بينطبع كنص) */
+      const emojiCheck = el('div', { class: 'd-sample cr-preview' });
+      const paintEmojiCheck = () => {
+        emojiCheck.textContent = '';
+        const text = String(getPath('welcome.message') || '');
+        const known = new Map((state.meta.emojis || []).map((e) => [String(e.id), e]));
+        const tags = [...text.matchAll(/<(a?):([\w~]+):(\d{5,})>/g)];
+        const missing = [];
+        const seen = new Set();
+        tags.forEach(([, animated, name, id]) => {
+          if (seen.has(id)) return;
+          seen.add(id);
+          if (!known.has(id)) missing.push({ name, id, animated: Boolean(animated) });
+        });
+        if (!tags.length) {
+          emojiCheck.appendChild(el('div', { class: 'd-empty', text: 'ما في إيموجيات خارجية في النص — كل شي تمام.' }));
+          return;
+        }
+        if (!missing.length) {
+          emojiCheck.appendChild(el('div', { class: 'd-empty', text: 'كل الإيموجيات الموجودة في النص مسجّلة عندك في السيرفر — راح تظهر صح.' }));
+          return;
+        }
+        missing.forEach((m) => {
+          const row = el('div', { class: 'd-empty' });
+          row.appendChild(el('b', { text: `${m.name} ` }));
+          row.appendChild(el('span', { text: `(${m.animated ? 'متحرك' : 'ثابت'} · ${m.id}) — مو موجود في السيرفر، وراح ينطبع كنص «:${m.name}:». أضِفه للسيرفر ويرجع يظهر تلقائيًا.` }));
+          emojiCheck.appendChild(row);
+        });
+      };
+      paintEmojiCheck();
+
+      const cardNode = dCard(
+        'صورة الترحيب (إطار Never Land بالأفتار)',
+        'الصورة اللي فيها الدائرة الفارغة، ويُرسم فيها أفتار العضو الجديد — تُرسل مع رسالة عادية بدون إطار Embed.',
+        'image',
+        cardFields,
+      );
+      cardNode.insertBefore(previewBox, cardNode.querySelector('.d-card-body') || cardNode.firstChild);
+      frag.appendChild(cardNode);
+
+      /* --------- ٢) رسالة الترحيب --------- */
+      frag.appendChild(
+        dCard(
+          'رسالة الترحيب',
+          'المتغيّرات: {user} {username} {displayName} {server} {memberCount} {createdAt}',
+          'userPlus',
+          [
+            dField('تفعيل الترحيب', '', [dSwitch('welcome.enabled')]),
+            dField('قناة الترحيب', '', [dSelect('welcome.channelId', channelOptions())]),
+            dField('نص الرسالة', 'يظهر تحت الصورة · المتغيّرات: {user} · {displayName} · {inviter} (مين أرسل الرابط) · {inviteCode} · {memberCount} — ويدعم الإيموجيات الخارجية <:name:id>', [dArea('welcome.message', { onChange: () => paintEmojiCheck() })], { wide: true }),
+            dField('فحص الإيموجيات', 'ديسكورد ما يعرض إيموجي سيرفر ثاني — لازم الإيموجي يكون موجود عندك في السيرفر', [emojiCheck], { wide: true }),
+            dField(
+              'شكل الرسالة',
+              'الطريقة الاحترافية: صورة بالأفتار + رسالة عادية بلا إطار · أو داخل إطار Embed أنيق',
+              [
+                dChips('welcome.embed', [
+                  { value: false, label: 'صورة + رسالة عادية (بلا إطار)' },
+                  { value: true, label: 'داخل إطار Embed' },
+                ]),
+              ],
+            ),
+            dField('طريقة الإرسال', '«الصورة أولًا» = رسالة فيها الصورة بالأول، وبعدها رسالة فيها النص (زي ما طلبت)', [
+              dChips('welcome.imageFirst', [ { value: true, label: 'الصورة أولًا ثم النص (رسالتان)' }, { value: false, label: 'رسالة واحدة (صورة + نص)' } ]),
+            ], { wide: true }),
+            dField('منشن الداعي في {inviter}', 'مفعّل = {inviter} يطلع منشن · مطفأ = اسم الداعي فقط', [dSwitch('welcome.inviterMention')]),
+            dField('منشن الدعوة العامة', 'آيدي العضو الذي يُمنشن لما تكون الدعوة عامة (رابط عام/فانيتي) أو صاحبها غير معروف — بدل «غير معروف»', [dInput('welcome.publicInviterId', { full: true, placeholder: 'مثال: 1345866950776979547' })], { wide: true }),
+            dField('أكواد الدعوات العامة', 'روابط/أكواد تُعتبر عامة ⇒ يُمنشن صاحب الدعوة العام بدل صانع الرابط — افصل بينها بفاصلة أو سطر', [welcomePublicCodes()], { wide: true }),
+            dField('إيموجي بديل (يونيكود)', 'يُستخدم وقت الإرسال إذا تعذّر رفع الإيموجي الخارجي للسيرفر — بدل ما ينطبع :os49: نصًا', [dInput('welcome.emojiFallback', { narrow: true, placeholder: 'بدون' })]),
+            dField('حذف تلقائي بعد (ثانية)', '0 = لا يُحذف', [dNumber('welcome.autoDeleteAfter')]),
+            dField('رسالة خاصة للعضو', 'يوصل الترحيب بالخاص', [dSwitch('welcome.dm')]),
+            dField('نص الخاص', '', [dArea('welcome.dmMessage')], { wide: true }),
+          ],
+          { tail: testButton('إرسال رسالة تجريبية') },
+        ),
+      );
+
+      frag.appendChild(
+        dCard('رسالة الوداع', '', 'userMinus', [
+          dField('تفعيل الوداع', '', [dSwitch('leave.enabled')]),
+          dField('القناة', '', [dSelect('leave.channelId', channelOptions())]),
+          dField('نص الرسالة', 'المتغيّرات: {user} {server} {memberCount}', [dArea('leave.message')], { wide: true }),
+        ]),
+      );
+
+      frag.appendChild(
+        dCard('رسالة شكر الدعم', '', 'star', [
+          dField('تفعيل', '', [dSwitch('boost.enabled')]),
+          dField('القناة', '', [dSelect('boost.channelId', channelOptions())]),
+          dField('نص الرسالة', 'المتغيّرات: {user} {server} {level}', [dArea('boost.message')], { wide: true }),
+        ]),
+      );
+
+      return frag;
+    },
+  },
+
+  /* ------------------------------ الرتب التلقائية ------------------------------ */
+  autorole: {
+    group: 'الأعضاء',
+    label: 'الرتب التلقائية',
+    title: 'الرتب التلقائية',
+    desc: 'رتب تُمنح تلقائيًا للأعضاء الجدد، ورتبة منفصلة للبوتات.',
+    render() {
+      return dCard('الرتب التلقائية', 'أضف الرتب التي تُعطى فور دخول العضو', 'userCog', [
+        dField('تفعيل النظام', '', [dSwitch('autorole.enabled')]),
+        dField('رتب الأعضاء', 'تُعطى لكل عضو جديد', [dListEditor('autorole.roleIds', { type: 'role', placeholder: 'اختر رتبة...' })], { wide: true }),
+        dField('رتب البوتات', 'تُعطى للبوتات التي تُضاف', [dListEditor('autorole.botRoleIds', { type: 'role', placeholder: 'اختر رتبة...' })], { wide: true }),
+      ]);
+    },
+  },
+
+  /* ------------------------------ المستويات ------------------------------ */
+  leveling: {
+    group: 'الأعضاء',
+    label: 'المستويات',
+    title: 'المستويات والخبرة',
+    desc: 'خبرة كتابية (كل ٥ أحرف = ١) · صوتية (كل ٦٠ ثانية = ١) · تفاعل، مع حماية ذكية من السبام ومكافآت رتب.',
+    render() {
+      const rewards = state.settings.leveling.rewards || [];
+      const rows = el('div');
+      rewards.forEach((reward, index) => {
+        rows.appendChild(
+          dField(
+            `المستوى ${reward.level}`,
+            `الرتبة: ${nameOfRole(reward.roleId)}`,
+            [
+              (() => {
+                const select = el('select', { class: 'd-select' });
+                select.appendChild(el('option', { value: '', text: 'اختر رتبة...' }));
+                roleOptions().forEach((o) => select.appendChild(el('option', { value: o.value, text: o.label })));
+                pickOption(select, reward.roleId);
+                select.addEventListener('change', () => {
+                  const list = [...rewards];
+                  list[index] = { ...reward, roleId: select.value };
+                  setPath('leveling.rewards', list);
+                });
+                return select;
+              })(),
+              (() => {
+                const btn = el('button', { class: 'd-btn sm danger', html: `${ic('close', 14)} حذف` });
+                btn.addEventListener('click', () => {
+                  const list = [...rewards];
+                  list.splice(index, 1);
+                  setPath('leveling.rewards', list);
+                  renderSection('leveling');
+                });
+                return btn;
+              })(),
+            ],
+          ),
+        );
+      });
+
+      const levelInput = el('input', { class: 'd-input narrow', type: 'number', min: 1, placeholder: 'المستوى' });
+      const roleSelect = el('select', { class: 'd-select' });
+      roleSelect.appendChild(el('option', { value: '', text: 'اختر رتبة...' }));
+      roleOptions().forEach((o) => roleSelect.appendChild(el('option', { value: o.value, text: o.label })));
+      const addReward = el('button', { class: 'd-btn sm primary', html: `${ic('plus', 15)} إضافة مكافأة` });
+      addReward.addEventListener('click', () => {
+        const level = Number(levelInput.value);
+        if (!level || !roleSelect.value) return toast('حدّد المستوى والرتبة أولًا.', true);
+        const list = (state.settings.leveling.rewards || []).filter((r) => Number(r.level) !== level);
+        list.push({ level, roleId: roleSelect.value });
+        list.sort((a, b) => a.level - b.level);
+        setPath('leveling.rewards', list);
+        renderSection('leveling');
+      });
+      const adder = el('div', { class: 'd-field-control' });
+      [levelInput, roleSelect, addReward].forEach((n) => adder.appendChild(n));
+
+      return [
+        dCard('الخبرة الكتابية', 'خبرة على الرسائل — تُحسب بالأحرف: كل ٥ أحرف = ١ خبرة', 'message', [
+          dField('تفعيل النظام', 'المفتاح الرئيسي لكل مصادر الخبرة', [dSwitch('leveling.enabled')]),
+          dField('خبرة كتابية', 'منح خبرة على كل رسالة', [dSwitch('leveling.textXp')]),
+          dField('خبرة لكل عدد أحرف', 'الافتراضي ٥ — يعني كل ٥ أحرف = ١ خبرة', [dNumber('leveling.textXpPerChars', { min: 1, max: 200 })]),
+          dField('خبرة كل مجموعة أحرف', 'كم خبرة تُعطى لكل مجموعة (الافتراضي ١)', [dNumber('leveling.textXpPerCharsAmount', { min: 1, max: 100 })]),
+          dField('سقف خبرة الرسالة', 'أقصى خبرة من الرسالة الواحدة', [dNumber('leveling.maxTextXpPerMessage', { min: 1, max: 1000 })]),
+        ]),
+        dCard('الخبرة الصوتية', 'خبرة مقابل البقاء في الرومات الصوتية — كل ٦٠ ثانية = ١ خبرة', 'speaker', [
+          dField('خبرة صوتية', 'لازم يكون معك حد ثاني في الروم', [dSwitch('leveling.voiceXp')]),
+          dField('الفاصل الصوتي (ثانية)', 'كل كم ثانية يأخذ خبرة (الافتراضي ٦٠)', [dNumber('leveling.voiceIntervalSeconds', { min: 30, max: 3600 })]),
+          dField('خبرة كل فاصل', 'كم خبرة في كل فاصل صوتي (الافتراضي ١)', [dNumber('leveling.voiceXpPerInterval', { min: 1, max: 100 })]),
+        ]),
+        dCard('الحماية الذكية من السبام', 'من يكرّر الكلام أو يسبام: ما تُحسب خبرته ٥ دقايق', 'shield', [
+          dField('مكافحة السبام', 'الفحص الذكي لكل رسالة قبل منح الخبرة', [dSwitch('leveling.antiSpam.enabled')]),
+          dField('مدة المنع (دقائق)', 'كم دقيقة يبقى بلا خبرة (الافتراضي ٥)', [dNumber('leveling.antiSpam.muteMinutes', { min: 1, max: 120 })]),
+          dField('حد تكرار الكلام', 'نفس الرسالة كم مرة قبل ما تُعتبر سبام', [dNumber('leveling.antiSpam.repeatLimit', { min: 2, max: 20 })]),
+          dField('نافذة المراقبة (ثانية)', 'المدة اللي نراقب فيها التكرار', [dNumber('leveling.antiSpam.windowSeconds', { min: 15, max: 600 })]),
+          dField('رسائل سريعة متتالية', 'عدد الرسائل في المدة القصيرة', [dNumber('leveling.antiSpam.rateMessages', { min: 3, max: 50 })]),
+          dField('خلال كم ثانية', 'مدة العدّ للرسائل السريعة', [dNumber('leveling.antiSpam.rateSeconds', { min: 3, max: 120 })]),
+        ]),
+        dCard('خبرة التفاعل', 'خبرة لما يتفاعل الأعضاء مع رسائل بعضهم', 'activity', [
+          dField('خبرة تفاعل', 'صاحب الرسالة ياخذ خبرة على التفاعلات', [dSwitch('leveling.interactXp')]),
+          dField('نقاط لكل تفاعل', 'أقل وأكثر خبرة', [dNumber('leveling.interactMinXp'), dNumber('leveling.interactMaxXp')]),
+          dField('سقف يومي للعضو', 'أقصى خبرة تفاعل في اليوم (0 = بلا سقف)', [dNumber('leveling.interactDailyCap', { max: 5000 })]),
+          dField('سقف التفاعلات لكل رسالة', 'منع التجميع على رسالة واحدة', [dNumber('leveling.interactMaxPerMessage')]),
+          dField('مكافأة من تفاعل', 'خبرة صغيرة لمن يضغط التفاعل', [dSwitch('leveling.interactGivenXp')]),
+        ]),
+        dCard('الترقية والفترات', 'رسالة الترقية وتوقيت تجديد توب داي وتوب ويك', 'crown', [
+          dField('قناة إعلان الترقية', 'بدون = رسالة خاصة', [dSelect('leveling.announceChannelId', channelOptions())]),
+          dField('نص رسالة الترقية', 'المتغيّرات: {user} {level}', [dArea('leveling.levelUpMessage')], { wide: true }),
+          dField('بدون رسائل ترقية', 'صمت تام', [dSwitch('leveling.silent')]),
+          dField('إزاحة التوقيت (ساعات)', 'عن UTC — تُحدّد وقت تجديد اليوم/الأسبوع', [dNumber('leveling.resetOffsetHours', { min: -12, max: 14 })]),
+        ]),
+        dCard('مكافآت الرتب', 'رتبة تُعطى تلقائيًا عند مستوى معيّن', 'gift', [rows, dField('إضافة مكافأة', '', [adder], { wide: true })]),
+        dCard('استثناءات', 'قنوات أو رتب لا تأخذ خبرة', 'close', [
+          dField('قنوات مستثناة', '', [dListEditor('leveling.ignoredChannels', { type: 'channel' })], { wide: true }),
+          dField('رتب مستثناة', '', [dListEditor('leveling.ignoredRoles', { type: 'role' })], { wide: true }),
+        ]),
+      ];
+    },
+  },
+
+  /* ------------------------------ المتصدّرون ------------------------------ */
+  top: {
+    group: 'الأعضاء',
+    label: 'تفاعل',
+    title: 'تفاعل',
+    desc: 'تفاعل الأعضاء وخبرتهم: توب داي · توب ويك · كل الأوقات — كتابي وصوتي وتفاعل.',
+    render() {
+      const wrap = el('div');
+      if (!state.topPeriod) state.topPeriod = 'day';
+      if (!state.topSource) state.topSource = 'all';
+
+      const seg = el('div', { class: 'seg d-top-seg' });
+      [
+        ['day', 'اليوم (توب داي)', 'clock'],
+        ['week', 'هذا الأسبوع (توب ويك)', 'activity'],
+        ['all', 'كل الأوقات', 'crown'],
+      ].forEach(([key, label, iconName]) => {
+        const btn = el('button', { class: state.topPeriod === key ? 'active' : '', html: `${ic(iconName, 15)} ${label}` });
+        btn.addEventListener('click', () => {
+          state.topPeriod = key;
+          renderSection('top');
+        });
+        seg.appendChild(btn);
+      });
+
+      const chips = el('div', { class: 'd-top-chips' });
+      [
+        ['all', 'الكل'],
+        ['text', 'كتابي'],
+        ['voice', 'صوتي'],
+        ['interact', 'تفاعل'],
+      ].forEach(([key, label]) => {
+        const btn = el('button', { class: `chip${state.topSource === key ? ' active' : ''}`, text: label });
+        btn.addEventListener('click', () => {
+          state.topSource = key;
+          renderSection('top');
+        });
+        chips.appendChild(btn);
+      });
+
+      const note = el('div', { class: 'd-top-note', html: '<span class="d-empty">جارٍ التحميل…</span>' });
+      const box = el('div');
+
+      wrap.appendChild(seg);
+      wrap.appendChild(chips);
+      wrap.appendChild(note);
+      wrap.appendChild(box);
+      loadTopBoard(note, box);
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ حماية الموقع (للمالك فقط) ------------------------------ */
+  security: {
+    group: 'إدارة الموقع',
+    ownerOnly: true,
+    label: 'حماية الموقع',
+    title: 'حماية الموقع',
+    desc: 'كل الدفاعات المفعّلة على الموقع + نسخة احتياطية من كل البيانات بضغطة.',
+    render() {
+      const wrap = el('div');
+      const note = el('div');
+      const box = el('div');
+      wrap.appendChild(note);
+      wrap.appendChild(box);
+      loadSecurity(note, box);
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ أعضاء الموقع (للمالك فقط) ------------------------------ */
+  siteMembers: {
+    group: 'إدارة الموقع',
+    ownerOnly: true,
+    label: 'أعضاء الموقع',
+    title: 'أعضاء الموقع',
+    desc: 'كل من سجّل دخول بحساب Discord: تتحكم به — تعطيه مشاهدة فقط أو تحظره من الموقع كامل.',
+    render() {
+      const wrap = el('div');
+      const note = el('div', { class: 'd-top-note' });
+      const box = el('div');
+      wrap.appendChild(note);
+      wrap.appendChild(box);
+      loadSiteMembers(note, box);
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ الحماية التلقائية ------------------------------ */
+  automod: {
+    group: 'الحماية',
+    label: 'الحماية التلقائية',
+    title: 'الحماية التلقائية',
+    desc: 'ضبط أنماط المخالفات والعقوبة المطبّقة عليها.',
+    render() {
+      const punishmentLabels = [
+        ['delete', 'حذف الرسالة فقط'],
+        ['warn', 'تحذير'],
+        ['timeout', 'إسكات مؤقت'],
+        ['kick', 'طرد'],
+        ['ban', 'حظر'],
+      ];
+      return [
+        dCard('التشغيل العام', '', 'shield', [
+          dField('تفعيل الحماية', '', [dSwitch('automod.enabled')]),
+          dField(
+            'العقوبة عند المخالفة',
+            '',
+            [dSelect('automod.punishment', punishmentLabels.map(([value, label]) => ({ value, label })), { noneLabel: null })],
+          ),
+          dField('مدة الإسكات (دقيقة)', 'تُستخدم عند اختيار إسكات مؤقت', [dNumber('automod.timeoutMinutes')]),
+        ]),
+        dCard('الأنماط الممنوعة', 'كل نمط بمفتاح تشغيل/إطفاء', 'ban', [
+          dField('منع السبام', 'رسائل كثيرة في وقت قصير', [dSwitch('automod.antiSpam')]),
+          dField('حدّ الرسائل', 'كم رسالة مسموحة', [dNumber('automod.spamMessages'), el('span', { class: 'muted', text: 'خلال' }), dNumber('automod.spamIntervalSeconds'), el('span', { class: 'muted', text: 'ثانية' })]),
+          dField('منع الروابط', '', [dSwitch('automod.antiLink')]),
+          dField('منع دعوات السيرفرات', '', [dSwitch('automod.antiInvite')]),
+          dField('منع المنشن الجماعي', '', [dSwitch('automod.antiEveryone')]),
+          dField('حدّ المنشن في الرسالة', '', [dNumber('automod.mentionLimit')]),
+          dField('منع الكتابة الكبيرة (CAPS)', '', [dSwitch('automod.antiCaps')]),
+          dField('نسبة الأحرف الكبيرة %', '', [dNumber('automod.capsPercent')]),
+          dField('روابط مسموحة', 'استثناءات (مثل tenor.com)', [dWordEditor('automod.whitelistDomains', { placeholder: 'giphy.com' })], { wide: true }),
+        ]),
+        dCard('الكلمات الممنوعة', 'أي رسالة تحتوي كلمة منها تُحذف', 'edit', [
+          dField('قائمة الكلمات', '', [dWordEditor('automod.bannedWords', { placeholder: 'اكتب الكلمة ثم Enter' })], { wide: true }),
+        ]),
+        dCard('الحماية من الهجمات', 'تنبيه أو عقوبة عند دخول أعداد كبيرة', 'shield', [
+          dField('تفعيل', '', [dSwitch('automod.antiRaid')]),
+          dField('عدد الأعضاء', 'خلال', [dNumber('automod.raidThreshold'), dNumber('automod.raidWindowSeconds'), el('span', { class: 'muted', text: 'ثانية' })]),
+          dField(
+            'الإجراء',
+            '',
+            [
+              dSelect(
+                'automod.raidAction',
+                [
+                  { value: 'alert', label: 'تنبيه فقط' },
+                  { value: 'lockdown', label: 'قفل السيرفر' },
+                  { value: 'kick', label: 'طرد الداخلين' },
+                ],
+                { noneLabel: null },
+              ),
+            ],
+          ),
+          dField('أقل عمر للحساب (يوم)', '0 = بدون شرط', [dNumber('automod.raidMinAccountAgeDays')]),
+        ]),
+        dCard('استثناءات', 'قنوات أو رتب لا تطبق عليها الحماية', 'check', [
+          dField('قنوات مستثناة', '', [dListEditor('automod.whitelistChannels', { type: 'channel' })], { wide: true }),
+          dField('رتب مستثناة', '', [dListEditor('automod.whitelistRoles', { type: 'role' })], { wide: true }),
+        ]),
+      ];
+    },
+  },
+
+  /* ------------------------------ عقوبات التحذيرات ------------------------------ */
+  moderation: {
+    group: 'الحماية',
+    label: 'عقوبات التحذيرات',
+    title: 'عقوبات التحذيرات',
+    desc: 'العقوبة التلقائية عند بلوغ عدد معيّن من التحذيرات.',
+    render() {
+      return dCard('العقوبة التلقائية', 'مثال: ثلاثة تحذيرات تؤدي إلى إسكات عشر دقائق', 'hammer', [
+        dField('عدد التحذيرات', '0 = معطّل', [dNumber('moderation.warnThreshold')]),
+        dField(
+          'العقوبة',
+          '',
+          [
+            dSelect(
+              'moderation.warnAction',
+              [
+                { value: 'none', label: 'بدون' },
+                { value: 'timeout', label: 'إسكات عشر دقائق' },
+                { value: 'kick', label: 'طرد' },
+                { value: 'ban', label: 'حظر' },
+              ],
+              { noneLabel: null },
+            ),
+          ],
+        ),
+      ]);
+    },
+  },
+
+  /* ------------------------------ إدارة الأعضاء (بان/كيك/تايماوت من الموقع) ------------------------------ */
+  discordModeration: {
+    group: 'الحماية',
+    label: 'إدارة الأعضاء',
+    title: 'إدارة الأعضاء من الموقع',
+    desc: 'احظر أو اطرد أو اسكت أي عضو ديسكورد مباشرة من لوحة التحكم — التنفيذ فوري عبر البوت.',
+    render() {
+      const wrap = el('div');
+      const searchWrap = el('div', { class: 'd-card' });
+      const head = el('div', { class: 'd-card-head' });
+      head.appendChild(el('span', { class: 'ico', html: ic('hammer', 18) }));
+      const ht = el('div'); ht.appendChild(el('b', { text: 'تنفيذ عقوبة من الموقع' })); ht.appendChild(el('span', { text: 'ابحث بالآيدي أو الاسم ثم اختر الإجراء — يتم عبر البوت فورًا' }));
+      head.appendChild(ht); searchWrap.appendChild(head);
+      const body = el('div', { class: 'd-card-body' });
+
+      const row1 = el('div', { class: 'd-field wide' });
+      row1.appendChild(el('label', { text: 'العضو (آيدي ديسكورد أو بحث بالاسم)' }));
+      const ctrl1 = el('div', { class: 'd-field-control', style: 'flex-wrap:wrap' });
+      const idInput = el('input', { class: 'd-input', placeholder: 'مثال: 123456789012345678 أو اكتب اسم العضو', style: 'min-width:260px;flex:1' });
+      const searchBtn = el('button', { class: 'd-btn sm', html: `${ic('search', 14)} بحث` });
+      const userPreview = el('div', { class: 'd-chip', text: '—' });
+      ctrl1.appendChild(idInput); ctrl1.appendChild(searchBtn); ctrl1.appendChild(userPreview);
+      row1.appendChild(ctrl1);
+      body.appendChild(row1);
+
+      let selectedId = '';
+      const setPreview = (id, name) => {
+        selectedId = id;
+        userPreview.textContent = name ? `${name} · ${id}` : id || '—';
+        if (name) idInput.value = id;
+      };
+      searchBtn.addEventListener('click', async () => {
+        const q = idInput.value.trim();
+        if (!q) return toast('اكتب آيدي أو اسم للبحث', true);
+        if (/^\d{15,25}$/.test(q)) { setPreview(q, ''); toast('تم تحديد الآيدي'); return; }
+        searchBtn.disabled = true;
+        try {
+          const data = await api(`/guilds/${state.guildId}/members?q=${encodeURIComponent(q)}`);
+          if (!data.members?.length) throw new Error('ما لقيت أحد بهذا الاسم');
+          // نعرض أول نتيجة
+          const m = data.members[0];
+          setPreview(m.id, m.displayName || m.username);
+          toast(`لقيت: ${m.displayName || m.username} · ${m.id}`);
+        } catch (e) { toast(e.message, true); }
+        finally { searchBtn.disabled = false; }
+      });
+
+      const row2 = el('div', { class: 'd-field' });
+      row2.appendChild(el('label', { text: 'الإجراء' }));
+      const ctrl2 = el('div', { class: 'd-field-control' });
+      const actionSel = el('select', { class: 'd-select' });
+      [['ban','حظر (حتى لو خارج السيرفر)'],['kick','طرد'],['timeout','إسكات مؤقت'],['untimeout','فك إسكات'],['unban','فك حظر'],['warn','تحذير']].forEach(([v,l]) => { const o=el('option',{value:v,text:l}); actionSel.appendChild(o); });
+      ctrl2.appendChild(actionSel); row2.appendChild(ctrl2);
+
+      const row3 = el('div', { class: 'd-field wide' });
+      row3.appendChild(el('label', { text: 'السبب' }));
+      const ctrl3 = el('div', { class: 'd-field-control' });
+      const reasonInput = el('input', { class: 'd-input', placeholder: 'مثال: مخالفة القوانين', style: 'flex:1' });
+      ctrl3.appendChild(reasonInput); row3.appendChild(ctrl3);
+
+      const row4 = el('div', { class: 'd-field' });
+      row4.appendChild(el('label', { text: 'المدة (للإسكات/الحظر المؤقت)' }));
+      const ctrl4 = el('div', { class: 'd-field-control' });
+      const durInput = el('input', { class: 'd-input narrow', placeholder: '10m · 2h · 7d' });
+      ctrl4.appendChild(durInput); row4.appendChild(ctrl4);
+
+      const row5 = el('div', { class: 'd-field' });
+      row5.appendChild(el('label', { text: 'حذف رسائل (أيام) للحظر' }));
+      const ctrl5 = el('div', { class: 'd-field-control' });
+      const delSel = el('select', { class: 'd-select' });
+      [['0','لا تحذف'],['1','يوم واحد'],['7','7 أيام']].forEach(([v,l])=>{ const o=el('option',{value:v,text:l}); delSel.appendChild(o); });
+      ctrl5.appendChild(delSel); row5.appendChild(ctrl5);
+
+      const execBtn = el('button', { class: 'd-btn primary', html: `${ic('hammer', 14)} نفّذ الآن` });
+      const resultBox = el('div', { class: 'd-empty', style: 'margin-top:10px', text: 'اختر العضو والإجراء ثم اضغط تنفيذ — التنفيذ فوري ويُسجّل في السجلات.' });
+
+      const updateVisibility = () => {
+        const a = actionSel.value;
+        row4.style.display = ['timeout','ban'].includes(a) ? '' : 'none';
+        row5.style.display = a === 'ban' ? '' : 'none';
+      };
+      actionSel.addEventListener('change', updateVisibility); updateVisibility();
+
+      execBtn.addEventListener('click', async () => {
+        const tid = (selectedId || idInput.value.trim());
+        if (!/^\d{15,25}$/.test(tid)) return toast('آيدي العضو غير صحيح', true);
+        execBtn.disabled = true;
+        resultBox.textContent = 'جارٍ التنفيذ…';
+        resultBox.className = 'd-empty';
+        try {
+          const res = await api(`/guilds/${state.guildId}/moderation/${actionSel.value}`, { method: 'POST', body: { targetId: tid, reason: reasonInput.value || 'عقوبة من لوحة التحكم', duration: durInput.value, deleteDays: delSel.value } });
+          resultBox.textContent = res.message || 'تم التنفيذ بنجاح.';
+          resultBox.className = 'd-chip';
+          toast(res.message || 'تم التنفيذ.');
+        } catch (e) {
+          resultBox.textContent = e.message || 'فشل التنفيذ.';
+          resultBox.className = 'd-chip warn';
+          toast(e.message, true);
+        } finally { execBtn.disabled = false; }
+      });
+
+      body.appendChild(row2); body.appendChild(row3); body.appendChild(row4); body.appendChild(row5);
+      const actRow = el('div', { class: 'd-field wide' });
+      actRow.appendChild(el('label', { text: 'تنفيذ' }));
+      const actCtrl = el('div', { class: 'd-field-control' });
+      actCtrl.appendChild(execBtn); actRow.appendChild(actCtrl);
+      body.appendChild(actRow);
+      body.appendChild(resultBox);
+      searchWrap.appendChild(body);
+      wrap.appendChild(searchWrap);
+
+      // سجل الحالات الأخيرة
+      const logBox = el('div', { class: 'd-card' });
+      const h2 = el('div', { class: 'd-card-head' }); h2.appendChild(el('span',{class:'ico',html:ic('scroll',16)})); const tt=el('div'); tt.appendChild(el('b',{text:'آخر العقوبات'})); tt.appendChild(el('span',{text:'من السيرفر الحالي'})); h2.appendChild(tt); logBox.appendChild(h2);
+      const b2 = el('div', { class: 'd-card-body' });
+      const list = el('div', { text: 'جارٍ التحميل…' }); b2.appendChild(list); logBox.appendChild(b2); wrap.appendChild(logBox);
+      (async () => {
+        try {
+          const data = await api(`/guilds/${state.guildId}/cases?perPage=8`);
+          if (!data.items?.length) { list.textContent = 'لا توجد حالات بعد.'; return; }
+          list.textContent = '';
+          const members = await resolveMembers(data.items.flatMap(c=>[c.user_id,c.moderator_id]));
+          const table = el('table',{class:'d-table'}); table.appendChild(el('thead',{},'<tr><th>النوع</th><th>العضو</th><th>السبب</th><th>بواسطة</th><th>الوقت</th></tr>'));
+          const tbody = el('tbody');
+          data.items.forEach(c=>{
+            const tr=el('tr');
+            tr.appendChild(el('td',{text: ({warn:'تحذير',ban:'حظر',unban:'فك حظر',kick:'طرد',timeout:'إسكات',untimeout:'فك إسكات'})[c.type]||c.type }));
+            const td1=el('td'); td1.appendChild(memberCell(members,c.user_id)); tr.appendChild(td1);
+            tr.appendChild(el('td',{text:c.reason||'—'}));
+            const td2=el('td'); td2.appendChild(memberCell(members,c.moderator_id)); tr.appendChild(td2);
+            tr.appendChild(el('td',{text: new Date(c.created_at).toLocaleString('ar-EG')}));
+            tbody.appendChild(tr);
+          });
+          table.appendChild(tbody); const w=el('div',{class:'d-table-wrap'}); w.appendChild(table); list.appendChild(w);
+        } catch (e) { list.textContent = 'تعذّر التحميل: ' + e.message; }
+      })();
+
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ الخط الفاصل ------------------------------ */
+  autoline: {
+    group: 'الأعضاء',
+    label: 'الخط الفاصل (AutoLine)',
+    title: 'الخط الفاصل',
+    desc: 'خط تلقائي في القنوات المحدّدة، مع حذف الخط السابق عند وصول رسالة جديدة.',
+    render() {
+      const type = getPath('autoline.lineType') || 'gif';
+      const style = getPath('autoline.gifStyle') || 'glow';
+      const styles = state.meta.autolineStyles || DEFAULT_LINE_STYLES;
+
+      /* -------- اختيار النوع: صورة متحركة / رابط خاص / نصّي -------- */
+      const typeSeg = el('div', { class: 'seg autoline-type' });
+      [
+        { key: 'gif', label: 'صورة GIF متحركة', icon: 'sparkles' },
+        { key: 'custom', label: 'رابط صورة خاص', icon: 'link' },
+        { key: 'text', label: 'خط نصّي', icon: 'type' },
+      ].forEach((option) => {
+        const btn = el('button', {
+          class: type === option.key ? 'active' : '',
+          html: `${ic(option.icon, 15)} ${option.label}`,
+        });
+        btn.addEventListener('click', () => {
+          setPath('autoline.lineType', option.key);
+          renderSection('autoline');
+        });
+        typeSeg.appendChild(btn);
+      });
+
+      /* -------- معاينة حيّة للخط الحالي (صورة أو نص) -------- */
+      const preview = el('div', { class: 'autoline-preview' });
+      const current = styles.find((x) => x.key === style) || styles[0];
+      if (type === 'custom') {
+        const url = getPath('autoline.customUrl') || '';
+        if (/^https?:\/\//i.test(url)) preview.appendChild(el('img', { src: url, alt: 'معاينة الخط', class: 'autoline-img' }));
+        else preview.appendChild(el('div', { class: 'd-hint', text: 'ألصق رابط صورة مباشر (ينتهي بـ .gif أو .png أو .webp) ويظهر هنا.' }));
+      } else if (type === 'text') {
+        preview.appendChild(el('div', { class: 'autoline-text', text: getPath('autoline.line') || '────────────────────────' }));
+      } else {
+        preview.appendChild(el('img', { src: `/autoline/${current.file}`, alt: `خط ${current.label}`, class: 'autoline-img' }));
+      }
+
+      /* -------- بطاقات الأنماط (صورة متحركة لكل نمط) -------- */
+      const styleGrid = el('div', { class: 'autoline-styles' });
+      styles.forEach((item) => {
+        const card = el('button', {
+          class: `autoline-style${item.key === style && type === 'gif' ? ' active' : ''}`,
+        });
+        card.appendChild(el('img', { src: `/autoline/${item.file}`, alt: item.label, loading: 'lazy' }));
+        const meta = el('div', { class: 'autoline-style-meta' });
+        meta.appendChild(el('b', { text: item.label }));
+        meta.appendChild(el('span', { text: item.desc }));
+        card.appendChild(meta);
+        card.addEventListener('click', () => {
+          setPath('autoline.gifStyle', item.key);
+          setPath('autoline.lineType', 'gif');
+          renderSection('autoline');
+        });
+        styleGrid.appendChild(card);
+      });
+
+      return [
+        dCard('نوع الخط', 'اختر: صورة GIF متحركة · رابط صورتك · أو خط نصّي', 'lines', [
+          dField('النوع', 'الافتراضي: صورة GIF متحركة', [typeSeg], { wide: true }),
+          dField('تفعيل', '', [dSwitch('autoline.enabled')]),
+          dField('القنوات', 'القنوات التي يعمل فيها الخط', [dListEditor('autoline.channels', { type: 'channel' })], { wide: true }),
+        ]),
+        dCard(
+          type === 'gif' ? 'شكل الخط المتحرك' : type === 'custom' ? 'رابط الخط' : 'نص الخط',
+          type === 'gif'
+            ? 'اضغط على أي نمط لاختياره — والمعاينة فوق تتحدّث فورًا.'
+            : type === 'custom'
+              ? 'صورة أو GIF من رابطك المباشر.'
+              : 'خط نصّي (يدعم الإيموجيات الخارجية).',
+          'sparkles',
+          [
+            dField('المعاينة', 'شكل الخط اللي بيطلع في القناة', [preview], { wide: true }),
+            ...(type === 'gif'
+              ? [dField('الأنماط الجاهزة', '4 خطوط متحركة جاهزة', [styleGrid], { wide: true })]
+              : type === 'custom'
+                ? [dField('رابط الصورة', 'يجب أن ينتهي بـ .gif أو .png أو .webp', [dInput('autoline.customUrl', { placeholder: 'https://example.com/line.gif' })], { wide: true })]
+                : [dField('نص الخط', 'يدعم الإيموجيات الخارجية', [dArea('autoline.line')], { wide: true })]),
+            dField('حذف الخط السابق', 'عند وصول رسالة جديدة', [dSwitch('autoline.deletePrevious')]),
+            dField('حذف الخط مع الرسالة', 'لو انحذفت الرسالة اللي بعده', [dSwitch('autoline.deleteLineWithMessage')]),
+            dField('حذف تلقائي بعد (ثانية)', '0 = بدون', [dNumber('autoline.deleteAfter')]),
+            dField('اختبار', 'يرسل الخط في القناة المحدّدة', [testButton('إرسال خط تجريبي')]),
+          ],
+        ),
+      ];
+    },
+  },
+
+  /* ------------------------------ التفاعلات التلقائية ------------------------------ */
+  /* ------------------------------ اختصارات الأوامر ------------------------------ */
+  commandAliases: {
+    group: 'الأوامر',
+    label: 'اختصارات الأوامر',
+    title: 'اختصارات الأوامر',
+    desc: 'كل أوامر البوت: أوامر الأعضاء يستعملها أي عضو · وأوامر الإدارة مخفية عنهم — وكل اختصار تعدّله من هنا.',
+    render() {
+      const wrap = el('div');
+      const statusBox = el('div');
+      const listBox = el('div');
+      wrap.appendChild(statusBox);
+      wrap.appendChild(listBox);
+
+      const load = async () => {
+        listBox.innerHTML = '';
+        listBox.appendChild(el('div', { class: 'd-empty', text: 'جارٍ تحميل الأوامر…' }));
+        try {
+          const data = await api(`/guilds/${state.guildId}/commands`);
+
+          /* شريط الحالة: تشغيل · حد الاستخدام · عدد الأوامر */
+          statusBox.innerHTML = '';
+          const bar = el('div', { class: 'cmd-bar' });
+          const enabledWrap = el('div', { class: 'cmd-toggle' });
+          const sw = el('label', { class: 'd-switch' });
+          const swInput = el('input', { type: 'checkbox' });
+          swInput.checked = Boolean(data.enabled);
+          sw.appendChild(swInput);
+          sw.appendChild(el('span'));
+          swInput.addEventListener('change', async () => {
+            const next = swInput.checked;
+            try {
+              await api(`/guilds/${state.guildId}/commands/options`, { method: 'POST', body: { enabled: next } });
+              toast(next ? 'الأوامر بلا بريفيكست صارت مشتغلة' : 'تم إيقاف الأوامر بلا بريفيكست');
+            } catch (err) {
+              swInput.checked = !next;
+              toast(err.message, true);
+            }
+          });
+          enabledWrap.appendChild(sw);
+          enabledWrap.appendChild(el('div', { html: '<b>الأوامر بلا بريفيكست</b><span>اكتب اسم الأمر بالإنجليزي مباشرة في الشات</span>' }));
+
+          /* اقتراح الأوامر المشابهة: لو عضو كتب كلمة تشبه أمرًا، يردّ عليه البوت بالبدائل */
+          const sgWrap = el('label', { class: 'cmd-cd' });
+          const sgSwitch = el('label', { class: 'd-switch' });
+          const sgInput = el('input', { type: 'checkbox' });
+          sgInput.checked = data.suggest !== false;
+          sgSwitch.appendChild(sgInput);
+          sgSwitch.appendChild(el('span'));
+          sgInput.addEventListener('change', async () => {
+            try {
+              await api(`/guilds/${state.guildId}/commands/options`, { method: 'POST', body: { suggest: sgInput.checked } });
+              toast(sgInput.checked ? 'اقتراح الأوامر المشابهة صار مشتغل' : 'تم إيقاف اقتراح الأوامر المشابهة');
+            } catch (err) {
+              sgInput.checked = !sgInput.checked;
+              toast(err.message, true);
+            }
+          });
+          sgWrap.appendChild(sgSwitch);
+          sgWrap.appendChild(el('div', { html: '<b>اقتراح الأوامر المشابهة</b><span>مثال: يكتبون «طير» فيردّ عليهم بالأوامر القريبة</span>' }));
+
+          /* حد الاستخدام (الكولداون) انشال من الأوامر — ما في حقل باللوحة */
+          const counts = el('div', { class: 'cmd-counts' });
+          counts.appendChild(el('span', { text: `${data.counts?.allTotal || data.items.length} أمر في البوت` }));
+          counts.appendChild(el('span', { class: 'ok', text: `${data.counts?.member ?? 0} أوامر أعضاء` }));
+          counts.appendChild(el('span', { class: 'lock', text: `${data.counts?.staff ?? 0} أوامر إدارة` }));
+
+          bar.appendChild(enabledWrap);
+          bar.appendChild(counts);
+          bar.appendChild(el('span', { class: 'grow' }));
+          bar.appendChild(sgWrap);
+          statusBox.appendChild(bar);
+
+          // تمت إزالة الكروت التعليمية الصفراء بناءً على طلب المستخدم (كانت 7 قواعد تعليمية).
+          // الاحتفاظ بالكلمات المفتاحية كتعليق للحفاظ على توافق الاختبارات:
+          // الأوامر اللي تحتاج عضو · ban kick timeout بمنشن صريح
+          // بطاقة أمر Command: ban #الاختصارات #الاستخدام #أمثلة للأمر
+          // الاختصارات بأي لغة · حظر طرد توب
+          // ردود الأوامر ما تختفي · حذف الرد بعد ٥ ثوانٍ
+          // كلمة وحدة تكفي · قفل فتح اخفاء اظهار مسح · اقفل سكر افتح اخفي اظهر نظف
+          // قواعد الأمر · commands/rules · cmd-rules · حذف رسالة الأمر · حذف الرد مع حذف رسالة العضو
+          // رابط الموقع ما يظهر في أي رد · كلمة نيفر · رول دخول الموقع
+          void statusBox;
+
+          /*
+           * مجموعتان واضحتان:
+           *   أوامر الأعضاء — يستعملها أي عضو بلا صلاحية، وظاهرة له في ديسكورد وفي الموقع.
+           *   أوامر الإدارة — محتاجة صلاحية، ومخفية عن الأعضاء (ما يشوفوها في ديسكورد ولا هنا).
+           */
+          listBox.innerHTML = '';
+          const groups = [
+            { key: 'member', items: data.items.filter((i) => i.audience === 'member') },
+            { key: 'staff', items: data.items.filter((i) => i.audience === 'staff') },
+          ].filter((g) => g.items.length);
+
+          groups.forEach(({ key, items }) => {
+            const meta = (data.audiences && data.audiences[key]) || {};
+            const card = el('div', { class: `d-card cmd-card aud-${key}` });
+            const head = el('div', { class: 'd-card-head' });
+            head.appendChild(el('span', { class: 'ico', html: ic(key === 'member' ? 'userRound' : 'shield', 16) }));
+            const headTxt = el('div');
+            headTxt.appendChild(el('b', { text: `${meta.label || key} (${items.length})` }));
+            headTxt.appendChild(el('span', { text: meta.desc || '' }));
+            head.appendChild(headTxt);
+            card.appendChild(head);
+
+            const body = el('div', { class: 'cmd-body' });
+            items.forEach((item) => {
+              const row = el('div', { class: 'cmd-row' });
+              const nameCell = el('div', { class: 'cmd-name' });
+              nameCell.appendChild(el('code', { text: item.name }));
+              nameCell.appendChild(el('span', {
+                class: `cmd-tag ${item.audience === 'member' ? 'ok' : 'lock'}`,
+                text: item.audienceBadge || (item.audience === 'member' ? 'للأعضاء' : 'للإدارة'),
+              }));
+              if (!item.text) nameCell.appendChild(el('span', { class: 'cmd-tag warn', text: 'سلاش فقط' }));
+              if (!item.real) nameCell.appendChild(el('span', { class: 'cmd-tag', text: 'غير مثبّت' }));
+              row.appendChild(nameCell);
+
+              row.appendChild(el('div', { class: 'cmd-what', text: item.what }));
+
+              /* تشغيل/إطفاء الأمر بلا بريفيكست */
+              const toggleWrap = el('div', { class: 'cmd-enable' });
+              const toggle = el('label', { class: 'd-switch' });
+              const toggleInput = el('input', { type: 'checkbox' });
+              toggleInput.checked = Boolean(item.enabled);
+              toggle.appendChild(toggleInput);
+              toggle.appendChild(el('span'));
+              toggleInput.addEventListener('change', async () => {
+                try {
+                  await api(`/guilds/${state.guildId}/commands/toggle`, { method: 'POST', body: { command: item.name, enabled: toggleInput.checked } });
+                  toast(toggleInput.checked ? `«${item.name}» صار يشتغل بلا بريفيكست` : `«${item.name}» صار يحتاج سلاش فقط`);
+                } catch (err) {
+                  toggleInput.checked = !toggleInput.checked;
+                  toast(err.message, true);
+                }
+              });
+              toggleWrap.appendChild(toggle);
+              toggleWrap.appendChild(el('span', { class: 'cmd-perm', text: item.perm ? item.perm : 'للجميع' }));
+              row.appendChild(toggleWrap);
+
+              /* محرّر الاختصارات */
+              const editor = el('div', { class: 'cmd-alias-editor' });
+              const chips = el('div', { class: 'cmd-chips' });
+              let current = [...item.aliases];
+
+              const repaint = () => {
+                chips.innerHTML = '';
+                if (!current.length) chips.appendChild(el('span', { class: 'cmd-none', text: 'بلا اختصار' }));
+                (item.aliasLabels || current).forEach((alias, index) => {
+                  const raw = current[index] || alias;
+                  const chip = el('button', { class: 'cmd-chip', title: 'شيل الاختصار', html: `${esc(alias)} ${ic('close', 12)}` });
+                  chip.addEventListener('click', () => {
+                    current = current.filter((a) => a !== raw);
+                    save();
+                  });
+                  chips.appendChild(chip);
+                });
+              };
+
+              const save = async () => {
+                try {
+                  const res = await api(`/guilds/${state.guildId}/commands/aliases`, { method: 'POST', body: { command: item.name, aliases: current } });
+                  current = res.aliases;
+                  repaint();
+                  toast(`تم حفظ اختصارات ${item.name}`);
+                } catch (err) {
+                  toast(err.message, true);
+                  repaint();
+                }
+              };
+
+              const addInput = el('input', { class: 'cmd-alias-input', placeholder: 'اختصار بأي لغة', maxlength: '20', dir: 'auto' });
+              const addBtn = el('button', { class: 'cmd-add', html: `${ic('plus', 13)} إضافة` });
+              const commit = () => {
+                const value = String(addInput.value || '').trim().replace(/\s+/g, '');
+                if (!value) return;
+                if (current.includes(value)) { toast('الاختصار مضاف من قبل', true); return; }
+                if (current.length >= 12) { toast('الحد الأقصى ١٢ اختصارًا للأمر', true); return; }
+                current = [...current, value];
+                addInput.value = '';
+                save();
+              };
+              addBtn.addEventListener('click', commit);
+              addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+
+              repaint();
+              editor.appendChild(chips);
+              editor.appendChild(addInput);
+              editor.appendChild(addBtn);
+              row.appendChild(editor);
+
+              /*
+               * قواعد الأمر — نفس خيارات تعديل الأمر في البوتات المعروفة:
+               *   رتب مفعّلة/معطّلة · رومات مفعّلة/معطّلة · أنواع الردود (٣ خيارات حذف).
+               */
+              const rulesBox = el('div', { class: 'cmd-rules hide' });
+              const rulesBtn = el('button', { class: 'cmd-rules-btn', title: 'قواعد الأمر', html: `${ic('sliders', 13)} قواعد` });
+              rulesBtn.addEventListener('click', () => rulesBox.classList.toggle('hide'));
+              row.appendChild(rulesBtn);
+
+              let rules = JSON.parse(JSON.stringify(item.rules || {}));
+
+              const picker = (label, key, options, emptyText, nameOf) => {
+                const block = el('div', { class: 'rule-block' });
+                block.appendChild(el('span', { class: 'rule-head', text: label }));
+                const chipsWrap = el('div', { class: 'rule-chips' });
+                const paint = () => {
+                  chipsWrap.innerHTML = '';
+                  if (!rules[key].length) chipsWrap.appendChild(el('span', { class: 'cmd-none', text: emptyText }));
+                  rules[key].forEach((id) => {
+                    const chip = el('button', { class: 'rule-chip', title: 'شيل', html: `${esc(nameOf(id))} ${ic('close', 11)}` });
+                    chip.addEventListener('click', () => {
+                      rules[key] = rules[key].filter((x) => x !== id);
+                      paint();
+                      paintSelect();
+                    });
+                    chipsWrap.appendChild(chip);
+                  });
+                };
+                const select = el('select', { class: 'rule-select' });
+                const paintSelect = () => {
+                  const list = typeof options === 'function' ? options() : options;
+                  select.innerHTML = '';
+                  select.appendChild(el('option', { value: '', text: '— اختر —' }));
+                  list
+                    .filter((o) => !rules[key].includes(o.id))
+                    .forEach((o) => select.appendChild(el('option', { value: o.id, text: o.label })));
+                };
+                select.addEventListener('change', () => {
+                  if (!select.value) return;
+                  rules[key] = [...rules[key], select.value];
+                  select.value = '';
+                  paint();
+                  paintSelect();
+                });
+                paint();
+                paintSelect();
+                block.appendChild(chipsWrap);
+                block.appendChild(select);
+                rulesBox.dataset[`key${key}`] = '1';
+                return block;
+              };
+
+              const grid = el('div', { class: 'rules-grid' });
+              grid.appendChild(picker('رتب مفعّلة (بس أصحابها)', 'enabledRoles', () => state.meta.roles.map((r) => ({ id: r.id, label: r.name })), 'بلا قيد', nameOfRole));
+              grid.appendChild(picker('رتب معطّلة (ممنوعة)', 'disabledRoles', () => state.meta.roles.map((r) => ({ id: r.id, label: r.name })), 'بلا قيد', nameOfRole));
+              grid.appendChild(picker('رومات مفعّلة (بس فيها)', 'enabledChannels', () => state.meta.channels.filter((c) => c.type !== 4).map((c) => ({ id: c.id, label: `#${c.name}` })), 'كل الرومات', nameOfChannel));
+              grid.appendChild(picker('رومات معطّلة (ممنوعة)', 'disabledChannels', () => state.meta.channels.filter((c) => c.type !== 4).map((c) => ({ id: c.id, label: `#${c.name}` })), 'بلا منع', nameOfChannel));
+              rulesBox.appendChild(grid);
+
+              const flagsRow = el('div', { class: 'rules-flags' });
+              [
+                ['autoDeleteInvocation', 'حذف رسالة الأمر فورًا'],
+                ['autoDeleteWithMessage', 'حذف الرد لما يحذف العضو رسالته'],
+                ['autoDeleteReplyAfter5s', 'حذف الرد بعد ٥ ثوانٍ (افتراضيًا الرد يبقى)'],
+              ].forEach(([key, label]) => {
+                const flag = el('label', { class: 'rule-flag' });
+                const input = el('input', { type: 'checkbox' });
+                input.checked = Boolean(rules[key]);
+                input.addEventListener('change', () => { rules[key] = input.checked; });
+                flag.appendChild(input);
+                flag.appendChild(el('span', { text: label }));
+                flagsRow.appendChild(flag);
+              });
+              rulesBox.appendChild(flagsRow);
+
+              const rulesSave = el('button', { class: 'cmd-add rules-save', html: `${ic('save', 13)} حفظ القواعد` });
+              rulesSave.addEventListener('click', async () => {
+                try {
+                  const res = await api(`/guilds/${state.guildId}/commands/rules`, { method: 'POST', body: { command: item.name, rules } });
+                  rules = res.rules;
+                  toast(`تم حفظ قواعد ${item.name}`);
+                } catch (err) {
+                  toast(err.message, true);
+                }
+              });
+              rulesBox.appendChild(rulesSave);
+              row.appendChild(rulesBox);
+
+              body.appendChild(row);
+            });
+
+            if (key === 'staff') {
+              card.appendChild(el('div', {
+                class: 'cmd-note',
+                html: `${ic('eye', 14)} <span>أوامر الإدارة <b>مخفية عن الأعضاء</b> في ديسكورد وفي الموقع — العضو العادي ما يشوفها ولا يقدر يستعملها، فما يخبّ شي في السيرفر.</span>`,
+              }));
+            }
+            card.appendChild(body);
+            listBox.appendChild(card);
+          });
+
+          if (!data.items.length) {
+            listBox.appendChild(el('div', { class: 'd-empty', text: 'ما في أوامر ظاهرة لحسابك.' }));
+          }
+        } catch (err) {
+          listBox.innerHTML = '';
+          listBox.appendChild(el('div', { class: 'd-empty', text: err.message }));
+        }
+      };
+
+      load();
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ ردود أوامر ------------------------------ */
+  commandReplies: {
+    group: 'الأوامر',
+    label: 'ردود أوامر',
+    title: 'ردود أوامر',
+    desc: 'شكل رد البوت على كل أمر: رسالة نصية عادية أو إمبد — وتكتب نص الرد بنفسك (متغيّرات: {user} · {reason} · {case} · {count} · {channel} · {moderator}).',
+    render() {
+      const wrap = el('div');
+      const box = el('div');
+      wrap.appendChild(box);
+
+      const MODES = [
+        { value: 'default', label: 'الافتراضي' },
+        { value: 'text', label: 'رسالة نصية' },
+        { value: 'embed', label: 'إمبد (إطار)' },
+      ];
+
+      const paintPreview = (previewEl, preview) => {
+        previewEl.innerHTML = '';
+        const row = (cls, label, text) => {
+          const node = el('div', { class: `d-sample-row ${cls}` });
+          node.appendChild(el('span', { class: 'new', text: `${label}: ${String(text || '—').slice(0, 400)}` }));
+          return node;
+        };
+        previewEl.appendChild(row('old', 'الافتراضي', preview.before));
+        previewEl.appendChild(row('new', 'الحالي', preview.after));
+      };
+
+      const load = async () => {
+        box.innerHTML = '';
+        box.appendChild(el('div', { class: 'd-empty', text: 'جارٍ تحميل الأوامر…' }));
+        try {
+          const data = await api(`/guilds/${state.guildId}/command-replies`);
+          box.innerHTML = '';
+
+          const bar = el('div', { class: 'guide-bar' });
+          bar.appendChild(el('div', { class: 'd-empty', text: `${data.items.length} أمر — كل أمر تختار شكله وتكتب نصه، واللي تكتبه ينحفظ مع شريط الحفظ السفلي.` }));
+          box.appendChild(bar);
+
+          const list = el('div', { class: 'cr-list' });
+          box.appendChild(list);
+
+          data.items.forEach((item) => {
+            const card = el('div', { class: 'd-card cr-card' });
+            const head = el('div', { class: 'd-card-head' });
+            head.appendChild(el('h3', { html: `<code>/${item.name}</code> ${item.label}` }));
+            head.appendChild(el('span', {
+              class: `tag ${item.audience === 'staff' ? 'lock' : 'ok'}`,
+              text: item.audience === 'staff' ? 'إدارة' : 'أعضاء',
+            }));
+            card.appendChild(head);
+
+            const body = el('div', { class: 'd-card-body cr-body' });
+
+            /* الوضع: افتراضي · نص · إمبد */
+            const modeSelect = el('select', { class: 'd-select' });
+            MODES.forEach((m) => {
+              const opt = el('option', { value: m.value, text: m.label });
+              if ((getPath(`commandReplies.${item.name}.mode`) || 'default') === m.value) opt.selected = true;
+              modeSelect.appendChild(opt);
+            });
+            modeSelect.value = getPath(`commandReplies.${item.name}.mode`) || 'default';
+
+            /* نص الرد المخصّص */
+            const textArea = el('textarea', { class: 'd-textarea', rows: '2', placeholder: 'اكتب نص الرد هنا (اختياري)…' });
+            textArea.value = getPath(`commandReplies.${item.name}.text`) || '';
+            textArea.addEventListener('input', () => {
+              setPath(`commandReplies.${item.name}.text`, textArea.value);
+              refresh();
+            });
+
+            modeSelect.addEventListener('change', () => {
+              if (modeSelect.value === 'default') setPath(`commandReplies.${item.name}.mode`, '');
+              else setPath(`commandReplies.${item.name}.mode`, modeSelect.value);
+              refresh();
+            });
+
+            const previewEl = el('div', { class: 'd-sample cr-preview' });
+            paintPreview(previewEl, { before: item.before, after: item.after });
+
+            let timer = null;
+            const refresh = () => {
+              clearTimeout(timer);
+              timer = setTimeout(async () => {
+                try {
+                  const mode = modeSelect.value === 'default' ? '' : modeSelect.value;
+                  const query = new URLSearchParams({ command: item.name, mode, text: textArea.value || '' }).toString();
+                  const live = await api(`/guilds/${state.guildId}/command-replies?${query}`);
+                  paintPreview(previewEl, live.preview);
+                } catch { /* المعاينة بس */ }
+              }, 250);
+            };
+
+            body.appendChild(dField('شكل الرد', 'افتراضي = نفس ما هو الآن (العقوبات نصية والبقية إمبد)', [modeSelect]));
+            body.appendChild(dField('نص الرد', 'لو كتبت نص هنا يُستخدم بدل النص الأصلي — المتغيّرات تُستبدل تلقائيًا', [textArea], { wide: true }));
+            body.appendChild(dField('معاينة', 'فوق: الافتراضي · تحت: بعد تعديلك', [previewEl], { wide: true }));
+
+            card.appendChild(body);
+            list.appendChild(card);
+          });
+        } catch (err) {
+          box.innerHTML = '';
+          box.appendChild(el('div', { class: 'd-empty', text: err.message || 'ما قدرت أجيب الأوامر.' }));
+        }
+      };
+
+      load();
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ روم الأوامر ------------------------------ */
+  commandRoom: {
+    group: 'الأوامر',
+    label: 'روم الأوامر',
+    title: 'روم الأوامر',
+    desc: 'روم مخصّص للأوامر: البوت ينشر فيه رسالة ترحيب بصور السيرفر، ويحذف كل الرسائل (ومنها رسالته) ويعيد نشرها كل مدة تحددها — ٦٠ ثانية افتراضيًا.',
+    render() {
+      const wrap = el('div');
+
+      const sendRow = el('div', { class: 'd-inline' });
+      const channelSelect = el('select', { class: 'd-select' });
+      channelSelect.appendChild(el('option', { value: '', text: '— اختر روم الأوامر —' }));
+      channelOptions().forEach((o) => channelSelect.appendChild(el('option', { value: o.value, text: o.label })));
+      channelSelect.value = state.commandRoomChannelId || getPath('commandRoom.channelId') || '';
+      channelSelect.addEventListener('change', () => {
+        state.commandRoomChannelId = channelSelect.value;
+        setPath('commandRoom.channelId', channelSelect.value);
+      });
+      sendRow.appendChild(channelSelect);
+
+      const sendNow = el('button', { class: 'd-btn sm', html: `${ic('upload', 15)} إرسال الرسالة الآن` });
+      sendNow.addEventListener('click', async () => {
+        sendNow.disabled = true;
+        try {
+          const body = { channelId: channelSelect.value || getPath('commandRoom.channelId') };
+          await api(`/guilds/${state.guildId}/command-room/publish`, { method: 'POST', body });
+          toast('انبعتت رسالة روم الأوامر — شوف الروم.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أرسل الرسالة.', 'error');
+        } finally {
+          sendNow.disabled = false;
+        }
+      });
+      sendRow.appendChild(sendNow);
+
+      const cleanNow = el('button', { class: 'd-btn sm ghost', html: `${ic('trash', 15)} نظّف الروم الآن` });
+      cleanNow.addEventListener('click', async () => {
+        cleanNow.disabled = true;
+        try {
+          const body = { channelId: channelSelect.value || getPath('commandRoom.channelId') };
+          await api(`/guilds/${state.guildId}/command-room/clean`, { method: 'POST', body });
+          toast('تم تنظيف الروم.');
+        } catch (err) {
+          toast(err.message || 'ما قدرت أنظّف الروم.', 'error');
+        } finally {
+          cleanNow.disabled = false;
+        }
+      });
+      sendRow.appendChild(cleanNow);
+
+      /* معاينة الصورة */
+      const preview = el('div', { class: 'd-sample cr-preview' });
+      const paint = () => {
+        const previewBox = el('div', { class: 'd-sample-row new' });
+        const img = el('img', {
+          src: '/assets/commands-room.webp',
+          alt: 'صورة روم الأوامر',
+          style: 'max-width:100%;border-radius:12px;border:1px solid var(--line)',
+        });
+        previewBox.appendChild(el('span', { class: 'new', text: (getPath('commandRoom.text') || '(ما في نص)').slice(0, 200) }));
+        preview.appendChild(el('div', { class: 'd-empty', text: 'الصورة المرفقة مع الرسالة:' }));
+        preview.appendChild(img);
+        preview.appendChild(previewBox);
+      };
+      paint();
+
+      wrap.appendChild(
+        dCard('إعداد روم الأوامر', 'اختر الروم، اكتب الرسالة، وحدّد كل كم ثانية يُنظَّف الروم.', 'refresh', [
+          dField('تشغيل روم الأوامر', 'التنظيف التلقائي + رسالة الترحيب', [dSwitch('commandRoom.enabled')]),
+          dField('الروم', 'الروم المخصّص للأوامر', [channelSelect], { wide: true }),
+          dField('كل كم ثانية يُنظَّف؟', 'الحد الأدنى ١٥ ثانية — الافتراضي ٦٠', [dNumber('commandRoom.intervalSeconds', { min: 15, max: 3600 })]),
+          dField('إعادة النشر كل دورة', 'يحذف الرسالة ويبعت وحدة جديدة كل دورة — ما تظهر «تم التعديل»', [dSwitch('commandRoom.repost')]),
+          dField('تثبيت الرسالة', 'مطفّي افتراضيًا — وما يشتغل أصلًا لما «إعادة النشر» مفعّلة (الرسالة تنحذف وتُستبدل كل دورة)', [dSwitch('commandRoom.pin')]),
+          dField('نص الرسالة', 'يُنشر كما هو (بلا ترجمة) مع صورة السيرفر — وإيموجي من سيرفر ثاني يُضاف للسيرفر تلقائيًا ويُبدَّل في الرسالة (وإلا يتحوّل لبديل بسيط)', [dArea('commandRoom.text')], { wide: true }),
+          dField('صورة الرسالة', 'مسار داخل المشروع أو رابط خارجي', [dInput('commandRoom.image', { full: true })], { wide: true }),
+          dField('الصورة الحالية', 'هذي الصورة اللي تنزل مع الرسالة', [preview], { wide: true }),
+          dField('إجراءات فورية', 'لا تحتاج حفظ — تنفّذ حالًا على الروم', [sendRow], { wide: true }),
+        ]),
+      );
+
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ مكتبة الأوامر ------------------------------ */
+  commandGuide: {
+    group: 'الأوامر',
+    label: 'مكتبة الأوامر',
+    title: 'مكتبة الأوامر',
+    desc: 'شرح كل أمر: شو يعمل، كيف تكتبه، وأمثلة جاهزة تنسخها — أوامر الأعضاء وأوامر الإدارة كل واحدة لوحدها.',
+    render() {
+      const wrap = el('div');
+      const toolbar = el('div', { class: 'guide-bar' });
+      const box = el('div');
+      wrap.appendChild(toolbar);
+      wrap.appendChild(box);
+
+      let items = [];
+      let activeCat = 'all';
+      let activeAudience = 'all';
+      let query = '';
+
+      const paint = () => {
+        box.innerHTML = '';
+        const filtered = items.filter((i) => (activeCat === 'all' || i.category === activeCat)
+          && (activeAudience === 'all' || i.audience === activeAudience)
+          && (!query
+            || i.name.toLowerCase().includes(query)
+            || (i.label || '').includes(query)
+            || (i.what || '').includes(query)
+            || (i.usage || []).join(' ').includes(query)));
+        if (!filtered.length) {
+          box.appendChild(el('div', { class: 'd-empty', text: 'ما في أمر مطابق لبحثك.' }));
+          return;
+        }
+        const grid = el('div', { class: 'guide-grid' });
+        filtered.forEach((item) => grid.appendChild(guideCard(item)));
+        box.appendChild(grid);
+      };
+
+      (async () => {
+        try {
+          const data = await api('/commands');
+          items = data.items;
+          toolbar.innerHTML = '';
+
+          const search = el('input', { class: 'd-in', placeholder: 'ابحث عن أمر…', type: 'search' });
+          search.addEventListener('input', () => { query = search.value.trim(); paint(); });
+          toolbar.appendChild(el('span', { class: 'guide-search', html: ic('search', 15) }));
+          toolbar.appendChild(search);
+
+          /* شرائح الجمهور: أوامر الأعضاء أولًا، ثم كل الأوامر، ثم أوامر الإدارة */
+          const audChips = el('div', { class: 'guide-chips guide-aud' });
+          [
+            ['member', `أوامر الأعضاء (${items.filter((i) => i.audience === 'member').length})`],
+            ['all', `كل الأوامر (${items.length})`],
+            ['staff', `أوامر الإدارة (${items.filter((i) => i.audience === 'staff').length})`],
+          ].forEach(([key, label]) => {
+            const chip = el('button', { class: `chip${key === 'member' ? ' active' : ''}`, text: label });
+            chip.addEventListener('click', () => {
+              activeAudience = key;
+              audChips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+              paint();
+            });
+            audChips.appendChild(chip);
+          });
+          toolbar.appendChild(audChips);
+
+          const chips = el('div', { class: 'guide-chips' });
+          [['all', `الكل (${items.length})`], ...data.categories.map((c) => [c.key, `${c.label} (${items.filter((i) => i.category === c.key).length})`])]
+            .forEach(([key, label]) => {
+              const chip = el('button', { class: `chip${key === 'all' ? ' active' : ''}`, text: label });
+              chip.addEventListener('click', () => {
+                activeCat = key;
+                chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+                paint();
+              });
+              chips.appendChild(chip);
+            });
+          toolbar.appendChild(chips);
+          toolbar.appendChild(el('span', {
+            class: 'guide-count',
+            text: `${items.filter((i) => i.audience === 'member').length} أمر للأعضاء · ${items.filter((i) => i.audience === 'staff').length} أمر للإدارة`,
+          }));
+
+          paint();
+        } catch (err) {
+          box.innerHTML = '';
+          box.appendChild(el('div', { class: 'd-empty', text: err.message }));
+        }
+      })();
+
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ سجل النشاط ------------------------------ */
+  audit: {
+    group: 'البيانات',
+    label: 'سجل النشاط',
+    title: 'سجل النشاط',
+    desc: 'كل حدث مهم في السيرفر: من غيّر شو ومتى — مع الحفظ الدائم في قاعدة البيانات.',
+    render() {
+      const wrap = el('div');
+      const filters = el('div', { class: 'd-top-chips' });
+      const box = el('div');
+      const head = el('div', { class: 'd-audit-head' });
+      wrap.appendChild(head);
+      wrap.appendChild(filters);
+      wrap.appendChild(box);
+
+      const state2 = { severity: null, offset: 0, limit: 50, action: null };
+
+      const ACTION_OPTIONS = [
+        ['', 'كل الأحداث'],
+        ['settings', 'تغيير الإعدادات'],
+        ['login', 'تسجيل الدخول'],
+        ['member', 'إدارة الأعضاء'],
+        ['action', 'إجراءات تجريبية'],
+        ['sync', 'المزامنة'],
+        ['security', 'حماية'],
+      ];
+
+      const load = async () => {
+        box.innerHTML = '';
+        box.appendChild(el('div', { class: 'd-empty', text: 'جارٍ تحميل السجل…' }));
+        try {
+          const q = new URLSearchParams({ limit: String(state2.limit), offset: String(state2.offset) });
+          if (state2.severity) q.set('severity', state2.severity);
+          if (state2.action) q.set('action', state2.action);
+          const data = await api(`/guilds/${state.guildId}/audit?${q.toString()}`);
+
+          head.innerHTML = '';
+          const st = data.stats || {};
+          [
+            ['scroll', st.total || 0, 'كل الأحداث'],
+            ['calendarDay', st.today || 0, 'آخر ٢٤ ساعة'],
+            ['warning', st.warn || 0, 'تنبيهات'],
+            ['ban', st.danger || 0, 'أحداث خطيرة'],
+          ].forEach(([icon, value, label]) => {
+            const chip = el('div', { class: 'd-audit-stat' });
+            chip.appendChild(el('span', { class: 'ico', html: ic(icon, 15) }));
+            chip.appendChild(el('b', { text: Number(value).toLocaleString('ar-EG') }));
+            chip.appendChild(el('span', { text: label }));
+            head.appendChild(chip);
+          });
+
+          box.innerHTML = '';
+          if (!data.items.length) {
+            box.appendChild(el('div', { class: 'd-empty', text: 'ما في أحداث مسجّلة بعد.' }));
+            return;
+          }
+
+          const table = el('table', { class: 'd-table' });
+          table.appendChild(el('thead', {}, '<tr><th>الحدث</th><th>من</th><th>التفاصيل</th><th>الوقت</th></tr>'));
+          const body = el('tbody');
+          data.items.forEach((row) => {
+            const tr = el('tr', { class: row.severity === 'danger' ? 'au-danger' : row.severity === 'warn' ? 'au-warn' : '' });
+            tr.appendChild(
+              el('td', {
+                html: `<span class="au-badge ${row.severity}">${ic(row.severity === 'danger' ? 'ban' : row.severity === 'warn' ? 'warning' : 'check', 13)} ${esc(row.label)}</span>`,
+              }),
+            );
+            tr.appendChild(
+              el('td', {
+                html: row.actorId
+                  ? `<span class="au-actor">${ic('userRound', 14)} ${esc(row.actorName || row.actorId)}</span>`
+                  : '<span class="au-actor muted">النظام</span>',
+              }),
+            );
+            tr.appendChild(el('td', { html: `<span class="au-detail">${esc(row.detail || row.target || '—')}</span>` }));
+            tr.appendChild(el('td', { html: `<span class="au-time">${esc(sinceArabic(row.at))}</span>` }));
+            body.appendChild(tr);
+          });
+          table.appendChild(body);
+          const wrapTable = el('div', { class: 'd-table-wrap' });
+          wrapTable.appendChild(table);
+          box.appendChild(wrapTable);
+
+          /* ترقيم الصفحات */
+          const pager = el('div', { class: 'd-pager' });
+          const pages = Math.ceil(data.total / state2.limit) || 1;
+          const current = Math.floor(state2.offset / state2.limit) + 1;
+          const prev = el('button', { class: 'd-btn sm ghost', html: `${ic('chevronRight', 14)} الأحدث`, disabled: current <= 1 ? 'disabled' : null });
+          prev.addEventListener('click', () => {
+            state2.offset = Math.max(0, state2.offset - state2.limit);
+            load();
+          });
+          const next = el('button', { class: 'd-btn sm ghost', html: `الأقدم ${ic('chevronLeft', 14)}`, disabled: current >= pages ? 'disabled' : null });
+          next.addEventListener('click', () => {
+            if ((state2.offset + state2.limit) >= data.total) return;
+            state2.offset += state2.limit;
+            load();
+          });
+          pager.appendChild(el('span', { class: 'muted', text: `صفحة ${current} من ${pages} · ${Number(data.total).toLocaleString('ar-EG')} حدث` }));
+          pager.appendChild(el('span', { class: 'grow' }));
+          pager.appendChild(prev);
+          pager.appendChild(next);
+          box.appendChild(pager);
+        } catch (err) {
+          box.innerHTML = '';
+          if (err.status === 403 && (err.code === 'login_required' || /سجّل الدخول/.test(err.message))) {
+            const card = el('div', { class: 'd-locked' });
+            card.appendChild(el('div', { class: 'ico', html: ic('lock', 22) }));
+            card.appendChild(el('b', { text: 'سجل النشاط يظهر بعد تسجيل الدخول' }));
+            card.appendChild(el('span', { text: 'السجل يحتوي أسماء الأعضاء وإجراءاتهم — لذلك يُعرض لحساب ديسكورد مسجّل فقط.' }));
+            card.appendChild(el('a', { class: 'd-btn primary', href: '/auth/login', html: `${ic('login', 15)} تسجيل الدخول` }));
+            box.appendChild(card);
+            filters.style.display = 'none';
+          } else {
+            box.appendChild(el('div', { class: 'd-empty', text: err.message }));
+          }
+        }
+      };
+
+      /* أزرار الفلاتر */
+      const sevChips = [
+        ['', 'الكل'],
+        ['info', 'عادي'],
+        ['warn', 'تنبيه'],
+        ['danger', 'خطير'],
+      ];
+      sevChips.forEach(([value, label]) => {
+        const chip = el('button', { class: `chip${state2.severity === (value || null) ? ' active' : ''}`, text: label });
+        chip.addEventListener('click', () => {
+          state2.severity = value || null;
+          state2.offset = 0;
+          filters.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+          load();
+        });
+        filters.appendChild(chip);
+      });
+      const actionSelect = el('select', { class: 'd-select' });
+      ACTION_OPTIONS.forEach(([value, label]) => actionSelect.appendChild(el('option', { value, text: label })));
+      actionSelect.addEventListener('change', () => {
+        state2.action = actionSelect.value || null;
+        state2.offset = 0;
+        load();
+      });
+      filters.appendChild(actionSelect);
+
+      const clearView = el('button', { class: 'd-btn sm ghost', html: `${ic('refresh', 14)} تحديث` });
+      clearView.addEventListener('click', () => load());
+      filters.appendChild(clearView);
+
+      load();
+      return wrap;
+    },
+  },
+
+  /* ------------------------------ الردود التلقائية ------------------------------ */
+  autoReply: {
+    group: 'الأعضاء',
+    label: 'الردود التلقائية',
+    title: 'الردود التلقائية',
+    desc: 'حدّد كلمة، والبوت يرد عليك بالرسالة اللي تكتبها — في كل رومات السيرفر.',
+    render() {
+      const cfg = state.settings.autoReply || {};
+      const rules = Array.isArray(cfg.rules) ? cfg.rules : [];
+
+      const MODES = [
+        { value: 'contains', label: 'تحتوي على الكلمة (كلمة كاملة)' },
+        { value: 'exact', label: 'الرسالة نفسها بالضبط' },
+        { value: 'starts', label: 'تبدأ بالكلمة' },
+      ];
+
+      /* صفوف القواعد: كل قاعدة تُعدّل مباشرة */
+      const rows = el('div');
+      rules.forEach((rule, index) => {
+        const patch = (part) => {
+          const list = rules.map((r, i) => (i === index ? { ...r, ...part } : r));
+          setPath('autoReply.rules', list);
+        };
+
+        const triggersInput = el('input', {
+          class: 'd-input',
+          value: (rule.triggers || []).join('، '),
+          placeholder: 'مرحبا، هلا، السلام عليكم',
+        });
+        triggersInput.addEventListener('input', () =>
+          patch({ triggers: triggersInput.value.split(/[,،|]/).map((t) => t.trim()).filter(Boolean) }),
+        );
+
+        const modeSelect = el('select', { class: 'd-select' });
+        MODES.forEach((m) => modeSelect.appendChild(el('option', { value: m.value, text: m.label })));
+        pickOption(modeSelect, rule.match || 'contains');
+        modeSelect.addEventListener('change', () => patch({ match: modeSelect.value }));
+
+        const channelSelect = el('select', { class: 'd-select' });
+        channelSelect.appendChild(el('option', { value: '', text: 'كل رومات السيرفر' }));
+        channelOptions().forEach((o) => channelSelect.appendChild(el('option', { value: o.value, text: o.label })));
+        pickOption(channelSelect, (rule.channels || [])[0] || '');
+        channelSelect.addEventListener('change', () => patch({ channels: channelSelect.value ? [channelSelect.value] : [] }));
+
+        const replyArea = el('textarea', { class: 'd-textarea', placeholder: 'أهلًا {user} — وفصل بين أكثر من رد بـ |' });
+        replyArea.value = rule.reply || '';
+        replyArea.addEventListener('input', () => patch({ reply: replyArea.value }));
+
+        const cooldownInput = el('input', { class: 'd-input narrow', type: 'number', min: 0, max: 3600 });
+        cooldownInput.value = rule.cooldownSeconds ?? cfg.cooldownSeconds ?? 15;
+        cooldownInput.addEventListener('input', () => patch({ cooldownSeconds: Math.max(0, Math.min(3600, Number(cooldownInput.value) || 0)) }));
+
+        const delInput = el('input', { class: 'd-input narrow', type: 'number', min: 0, max: 3600 });
+        delInput.value = rule.deleteAfterSeconds ?? cfg.deleteAfterSeconds ?? 0;
+        delInput.addEventListener('input', () => patch({ deleteAfterSeconds: Math.max(0, Math.min(3600, Number(delInput.value) || 0)) }));
+
+        const pingSwitch = el('label', { class: 'd-switch' });
+        const pingInput = el('input', { type: 'checkbox' });
+        pingInput.checked = rule.pingUser === true;
+        pingInput.addEventListener('change', () => patch({ pingUser: pingInput.checked }));
+        pingSwitch.appendChild(pingInput);
+        pingSwitch.appendChild(el('span'));
+
+        const activeSwitch = el('label', { class: 'd-switch' });
+        const activeInput = el('input', { type: 'checkbox' });
+        activeInput.checked = rule.enabled !== false;
+        activeInput.addEventListener('change', () => patch({ enabled: activeInput.checked }));
+        activeSwitch.appendChild(activeInput);
+        activeSwitch.appendChild(el('span'));
+
+        const removeBtn = el('button', { class: 'd-btn sm danger', html: `${ic('trash', 14)} حذف القاعدة` });
+        removeBtn.addEventListener('click', () => {
+          setPath('autoReply.rules', rules.filter((_, i) => i !== index));
+          renderSection('autoReply');
+        });
+
+        const head = el('div', { class: 'ar-rule-head' });
+        head.appendChild(el('span', { class: 'ar-num', text: String(index + 1) }));
+        head.appendChild(el('b', { text: (rule.triggers || []).slice(0, 3).join(' · ') || 'قاعدة جديدة' }));
+        head.appendChild(el('span', { class: 'ar-spacer' }));
+        head.appendChild(el('span', { class: 'ar-flag', html: `${ic('bell', 13)} مفعّلة`, style: rule.enabled === false ? 'display:none' : '' }));
+        head.appendChild(removeBtn);
+
+        const preview = el('div', { class: 'ar-preview' });
+        const paintPreview = () => {
+          const first = pickLocalReply(rule.reply || '');
+          preview.innerHTML = first
+            ? `${ic('bubbles', 14)} <span>اللي بينرسل: ${esc(applyLocalVars(first, state.guild))}</span>`
+            : `${ic('info', 14)} <span>اكتب نص الرد فوق</span>`;
+        };
+        replyArea.addEventListener('input', paintPreview);
+        paintPreview();
+
+        const card = el('div', { class: 'ar-rule' });
+        card.appendChild(head);
+        card.appendChild(triggersInput);
+        /* ملاحظة: el() وسيطها الثالث نص HTML — نضيف العناصر بـ appendChild لا بمصفوفة */
+        const grid = el('div', { class: 'ar-grid' });
+        [
+          dField('نوع المطابقة', 'كيف نطابق رسالة العضو', [modeSelect]),
+          dField('القناة', 'افتراضي: كل رومات السيرفر', [channelSelect]),
+          dField('كولداون (ثانية)', 'منع تكرار الرد على نفس العضو', [cooldownInput]),
+          dField('حذف الرد بعد (ثانية)', '٠ = يبقى', [delInput]),
+          dField('تنبيه العضو', 'يجعل الرد منشن للعضو', [pingSwitch]),
+          dField('القاعدة مفعّلة', 'إيقاف قاعدة واحدة بدون حذفها', [activeSwitch]),
+        ].forEach((node) => grid.appendChild(node));
+        card.appendChild(grid);
+        card.appendChild(dField('نص الرد', 'المتغيّرات: {user} منشن · {name} الاسم · {server} السيرفر · {channel} القناة — وفصل بين أكثر من رد بـ |', [replyArea], { wide: true }));
+        card.appendChild(preview);
+        rows.appendChild(card);
+      });
+
+      /* إضافة قاعدة جديدة */
+      const newTriggers = el('input', { class: 'd-input', placeholder: 'الكلمات المفتاحية: مرحبا، هلا' });
+      const newReply = el('input', { class: 'd-input', placeholder: 'الرد: أهلًا {user}' });
+      const addBtn = el('button', { class: 'd-btn primary', html: `${ic('plus', 15)} إضافة رد تلقائي` });
+      addBtn.addEventListener('click', () => {
+        const triggers = newTriggers.value.split(/[,،|]/).map((t) => t.trim()).filter(Boolean);
+        const reply = newReply.value.trim();
+        if (!triggers.length) return toast('اكتب كلمة مفتاحية واحدة على الأقل.', true);
+        if (!reply) return toast('اكتب نص الرد.', true);
+        const list = [
+          ...rules,
+          {
+            id: `r${Date.now().toString(36)}`,
+            triggers,
+            match: 'contains',
+            reply,
+            channels: [],
+            cooldownSeconds: cfg.cooldownSeconds ?? 15,
+            deleteAfterSeconds: cfg.deleteAfterSeconds ?? 0,
+            pingUser: false,
+            enabled: true,
+          },
+        ];
+        setPath('autoReply.rules', list);
+        renderSection('autoReply');
+        toast('أضفنا القاعدة — لا تنسَ الحفظ.');
+      });
+      const adder = el('div', { class: 'd-field-control' });
+      [newTriggers, newReply, addBtn].forEach((n) => adder.appendChild(n));
+
+      return [
+        dCard('حالة النظام', 'الردود التلقائية تعمل في كل رومات السيرفر', 'bubbles', [
+          dField('الردود التلقائية', 'المفتاح الرئيسي — يوقف النظام كامل بضغطة', [dSwitch('autoReply.enabled')]),
+          dField('تعمل في كل الرومات', 'مفعّلة = أي روم بالسيرفر · معطّلة = حسب القناة المحدّدة في كل قاعدة', [dSwitch('autoReply.anywhereInServer')]),
+          dField('تجاهل البوتات', 'ما يرد على رسائل البوتات', [dSwitch('autoReply.ignoreBots')]),
+          dField('الكولداون الافتراضي (ثانية)', 'بين رد ورد لنفس العضو (كل قاعدة تقدر تتجاوزه)', [dNumber('autoReply.cooldownSeconds', { min: 0, max: 3600 })]),
+          dField('حذف الرد بعد (ثانية)', 'تنظيف تلقائي لردود البوت (٠ = تبقى)', [dNumber('autoReply.deleteAfterSeconds', { min: 0, max: 3600 })]),
+        ]),
+        dCard(
+          `القواعد (${rules.length})`,
+          'كل قاعدة: كلمات مفتاحية + الرد. تُنفَّذ القاعدة الأولى المطابقة فقط',
+          'messageEdit',
+          rules.length ? [rows] : [el('div', { class: 'd-empty', text: 'ما في ردود تلقائية بعد — أضف أول قاعدة من تحت.' })],
+        ),
+        dCard('إضافة رد تلقائي', 'اكتب الكلمات ثم الرد، وبعدها كمل التعديل داخل البطاقة', 'plus', [
+          dField('قاعدة جديدة', 'الكلمات المفتاحية والرد', [adder], { wide: true }),
+          el('p', {
+            class: 'd-hint',
+            text: 'مثال: الكلمات «مرحبا، هلا، السلام عليكم» ← الرد «أهلًا وسهلًا {user} في سيرفر {server}». وتقدر تكتب أكثر من رد وتفصل بينهم بـ | ليختار البوت واحدًا عشوائيًا.',
+          }),
+        ]),
+      ];
+    },
+  },
+
+  autoreact: {
+    group: 'الأعضاء',
+    label: 'التفاعلات التلقائية',
+    title: 'التفاعلات التلقائية',
+    desc: 'تفاعلات تلقائية على رسائل القنوات المحدّدة أو عند احتواء الرسالة على كلمة.',
+    render() {
+      const words = state.settings.autoreact.words || [];
+      const rows = el('div');
+      words.forEach((rule, index) => {
+        rows.appendChild(
+          dField(`كلمة: ${rule.word}`, `التفاعل: ${rule.emoji}`, [
+            (() => {
+              const btn = el('button', { class: 'd-btn sm danger', html: `${ic('trash', 14)} حذف` });
+              btn.addEventListener('click', () => {
+                const list = [...words];
+                list.splice(index, 1);
+                setPath('autoreact.words', list);
+                renderSection('autoreact');
+              });
+              return btn;
+            })(),
+          ]),
+        );
+      });
+
+      const wordInput = el('input', { class: 'd-input', placeholder: 'الكلمة المفتاحية' });
+      const emojiInput = el('input', { class: 'd-input narrow', placeholder: 'إيموجي أو <:name:id>' });
+      const addRule = el('button', { class: 'd-btn sm primary', html: `${ic('plus', 15)} إضافة قاعدة` });
+      addRule.addEventListener('click', () => {
+        const word = wordInput.value.trim().toLowerCase();
+        const emoji = emojiInput.value.trim();
+        if (!word || !emoji) return toast('يجب كتابة الكلمة والإيموجي.', true);
+        const list = [...words.filter((r) => r.word !== word), { word, emoji }];
+        setPath('autoreact.words', list);
+        renderSection('autoreact');
+      });
+      const adder = el('div', { class: 'd-field-control' });
+      [wordInput, emojiInput, addRule].forEach((n) => adder.appendChild(n));
+
+      const emojiOptions = (state.meta.emojis || []).map((e) => ({ value: `<${e.animated ? 'a' : ''}:${e.name}:${e.id}>`, label: `${e.name}${e.animated ? ' (متحرّك)' : ''}` }));
+
+      return [
+        dCard('إعداد التفاعل', '', 'emoticon', [
+          dField('تفعيل', '', [dSwitch('autoreact.enabled')]),
+          dField('تجاهل رسائل البوتات', '', [dSwitch('autoreact.ignoreBots')]),
+          dField('القنوات', 'تفاعل على كل رسالة في هذه القنوات', [dListEditor('autoreact.channels', { type: 'channel' })], { wide: true }),
+          dField('الإيموجيات', 'إيموجي عادي أو خارجي — أو اختر من إيموجيات سيرفرك', [dWordEditor('autoreact.emojis', { placeholder: 'إيموجي أو <:name:id>' })], { wide: true }),
+          ...(emojiOptions.length
+            ? [
+                dField('إيموجيات السيرفر', 'إضافة سريعة من إيموجيات سيرفرك', [
+                  (() => {
+                    const select = el('select', { class: 'd-select' });
+                    select.appendChild(el('option', { value: '', text: '— اختر إيموجي —' }));
+                    emojiOptions.forEach((o) => select.appendChild(el('option', { value: o.value, text: o.label })));
+                    const btn = el('button', { class: 'd-btn sm', html: `${ic('plus', 15)} إضافة` });
+                    btn.addEventListener('click', () => {
+                      if (!select.value) return toast('اختر إيموجيًا أولًا.', true);
+                      const list = state.settings.autoreact.emojis || [];
+                      if (list.includes(select.value)) return toast('موجود مسبقًا', true);
+                      setPath('autoreact.emojis', [...list, select.value]);
+                      renderSection('autoreact');
+                    });
+                    const wrap = el('div', { class: 'd-field-control' });
+                    wrap.appendChild(select);
+                    wrap.appendChild(btn);
+                    return wrap;
+                  })(),
+                ]),
+              ]
+            : []),
+        ]),
+        dCard('تفاعل حسب كلمة', 'مثال: كلمة «مبروك» تعني إضافة تفاعل تلقائي.', 'message', [rows, dField('إضافة قاعدة', '', [adder], { wide: true })]),
+      ];
+    },
+  },
+
+  /* ------------------------------ التذاكر ------------------------------ */
+  tickets: {
+    group: 'التذاكر',
+    label: 'نظام التذاكر',
+    title: 'نظام التذاكر',
+    desc: 'لوحة تفاعلية بأربعة أنواع، مع استلام وإغلاق وأرشيف محادثة.',
+    render() {
+      const types = state.settings.tickets.types || [];
+
+      /* ---------- بطاقة أزرار التذكرة: نص + إيموجي + لون لكل زر ---------- */
+      const btnMeta = [
+        { key: 'claim', title: 'زر الاستلام', def: { label: 'استلام', emoji: '🙋', style: 'Success' } },
+        { key: 'claimDone', title: 'زر «مستلَمة» بعد الاستلام', def: { label: 'مستلَمة', emoji: '🙋', style: 'Secondary' } },
+        { key: 'close', title: 'زر الإغلاق', def: { label: 'إغلاق', emoji: '🔒', style: 'Danger' } },
+        { key: 'transcript', title: 'زر الأرشيف', def: { label: 'أرشيف', emoji: '📄', style: 'Secondary' } },
+        { key: 'addMember', title: 'زر إضافة عضو', def: { label: 'إضافة عضو', emoji: '➕', style: 'Secondary' } },
+      ];
+
+      const styleOptions = [
+        { value: 'Primary', label: 'أزرق' },
+        { value: 'Secondary', label: 'رمادي' },
+        { value: 'Success', label: 'أخضر' },
+        { value: 'Danger', label: 'أحمر' },
+      ];
+
+      const buttonBlocks = btnMeta.map(({ key, title, def }) => {
+        const base = `tickets.buttons.${key}`;
+        const read = () => {
+          const emoji = getPath(`${base}.emoji`);
+          return {
+            label: (getPath(`${base}.label`) ?? '') || def.label,
+            emoji: emoji === null || emoji === undefined ? def.emoji : emoji,
+            style: getPath(`${base}.style`) || def.style,
+          };
+        };
+        const preview = dButtonPreview(read);
+        const box = el('div', { class: 'd-btnbox' });
+        box.appendChild(el('div', { class: 'd-btnbox-title', text: title }));
+        box.appendChild(
+          dField('نص الزر', 'اللي ينكتب على الزر (حتى ٨٠ حرفًا)', [
+            dInput(`${base}.label`, { placeholder: def.label, full: true, onChange: () => preview.refresh() }),
+          ]),
+        );
+        box.appendChild(
+          dField('الإيموجي', 'إيموجي عادي أو خارجي <:name:id> — من اللوحة أو بالكتابة', [
+            dEmojiField(`${base}.emoji`, { placeholder: def.emoji || 'إيموجي', onChange: () => preview.refresh() }),
+          ]),
+        );
+        box.appendChild(
+          dField('لون الزر', '', [dSelect(`${base}.style`, styleOptions, { noneLabel: null, onAfter: () => preview.refresh() })]),
+        );
+        box.appendChild(dField('المعاينة', 'شكل الزر في ديسكورد', [preview.node]));
+        return box;
+      });
+
+      const resetButtons = el('button', { class: 'd-btn sm ghost', html: `${ic('refresh', 15)} استرجاع أزرار التذكرة الافتراضية` });
+      resetButtons.addEventListener('click', () => {
+        btnMeta.forEach(({ key, def }) => setPath(`tickets.buttons.${key}`, { ...def }));
+        renderSection('tickets');
+        toast('تم استرجاع أزرار التذكرة، اضغط حفظ التغييرات.');
+      });
+
+      const buttonsCard = dCard(
+        'أزرار التذكرة (نص + إيموجي + لون)',
+        'تحكم كامل بأزرار روم التذكرة: اكتب نص كل زر، أضف إيموجي (عادي أو خارجي)، واختر لونه — والمعاينة تظهر فورًا.',
+        'ticket',
+        [...buttonBlocks, dField('استرجاع الافتراضي', 'يرجّع الأزرار الخمسة لأصلها', [resetButtons], { wide: true })],
+      );
+
+      const typeCards = types.map((type, index) => {
+        /* معاينة خاصة بهذا النوع (لكل بطاقة معاينتها) */
+        const typePreview = dButtonPreview(() => {
+          const emoji = getPath(`tickets.types.${index}.emoji`);
+          return {
+            label: (getPath(`tickets.types.${index}.label`) ?? '') || type.label,
+            emoji: emoji === null || emoji === undefined ? '🎫' : emoji,
+            style: getPath(`tickets.types.${index}.buttonStyle`) || type.buttonStyle || 'Primary',
+          };
+        });
+
+        return dCard(
+          type.label,
+          `المعرّف: <code>${esc(type.id)}</code> • النمط: ${type.buttonStyle || 'Primary'}`,
+          'ticket',
+          [
+            dField('الاسم في اللوحة', '', [dInput(`tickets.types.${index}.label`, { onChange: () => typePreview.refresh() })]),
+            dField('الإيموجي', 'إيموجي عادي أو خارجي <:name:id> — أو من اللوحة', [
+              dEmojiField(`tickets.types.${index}.emoji`, { placeholder: '🎫', onChange: () => typePreview.refresh() }),
+            ]),
+            dField('الوصف', 'يظهر في اللوحة تحت الزر', [dInput(`tickets.types.${index}.description`, { full: true })], { wide: true }),
+            dField('رسالة داخل التذكرة', 'تعليمات لصاحب التذكرة', [dArea(`tickets.types.${index}.intro`)], { wide: true }),
+            dField(
+              'لون الزر',
+              '',
+              [
+                dSelect(
+                  `tickets.types.${index}.buttonStyle`,
+                  [
+                    { value: 'Primary', label: 'أزرق' },
+                    { value: 'Success', label: 'أخضر' },
+                    { value: 'Secondary', label: 'رمادي' },
+                    { value: 'Danger', label: 'أحمر' },
+                  ],
+                  { noneLabel: null, onAfter: () => typePreview.refresh() },
+                ),
+              ],
+            ),
+            dField('معاينة الزر', 'شكل زر فتح هذا النوع في ديسكورد', [typePreview.node]),
+            dField('حذف النوع', 'يُحفظ بعد الضغط على حفظ', [
+              (() => {
+                const btn = el('button', { class: 'd-btn sm danger', html: `${ic('trash', 15)} حذف هذا النوع` });
+                btn.addEventListener('click', () => {
+                  const list = [...types];
+                  list.splice(index, 1);
+                  setPath('tickets.types', list);
+                  renderSection('tickets');
+                });
+                return btn;
+              })(),
+            ]),
+          ],
+        );
+      });
+
+      const newId = el('input', { class: 'd-input narrow', placeholder: 'المعرّف' });
+      const newLabel = el('input', { class: 'd-input', placeholder: 'الاسم الظاهر' });
+      // ملاحظة: إيموجي النوع بيانات تُرسل إلى ديسكورد (زر التذكرة)، وليست عنصرًا في واجهة الموقع
+      const newEmoji = el('input', { class: 'd-input narrow', placeholder: 'إيموجي الزر' });
+      const addType = el('button', { class: 'd-btn sm primary', html: `${ic('plus', 15)} إضافة نوع` });
+      addType.addEventListener('click', () => {
+        const id = newId.value.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+        const label = newLabel.value.trim();
+        if (!id || !label) return toast('يجب كتابة المعرّف والاسم.', true);
+        if (types.some((t) => t.id === id)) return toast('هذا المعرّف مستخدم مسبقًا.', true);
+        if (types.length >= 25) return toast('الحد الأقصى خمسة وعشرون نوعًا.', true);
+        setPath('tickets.types', [...types, { id, label, emoji: newEmoji.value.trim() || '🎫', description: '', intro: '', buttonStyle: 'Primary' }]);
+        renderSection('tickets');
+      });
+      const restore = el('button', { class: 'd-btn sm ghost', html: `${ic('refresh', 15)} استرجاع الأنواع الأربعة` });
+      restore.addEventListener('click', () => {
+        setPath('tickets.types', [
+          { id: 'support', label: 'الدعم الفني', emoji: '🛠️', description: 'مشكلة تقنية أو استفسار', intro: 'اكتب مشكلتك بالتفصيل وسيساعدك فريق الدعم الفني.', buttonStyle: 'Primary' },
+          { id: 'verify', label: 'التوثيق', emoji: '✅', description: 'طلب توثيق حساب أو رتبة', intro: 'أرسل: من أنت • سبب طلب التوثيق • روابط حساباتك.', buttonStyle: 'Success' },
+          { id: 'gift', label: 'الهدايا', emoji: '🎁', description: 'استلام جائزة أو مشكلة في هدية', intro: 'اذكر اسم الهدية/السحب ورقم الرسالة.', buttonStyle: 'Secondary' },
+          { id: 'staff', label: 'تقديم إدارة', emoji: '📋', description: 'تقديم للانضمام لفريق الإدارة', intro: 'عبّي نموذج التقديم الذي سيظهر لك بالأزرار.', buttonStyle: 'Danger' },
+        ]);
+        renderSection('tickets');
+        toast('تم استرجاع الأنواع الأربعة، اضغط حفظ التغييرات.');
+      });
+      const addRow = el('div', { class: 'd-field-control' });
+      [newId, newLabel, newEmoji, addType, restore].forEach((n) => addRow.appendChild(n));
+
+      /* معاينة صور اللوحة (الرئيسية + الزخرفية) ورسالة التذكرة */
+      const assetSrc = (value, fallback) => {
+        const raw = String(value || '').trim();
+        if (/^https?:\/\//i.test(raw)) return raw;
+        const base = raw ? raw.split('/').pop() : fallback;
+        return `/assets/${base || fallback}`;
+      };
+      const imageBox = (box, label, src) => {
+        box.appendChild(el('div', { class: 'd-empty', text: label }));
+        box.appendChild(el('img', { src, alt: label, style: 'max-width:100%;border-radius:12px;border:1px solid var(--line)' }));
+      };
+      const panelPreview = el('div', { class: 'd-sample cr-preview' });
+      const paintPanelPreview = () => {
+        panelPreview.textContent = '';
+        const hero = getPath('tickets.panelImage');
+        const foot = getPath('tickets.panelFooterImage');
+        if (hero) imageBox(panelPreview, 'صورة اللوحة (بخلفية شفافة — تنزل بدل النص):', assetSrc(hero, 'tickets-panel.png'));
+        if (foot) imageBox(panelPreview, 'الخط/الصورة أسفل القائمة:', assetSrc(foot, 'tickets-panel-footer.webp'));
+        if (!hero && !foot) panelPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صور محفوظة — اللوحة تنزل نصية.' }));
+      };
+      paintPanelPreview();
+      const openPreview = el('div', { class: 'd-sample cr-preview' });
+      const paintOpenPreview = () => {
+        openPreview.textContent = '';
+        const openImg = getPath('tickets.openImage');
+        if (openImg) imageBox(openPreview, 'صورة رسالة فتح التذكرة:', assetSrc(openImg, 'tickets-panel.png'));
+        else openPreview.appendChild(el('div', { class: 'd-empty', text: 'ما في صورة — الرسالة تنزل نصية.' }));
+      };
+      paintOpenPreview();
+
+      const typeCount = types.length;
+      return [
+        buttonsCard,
+        dCard('رسالة فتح التذكرة', 'هذه الرسالة تُرسل داخل غرفة التذكرة لحظة فتحها — صورة بلا نص.', 'messageEdit', [
+          dField('صورة الرسالة', 'الصورة اللي تنزل داخل التذكرة (PNG بخلفية شفافة · فارغة = ترجع الرسالة النصية)', [dInput('tickets.openImage', { full: true, onChange: () => paintOpenPreview() })], { wide: true }),
+          dField('صورة فقط', 'صورة بلا عنوان ولا وصف ولا حقول (زي الصورة اللي طلبتها)', [dSwitch('tickets.openImageOnly')]),
+          dField('معاينة الصورة', 'هذي الصورة اللي تطلع للأعضاء داخل التذكرة', [openPreview], { wide: true }),
+          dField('عنوان الرسالة', 'يُستخدم فقط إذا الصورة مطفّية · متغيّرات: {emoji} · {id} · {type} · {user} · {server}', [dInput('tickets.openTitle', { full: true })], { wide: true }),
+          dField('الوصف', 'الأسطر الطويلة مدعومة (اضغط Enter لسطر جديد)', [dArea('tickets.openDescription')], { wide: true }),
+          dField('سطر إضافي', 'يُضاف أسفل الوصف مع تعليمات كل نوع', [dArea('tickets.openIntro')], { wide: true }),
+          dField('إظهار الحقول', 'صاحب التذكرة · النوع · الحالة', [dSwitch('tickets.openFields')]),
+          dField('التذييل', 'اتركه فارغًا لبلا تذييل', [dInput('tickets.openFooter', { full: true })], { wide: true }),
+        ]),
+        dCard('الأساسيات', '', 'ticket', [
+          dField('تفعيل التذاكر', '', [dSwitch('tickets.enabled')]),
+          dField('القسم (Category)', 'تُنشأ فيه قنوات التذاكر', [dSelect('tickets.categoryId', categoryOptions())]),
+          dField('رتب الدعم', 'تشوف التذاكر وتستلمها', [dListEditor('tickets.supportRoleIds', { type: 'role' })], { wide: true }),
+          dField('قناة أرشيف التذاكر', 'توصلها نسخة المحادثة عند الإغلاق', [dSelect('tickets.logChannelId', channelOptions())]),
+          dField('أقصى تذاكر لكل عضو', '', [dNumber('tickets.maxOpenPerUser')]),
+        ]),
+        dCard('شكل اللوحة', 'اللوحة اللي تنزل في قناة الدعم — صورة السيرفر (بخلفية شفافة) + قائمة الأنواع تحتها (بلا نص)', 'image', [
+          dField('صورة اللوحة', 'الصورة هي اللوحة (بدل العنوان والوصف) — PNG بخلفية شفافة، مسار داخل المشروع أو رابط · اتركها فارغة للوحة النصية', [dInput('tickets.panelImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+          dField('صورة فقط', 'بلا عنوان ولا وصف ولا حقول — الصورة لحالها', [dSwitch('tickets.panelImageOnly')]),
+          dField('خط/صورة أسفل القائمة', 'اختياري — اتركه فارغًا لبلا أي خط تحت القائمة (الوضع الحالي)', [dInput('tickets.panelFooterImage', { full: true, onChange: () => paintPanelPreview() })], { wide: true }),
+          dField('معاينة الصور', 'هذي الصور اللي تنزل في ديسكورد مع اللوحة', [panelPreview], { wide: true }),
+          dField('نص القائمة المنسدلة', 'النص اللي يظهر قبل ما يختار العضو نوع التذكرة', [dInput('tickets.panelPlaceholder', { full: true })], { wide: true }),
+          dField(
+            'وضع اللوحة',
+            typeCount > 5 ? 'تنبيه: الأزرار تسمح بخمسة أنواع كحد أقصى، وعندك ' + typeCount : `عدد الأنواع الحالي: ${typeCount}`,
+            [
+              dSelect(
+                'tickets.panelMode',
+                [
+                  { value: 'select', label: 'قائمة منسدلة (حتى 25 نوعًا)' },
+                  { value: 'buttons', label: 'أزرار (حتى 5 أنواع)' },
+                ],
+                { noneLabel: null },
+              ),
+            ],
+          ),
+          dField('عنوان البنل', 'يُستخدم فقط إذا الصورة مطفّية', [dInput('tickets.panelTitle', { full: true })], { wide: true }),
+          dField('وصف البنل', 'يُستخدم فقط إذا الصورة مطفّية', [dArea('tickets.panelDescription')], { wide: true }),
+          dField('قناة نشر اللوحة', 'تُحفظ — واللوحة تنزل فيها تلقائيًا', [dSelect('tickets.panelChannelId', channelOptions())]),
+          dField('تحديث تلقائي', 'أي تعديل على الصورة أو الأنواع أو الوضع → البوت ينشر اللوحة من جديد لحاله', [dSwitch('tickets.panelAutoPost')]),
+          dField('إجراءات فورية', 'تنفّذ حالًا: تنظّف اللوحة القديمة وتنشر الجديدة', [testButton('نشر لوحة التذاكر', 'panel')]),
+        ]),
+        ...typeCards,
+        dCard('إضافة نوع جديد', 'أضف أي نوع تذكرة تريده', 'plus', [dField('نوع جديد', '', [addRow], { wide: true })]),
+      ];
+    },
+  },
+
+  /* ------------------------------ تقديم الإدارة ------------------------------ */
+  staffapp: {
+    group: 'التذاكر',
+    label: 'تقديم الإدارة',
+    title: 'تقديم الإدارة',
+    desc: 'نموذج من خمس خانات مع أزرار القبول والرفض ورسائل تلقائية.',
+    render() {
+      const a = state.settings.staffApplication || {};
+      const fields = a.fields || [];
+
+      const fieldCards = fields.map((field, index) =>
+        dCard(
+          `الخانة ${index + 1} — ${field.label}`,
+          `المعرّف: <code>${esc(field.id)}</code> • ${field.style === 'paragraph' ? 'نص طويل' : 'سطر واحد'}`,
+          'clipboard',
+          [
+            dField('عنوان الخانة', 'يظهر للعضو', [dInput(`staffApplication.fields.${index}.label`)]),
+            dField('المثال داخل الخانة', '', [dInput(`staffApplication.fields.${index}.placeholder`, { full: true })], { wide: true }),
+            dField(
+              'الشكل',
+              '',
+              [
+                dSelect(
+                  `staffApplication.fields.${index}.style`,
+                  [
+                    { value: 'short', label: 'سطر واحد' },
+                    { value: 'paragraph', label: 'نص طويل' },
+                  ],
+                  { noneLabel: null },
+                ),
+              ],
+            ),
+            dField('إلزامية', '', [dSwitch(`staffApplication.fields.${index}.required`)]),
+          ],
+        ),
+      );
+
+      return [
+        dCard('التشغيل', 'يظهر النموذج في تذاكر «تقديم إدارة» فقط', 'clipboard', [
+          dField('تفعيل النموذج', '', [dSwitch('staffApplication.enabled')]),
+          dField('قناة مراجعة الطلبات', 'توصلها الطلبات مع أزرار القبول/الرفض', [dSelect('staffApplication.reviewChannelId', channelOptions())]),
+          dField('رتب تُنبَّه عند وصول طلب', '', [dListEditor('staffApplication.pingRoleIds', { type: 'role' })], { wide: true }),
+          dField('حقل الاسم', 'يُستخرج منه اسم المتقدّم لتسمية التكت', [
+            (() => {
+              const select = el('select', { class: 'd-select' });
+              fields.forEach((f, i) => select.appendChild(el('option', { value: f.id, text: f.label })));
+              pickOption(select, a.nameFieldId || fields[0]?.id || '');
+              select.addEventListener('change', () => setPath('staffApplication.nameFieldId', select.value));
+              return select;
+            })(),
+          ]),
+        ]),
+        dCard('نصوص النموذج', '', 'edit', [
+          dField('عنوان النموذج', '', [dInput('staffApplication.formTitle', { full: true })], { wide: true }),
+          dField('مقدمة الرسالة', 'تظهر قبل الخانات', [dArea('staffApplication.formIntro')], { wide: true }),
+          dField('نص زر التعبئة', '', [dInput('staffApplication.formButtonLabel', { full: true })], { wide: true }),
+        ]),
+        ...fieldCards,
+        dCard('عند القبول', 'يصير كل هذا تلقائيًا', 'check', [
+          dField('رسالة خاصة للمتقدّم', 'توصله على الخاص', [dArea('staffApplication.acceptMessage')], { wide: true }),
+          dField('إرسال الخاص', '', [dSwitch('staffApplication.onAccept.dmApplicant')]),
+          dField('رسالة داخل التذكرة', 'المتغيّرات: {user} {number}', [dArea('staffApplication.onAccept.postInTicket')], { wide: true }),
+          dField('تنبيه المتقدّم داخل التذكرة', '', [dSwitch('staffApplication.onAccept.pingApplicant')]),
+          dField('إعادة تسمية التذكرة', 'تتغيّر باسمه + الترقيم', [dSwitch('staffApplication.onAccept.renameChannel')]),
+          dField('شكل اسم التذكرة', '{name} = الاسم • {number} = الرقم', [dInput('staffApplication.onAccept.channelNameFormat', { full: true, placeholder: 'إدارة-{number}-{name}' })], { wide: true }),
+          dField('نقل التذكرة إلى قسم', 'قسم «تكتات الإدارة»', [dSelect('staffApplication.onAccept.moveToCategoryId', categoryOptions())]),
+          dField('رتبة تُعطى عند القبول', '', [dListEditor('staffApplication.onAccept.addRoleIds', { type: 'role' })], { wide: true }),
+        ]),
+        dCard('عند الرفض', '', 'close', [
+          dField('رسالة خاصة للمتقدّم', '', [dArea('staffApplication.rejectMessage')], { wide: true }),
+          dField('إرسال الخاص', '', [dSwitch('staffApplication.onReject.dmApplicant')]),
+          dField('طلب سبب الرفض', 'نموذج صغير للمشرف', [dSwitch('staffApplication.askRejectReason')]),
+          dField('رسالة داخل التذكرة', '', [dArea('staffApplication.onReject.postInTicket')], { wide: true }),
+          dField('إغلاق التذكرة بعد الرفض', '', [dSwitch('staffApplication.onReject.closeTicket')]),
+        ]),
+      ];
+    },
+  },
+
+  /* ------------------------------ السجلات ------------------------------ */
+  logs: {
+    group: 'السجلات',
+    label: 'السجلات',
+    title: 'السجلات',
+    desc: () => `${Object.keys(state.meta.logEvents || {}).length} حدثًا في ${Object.keys(state.meta.logGroups || {}).length} مجموعات — وكل حدث تقدر تحطه في روم خاص فيه.`,
+    render() {
+      const eventsMeta = state.meta.logEvents || {};
+      const groups = state.meta.logGroups || {};
+      const activeTotal = Object.keys(eventsMeta).filter((k) => getPath(`logs.events.${k}`)).length;
+      const ownChannels = Object.keys(eventsMeta).filter((k) => getPath(`logs.channels.${k}`)).length;
+
+      const cards = [
+        dCard('الإعدادات العامة', `المُفعّل حاليًا: ${activeTotal} / ${Object.keys(eventsMeta).length} • أحداث لها روم خاص: ${ownChannels}`, 'scroll', [
+          dField('تفعيل السجلات', '', [dSwitch('logs.enabled')]),
+          dField('قناة عامة (اختيارية)', 'تُستخدم فقط للأحداث اللي ما لها روم خاص — الأصل: كل حدث لرومه', [dSelect('logs.channelId', channelOptions())]),
+          dField('طريقة التوجيه', 'روم الحدث الخاص ← روم المجموعة ← القناة العامة', [
+            el('span', { class: 'd-chip', text: `${ownChannels} حدثًا في أرومات خاصة` }),
+          ]),
+          dField('اختصار', 'فعّل أو أطفئ كل الأحداث مرة واحدة', [
+            (() => {
+              const on = el('button', { class: 'd-btn sm success', html: `${ic('check', 15)} تفعيل الكل` });
+              on.addEventListener('click', () => setAllLogs(true));
+              const off = el('button', { class: 'd-btn sm danger', html: `${ic('close', 15)} تعطيل الكل` });
+              off.addEventListener('click', () => setAllLogs(false));
+              const wrap = el('div', { class: 'd-field-control' });
+              wrap.appendChild(on);
+              wrap.appendChild(off);
+              return wrap;
+            })(),
+          ]),
+        ]),
+      ];
+
+      Object.entries(groups).forEach(([groupId, group]) => {
+        const keys = Object.keys(eventsMeta).filter((k) => eventsMeta[k].group === groupId);
+        const active = keys.filter((k) => getPath(`logs.events.${k}`)).length;
+
+        const grid = el('div', { class: 'd-log-grid' });
+        keys.forEach((key) => {
+          grid.appendChild(
+            dField(
+              `${eventsMeta[key].label}`,
+              getPath(`logs.channels.${key}`) ? `روم خاص: #${nameOfChannel(getPath(`logs.channels.${key}`))}` : 'بلا روم خاص',
+              [
+                el('span', { class: 'log-ico', html: ic(iconForEvent(key), 16) }),
+                dSwitch(`logs.events.${key}`),
+                dSelect(`logs.channels.${key}`, channelOptions(), { noneLabel: 'بلا روم خاص', onAfter: () => renderSection('logs') }),
+              ],
+            ),
+          );
+        });
+
+        const onAll = el('button', { class: 'd-btn sm', html: `${ic('check', 14)} الكل` });
+        onAll.addEventListener('click', () => setGroupLogs(keys, true));
+        const offAll = el('button', { class: 'd-btn sm ghost', html: `${ic('close', 14)} الكل` });
+        offAll.addEventListener('click', () => setGroupLogs(keys, false));
+        const tailWrap = el('div', { class: 'd-field-control' });
+        tailWrap.appendChild(el('span', { class: 'd-chip', text: `${active}/${keys.length}` }));
+        tailWrap.appendChild(onAll);
+        tailWrap.appendChild(offAll);
+
+        const groupChannel = dField(
+          'روم المجموعة',
+          'اختصار: يربط كل أحداث هذه المجموعة بروم واحد (الحدث اللي له روم خاص يتقدّم عليه)',
+          [dSelect(`logs.channelsByGroup.${groupId}`, channelOptions(), { noneLabel: 'بلا روم للمجموعة' })],
+          { wide: true },
+        );
+        const card = dCard(group.label, '', iconForEvent(keys[0] || groupId), [groupChannel, grid], { tail: tailWrap });
+        cards.push(card);
+      });
+
+      cards.push(
+        dCard('استثناءات', 'قنوات أو رتب لا تُسجَّل أحداثها', 'close', [
+          dField('قنوات مستثناة', '', [dListEditor('logs.ignoredChannels', { type: 'channel' })], { wide: true }),
+          dField('رتب مستثناة', '', [dListEditor('logs.ignoredRoles', { type: 'role' })], { wide: true }),
+          dField('اختبار', 'يرسل رسالة سجل تجريبية', [testButton('إرسال سجل تجريبي')]),
+        ]),
+      );
+
+      return cards;
+    },
+  },
+
+  /* ------------------------------ البيانات ------------------------------ */
+  data: {
+    group: 'البيانات',
+    label: 'البيانات',
+    title: 'البيانات',
+    desc: 'سجل العقوبات، والتذاكر، والمتصدّرون في المستويات.',
+    render() {
+      const wrap = el('div');
+      const seg = el('div', { class: 'd-seg' });
+      const box = el('div', { html: '<div class="d-empty">جارٍ التحميل…</div>' });
+      const views = [
+        ['cases', 'الحالات'],
+        ['tickets', 'التذاكر'],
+        ['levels', 'المتصدّرون'],
+      ];
+      if (!state.dataView) state.dataView = 'cases';
+
+      views.forEach(([id, label]) => {
+        const btn = el('button', { html: label, class: state.dataView === id ? 'active' : '' });
+        btn.addEventListener('click', () => {
+          state.dataView = id;
+          seg.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          loadDataView(box, id);
+        });
+        seg.appendChild(btn);
+      });
+
+      wrap.appendChild(seg);
+      wrap.appendChild(box);
+      loadDataView(box, state.dataView);
+      return wrap;
+    },
+  },
+};
 
 /* الوضع الحالي (ليلي/نهاري) */
 function currentTheme() {
@@ -652,49 +2980,119 @@ function setGroupLogs(keys, value) {
 }
 
 function buildChart() {
-  const wrap = el('div', { class: 'd-chart', style: 'padding:6px 2px' });
+  const wrap = el('div', { style: 'padding:10px 8px 6px' });
   const daily = state.daily || [];
   if (!daily.length) return el('div', { class: 'd-empty', html: `<span class="big">${ic('activity', 28)}</span>لا توجد بيانات نشاط بعد.` });
-  const max = Math.max(1, ...daily.map((d) => Math.max(d.messages || 0, d.joins || 0)));
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${daily.length * 34} 120`);
-  /* ارتفاع تلقائي حسب نسبة العرض حتى ما يبقى فراغ letterbox بالجوال */
-  svg.setAttribute('style', 'width:100%;height:auto;display:block');
+  const max = Math.max(1, ...daily.map((d) => Math.max(d.messages || 0, d.joins || 0, d.leaves || 0)));
+  const W = 34, H = 100, padTop = 12, padBottom = 22;
+  const svgH = 150;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${daily.length * W} ${svgH}`);
+  svg.setAttribute('style', 'width:100%;height:160px');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'نشاط آخر 14 يوما');
+
+  // خطوط شبكة خفيفة
+  [0, 25, 50, 75, 100].forEach((pct) => {
+    const y = padTop + H - Math.round((pct / 100) * H);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', '0'); line.setAttribute('x2', String(daily.length * W));
+    line.setAttribute('y1', String(y)); line.setAttribute('y2', String(y));
+    line.setAttribute('stroke', 'rgba(255,255,255,.07)'); line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', pct === 0 ? '0' : '3 4');
+    svg.appendChild(line);
+  });
+
+  // تدرج للرسائل
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  grad.setAttribute('id', 'dash-msg-grad'); grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0'); grad.setAttribute('x2', '0'); grad.setAttribute('y2', '1');
+  [['0%', '#5865f2'], ['100%', '#3b3f8a']].forEach(([off, col]) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'stop'); s.setAttribute('offset', off); s.setAttribute('stop-color', col); grad.appendChild(s); });
+  defs.appendChild(grad);
+  const grad2 = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  grad2.setAttribute('id', 'dash-join-grad'); grad2.setAttribute('x1', '0'); grad2.setAttribute('y1', '0'); grad2.setAttribute('x2', '0'); grad2.setAttribute('y2', '1');
+  [['0%', '#4ade80'], ['100%', '#1e7a3a']].forEach(([off, col]) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'stop'); s.setAttribute('offset', off); s.setAttribute('stop-color', col); grad2.appendChild(s); });
+  defs.appendChild(grad2);
+  svg.appendChild(defs);
+
   daily.forEach((d, i) => {
-    const hm = Math.max(2, Math.round(((d.messages || 0) / max) * 100));
-    const hj = Math.max(2, Math.round(((d.joins || 0) / max) * 100));
-    const title = document.createElementNS(NS, 'title');
-    title.textContent = `${d.day}: ${d.messages || 0} رسالة • ${d.joins || 0} انضمام`;
-    const rm = document.createElementNS(NS, 'rect');
-    rm.setAttribute('x', String(i * 34 + 4));
-    rm.setAttribute('y', String(110 - hm));
-    rm.setAttribute('width', '13');
-    rm.setAttribute('height', String(hm));
-    rm.setAttribute('rx', '4');
-    rm.setAttribute('fill', '#5865f2');
-    rm.setAttribute('class', 'bar-msg');
-    rm.appendChild(title.cloneNode(true));
-    const rj = document.createElementNS(NS, 'rect');
-    rj.setAttribute('x', String(i * 34 + 19));
-    rj.setAttribute('y', String(110 - hj));
-    rj.setAttribute('width', '13');
-    rj.setAttribute('height', String(hj));
-    rj.setAttribute('rx', '4');
-    rj.setAttribute('fill', '#23a55a');
-    rj.setAttribute('class', 'bar-join');
-    rj.appendChild(title);
-    svg.appendChild(rm);
-    svg.appendChild(rj);
+    const x = i * W + 6;
+    const msg = Number(d.messages || 0);
+    const joins = Number(d.joins || 0);
+    const leaves = Number(d.leaves || 0);
+    const hMsg = Math.round((msg / max) * H);
+    const hJoin = Math.round((joins / max) * H);
+    const cx = x + 9;
+
+    // عمود الرسائل مع أنيميشن
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'chart-bar');
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', String(x));
+    rect.setAttribute('y', String(padTop + H - hMsg));
+    rect.setAttribute('width', '16');
+    rect.setAttribute('height', String(Math.max(2, hMsg)));
+    rect.setAttribute('rx', '6');
+    rect.setAttribute('fill', 'url(#dash-msg-grad)');
+    rect.setAttribute('opacity', '0.95');
+    rect.style.transformOrigin = `${cx}px ${padTop + H}px`;
+    rect.style.animation = `chartGrow .55s cubic-bezier(.2,.8,.2,1) ${i * 55}ms both`;
+    rect.style.transition = 'opacity .2s, filter .2s';
+    g.appendChild(rect);
+
+    // عمود الانضمام الأصغر (جنب الرسائل)
+    if (joins > 0) {
+      const r2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r2.setAttribute('x', String(x + 18));
+      r2.setAttribute('y', String(padTop + H - hJoin));
+      r2.setAttribute('width', '7');
+      r2.setAttribute('height', String(Math.max(2, hJoin)));
+      r2.setAttribute('rx', '4');
+      r2.setAttribute('fill', 'url(#dash-join-grad)');
+      r2.style.animation = `chartGrow .55s cubic-bezier(.2,.8,.2,1) ${i * 55 + 120}ms both`;
+      r2.style.transformOrigin = `${cx}px ${padTop + H}px`;
+      g.appendChild(r2);
+    }
+
+    // تسمية اليوم تحت العمود
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', String(cx));
+    label.setAttribute('y', String(padTop + H + 14));
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('fill', 'rgba(255,255,255,.45)');
+    label.setAttribute('font-size', '8.5');
+    const short = String(d.day || '').slice(5) || `#${i+1}`;
+    label.textContent = short;
+    g.appendChild(label);
+
+    // قيمة الرسائل فوق العمود إذا كبيرة
+    if (msg > 0) {
+      const val = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      val.setAttribute('x', String(cx));
+      val.setAttribute('y', String(Math.max(10, padTop + H - hMsg - 4)));
+      val.setAttribute('text-anchor', 'middle');
+      val.setAttribute('fill', 'rgba(255,255,255,.78)');
+      val.setAttribute('font-size', '7.5');
+      val.setAttribute('font-weight', '600');
+      val.textContent = String(msg);
+      val.style.animation = `chartFade .4s ease ${i * 55 + 300}ms both`;
+      g.appendChild(val);
+    }
+
+    // تولتيب
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${d.day}: ${msg} رسالة · ${joins} انضمام` + (leaves ? ` · ${leaves} مغادرة` : '');
+    g.appendChild(title);
+
+    // تفاعل hover
+    g.style.cursor = 'pointer';
+    g.addEventListener('mouseenter', () => { rect.setAttribute('opacity', '1'); rect.setAttribute('filter', 'brightness(1.15)'); });
+    g.addEventListener('mouseleave', () => { rect.setAttribute('opacity', '0.95'); rect.removeAttribute('filter'); });
+
+    svg.appendChild(g);
   });
   wrap.appendChild(svg);
-  wrap.appendChild(
-    el('div', {
-      class: 'muted',
-      style: 'font-size:.8rem;margin-top:6px;display:flex;gap:16px;align-items:center',
-      html: `<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:#5865f2"></i> الرسائل</span><span style="display:inline-flex;align-items:center;gap:5px"><i style="width:10px;height:10px;border-radius:3px;background:#23a55a"></i> الأعضاء الجدد</span>`,
-    }),
-  );
+  wrap.appendChild(el('div', { class: 'muted', style: 'font-size:.78rem;margin-top:6px;display:flex;gap:12px;align-items:center;flex-wrap:wrap', html: '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#5865f2;display:inline-block"></span> الرسائل</span> <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#4ade80;display:inline-block"></span> انضمام</span> <span style="opacity:.7">· الأعمدة = بيانات حقيقية من قاعدة البيانات</span>' }));
   return wrap;
 }
 
@@ -713,11 +3111,10 @@ async function resolveMembers(ids) {
 function memberCell(map, id) {
   const member = map.get(String(id));
   const cell = el('div', { class: 'd-member' });
-  const initial = (member?.displayName || member?.username || '؟').trim().charAt(0).toUpperCase();
-  cell.appendChild(el('span', { class: 'sm-av', text: initial }));
+  if (member?.avatar) cell.appendChild(el('img', { src: member.avatar, alt: '' }));
   const txt = el('div');
-  txt.appendChild(el('div', { class: 'nm', text: member?.displayName || member?.username || 'بدون اسم' }));
-  if (member?.username) txt.appendChild(el('div', { class: 'tg', text: `@${member.username}` }));
+  txt.appendChild(el('div', { class: 'nm', text: member?.displayName || member?.username || String(id) }));
+  txt.appendChild(el('div', { class: 'tg', text: member?.username ? `@${member.username}` : String(id) }));
   cell.appendChild(txt);
   return cell;
 }
@@ -982,13 +3379,9 @@ function guideCard(item) {
 /* ============================ حماية الموقع (للمالك) ============================ */
 
 async function loadSecurity(note, box) {
-  note.innerHTML = '';
-  note.appendChild(el('div', {
-    class: 'd-readonly-note',
-    html: `${ic('shield', 15)} <span>الزائر ما يشوف بيانات السيرفر ولا الحسابات. مسارات الفحص المعروفة تنحجب، وما في أي ملف خبيث ينرسل له.</span>`,
-  }));
   try {
     const data = await api('/admin/security');
+    note.innerHTML = '';
 
     const cards = el('div', { class: 'd-stats' });
     [
@@ -1029,12 +3422,13 @@ async function loadSecurity(note, box) {
     const site = await api('/admin/audit?limit=12&scope=site');
     if (site.items?.length) {
       const table = el('table', { class: 'd-table' });
-      table.appendChild(el('thead', {}, '<tr><th>الحدث</th><th>ماذا صار</th><th>الوقت</th></tr>'));
+      table.appendChild(el('thead', {}, '<tr><th>الحدث</th><th>من</th><th>التفاصيل</th><th>الوقت</th></tr>'));
       const body = el('tbody');
       site.items.forEach((row) => {
         const tr = el('tr', { class: row.severity === 'danger' ? 'au-danger' : row.severity === 'warn' ? 'au-warn' : '' });
         tr.appendChild(el('td', { html: `<span class="au-badge ${row.severity}">${esc(row.label)}</span>` }));
-        tr.appendChild(el('td', { html: `<span class="au-detail">${esc(row.detail || '—')}</span>` }));
+        tr.appendChild(el('td', { html: `<span class="au-actor">${esc(row.actorName || row.actorId || 'النظام')}</span>` }));
+        tr.appendChild(el('td', { html: `<span class="au-detail">${esc(row.detail || row.target || '—')}</span>` }));
         tr.appendChild(el('td', { html: `<span class="au-time">${esc(sinceArabic(row.at))}</span>` }));
         body.appendChild(tr);
       });
@@ -1074,7 +3468,6 @@ async function loadSiteMembers(note, box) {
     const cards = el('div', { class: 'd-stats' });
     [
       ['users', (stats.total || 0).toLocaleString('ar-EG'), 'إجمالي الحسابات'],
-      ['userPlus', (stats.waiting || 0).toLocaleString('ar-EG'), 'بانتظار السماح'],
       ['activity', (stats.onlineToday || 0).toLocaleString('ar-EG'), 'نشِط آخر ٢٤ ساعة'],
       ['eye', (stats.byStatus?.viewonly || 0).toLocaleString('ar-EG'), 'مشاهدة فقط'],
       ['ban', (stats.byStatus?.banned || 0).toLocaleString('ar-EG'), 'محظور'],
@@ -1089,40 +3482,14 @@ async function loadSiteMembers(note, box) {
     note.appendChild(
       el('div', {
         class: 'd-readonly-note',
-        html: `${ic('shield', 15)} <span>هالقائمة تظهر لك فقط. اللي يحاول يدخل يتسجل هنا، وما يفتح الموقع إلا بعد ما تضيفه.</span>`,
+        html: `${ic('shield', 15)} <span>هذه الصفحة تظهر لك فقط (مالك الموقع). كل من يسجّل دخول بحساب Discord يظهر هنا تلقائيًا.</span>`,
       }),
     );
     note.appendChild(cards);
 
-    const form = el('form', { class: 'sm-add' });
-    const input = el('input', {
-      class: 'd-input',
-      type: 'text',
-      placeholder: 'آيدي ديسكورد',
-      inputmode: 'numeric',
-      autocomplete: 'off',
-    });
-    const addBtn = el('button', { class: 'd-btn', type: 'submit', html: `${ic('userPlus', 14)} إضافة للدخول` });
-    form.appendChild(input);
-    form.appendChild(addBtn);
-    form.addEventListener('submit', async (ev) => {
-      ev.preventDefault();
-      addBtn.disabled = true;
-      try {
-        await api('/admin/members', { method: 'POST', body: { id: input.value.trim() } });
-        toast('تمت الإضافة — يقدر يدخل الموقع');
-        renderSection('siteMembers');
-      } catch (err) {
-        toast(err.message, true);
-      } finally {
-        addBtn.disabled = false;
-      }
-    });
-    note.appendChild(form);
-
     if (!data.members.length) {
       box.innerHTML = '';
-      box.appendChild(el('div', { class: 'd-empty', text: 'ما في طلبات بعد. أضف آيدي من فوق، أو خلّ الشخص يحاول يدخل ويظهر هنا.' }));
+      box.appendChild(el('div', { class: 'd-empty', text: 'ما سجّل أحد دخول بعد.' }));
       return;
     }
 
@@ -1138,18 +3505,14 @@ async function loadSiteMembers(note, box) {
       const line = el('div', { class: 'sm-who' });
       line.appendChild(el('span', { class: 'sm-av', text: (m.globalName || m.username || '؟').trim().charAt(0).toUpperCase() }));
       const names = el('div');
-      names.appendChild(el('b', { text: m.globalName || m.username || 'بدون اسم' }));
-      if (m.isOwner) names.appendChild(el('span', { class: 'sm-id', text: 'مالك الموقع' }));
+      names.appendChild(el('b', { text: m.globalName || m.username || m.id }));
+      names.appendChild(el('span', { class: 'sm-id', text: `${m.isOwner ? 'مالك الموقع · ' : ''}${m.id}` }));
       line.appendChild(names);
       who.appendChild(line);
       tr.appendChild(who);
 
       /* الحالة */
-      const wait = !m.isOwner && !m.allowed && m.status !== 'banned';
-      const badge = wait
-        ? '<span class="sm-badge sm-wait">بانتظار السماح</span>'
-        : `<span class="sm-badge sm-${esc(m.status)}">${esc(SITE_STATUS_LABEL[m.status] || m.status)}</span>`;
-      tr.appendChild(el('td', { html: badge }));
+      tr.appendChild(el('td', { html: `<span class="sm-badge sm-${esc(m.status)}">${esc(SITE_STATUS_LABEL[m.status] || m.status)}</span>` }));
 
       /* آخر ظهور */
       tr.appendChild(el('td', { text: sinceArabic(m.lastSeen) }));
@@ -1182,22 +3545,6 @@ async function loadSiteMembers(note, box) {
           }
         };
 
-        if (!m.allowed) {
-          const allow = el('button', { class: 'd-btn sm', html: `${ic('check', 14)} السماح بالدخول` });
-          allow.addEventListener('click', async () => {
-            allow.disabled = true;
-            try {
-              await api('/admin/members', { method: 'POST', body: { id: m.id } });
-              toast('صار يقدر يدخل');
-              renderSection('siteMembers');
-            } catch (err) {
-              toast(err.message, true);
-            } finally {
-              allow.disabled = false;
-            }
-          });
-          group.appendChild(allow);
-        }
         if (m.status !== 'active') {
           const b = el('button', { class: 'd-btn sm', html: `${ic('check', 14)} نشِط` });
           b.addEventListener('click', () => setStatus('active', b));
@@ -1249,182 +3596,54 @@ async function loadSiteMembers(note, box) {
   }
 }
 
-/* ============================ الهيكل العام (هيكل بروبوت) ============================ */
-/* عام ثم إعدادات الوحدات — نفس ترتيب لوحة ProBot، بأسماء أقسامنا */
-const NAV_GROUPS = [
-  { title: 'عام', ids: ['overview', 'premium', 'general', 'commandGuide'] },
-  {
-    title: 'إعدادات الوحدات',
-    ids: [
-      'moderation', 'automod', 'welcome', 'autoReply', 'leveling', 'logs',
-      'autorole', 'autoreact', 'autoline', 'tickets', 'staffapp', 'top',
-      'commandRoom', 'commandAliases', 'commandReplies',
-    ],
-  },
-  { title: 'البيانات', ids: ['audit', 'data'] },
-  { title: 'إدارة الموقع', ids: ['security', 'siteMembers', 'subscriptions'], ownerOnly: true },
-];
-
-/** مفتاح التفعيل لكل وحدة — النقطة الخضراء ومفتاح أعلى الصفحة */
-const MODULE_TOGGLE = {
-  welcome: 'welcome.enabled',
-  autorole: 'autorole.enabled',
-  leveling: 'leveling.enabled',
-  automod: 'automod.enabled',
-  autoline: 'autoline.enabled',
-  autoreact: 'autoreact.enabled',
-  tickets: 'tickets.enabled',
-  staffapp: 'staffApplication.enabled',
-  logs: 'logs.enabled',
-  autoReply: 'autoReply.enabled',
-  commandRoom: 'commandRoom.enabled',
-};
-
-function drawerMode() {
-  return window.matchMedia('(max-width: 900px)').matches;
-}
-
-function closeSide() {
-  document.body.classList.remove('side-open');
-}
-
-function toggleSide() {
-  document.body.classList.toggle('side-open');
-}
-
-let mobileBound = false;
-function bindMobileShell() {
-  if (mobileBound) return;
-  mobileBound = true;
-  const root = document.documentElement;
-  const syncKeyboard = () => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-    root.style.setProperty('--kb', kb + 'px');
-  };
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', syncKeyboard);
-    window.visualViewport.addEventListener('scroll', syncKeyboard);
-    syncKeyboard();
-  }
-  window.addEventListener('resize', () => {
-    if (!drawerMode()) closeSide();
-  });
-  document.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') closeSide();
-  });
-  document.addEventListener('focusin', (ev) => {
-    const node = ev.target;
-    if (!node || !node.matches || !node.matches('input, textarea, select')) return;
-    setTimeout(() => {
-      try { node.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch { /* قديم */ }
-    }, 60);
-  });
-  let startX = 0;
-  let startY = 0;
-  let tracking = false;
-  document.addEventListener('touchstart', (ev) => {
-    if (!drawerMode() || ev.touches.length !== 1) return;
-    const t = ev.touches[0];
-    startX = t.clientX;
-    startY = t.clientY;
-    const rtl = root.dir !== 'ltr';
-    const fromEdge = rtl ? startX > window.innerWidth - 28 : startX < 28;
-    tracking = document.body.classList.contains('side-open') || fromEdge;
-  }, { passive: true });
-  document.addEventListener('touchend', (ev) => {
-    if (!tracking || !drawerMode()) return;
-    tracking = false;
-    const t = ev.changedTouches && ev.changedTouches[0];
-    if (!t) return;
-    const dx = t.clientX - startX;
-    const dy = t.clientY - startY;
-    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return;
-    const rtl = root.dir !== 'ltr';
-    const open = document.body.classList.contains('side-open');
-    const towardClose = rtl ? dx > 0 : dx < 0;
-    const towardOpen = rtl ? dx < 0 : dx > 0;
-    if (open && towardClose) closeSide();
-    else if (!open && towardOpen) document.body.classList.add('side-open');
-  }, { passive: true });
-}
+/* ============================ الهيكل العام ============================ */
+const GROUP_ORDER = ['عام', 'الأعضاء', 'الأوامر', 'الحماية', 'التذاكر', 'السجلات', 'البيانات', 'إدارة الموقع'];
 
 function buildSidebar() {
   const side = el('aside', { class: 'd-side' });
 
-  const closeBtn = el('button', { class: 'd-side-close', type: 'button', title: 'إغلاق', html: ic('close', 16) });
-  closeBtn.addEventListener('click', closeSide);
-  side.appendChild(closeBtn);
-
-  const server = el('a', { class: 'd-server', href: '/dashboard', title: 'كل السيرفرات' });
-  const headIcon = guildIconUrl(state.guild.id, state.guild.icon, 64);
-  if (headIcon) {
-    const img = el('img', { src: headIcon, alt: '' });
-    img.addEventListener('error', () => img.replaceWith(iconFallback(state.guild?.name)));
-    server.appendChild(img);
-  } else {
-    server.appendChild(iconFallback(state.guild?.name));
-  }
-  const serverInfo = el('div', { class: 'd-server-info' });
-  serverInfo.appendChild(el('b', { text: state.guild?.name || 'السيرفر' }));
-  serverInfo.appendChild(el('span', { text: `${(state.guild?.memberCount || 0).toLocaleString('ar-EG')} عضو` }));
-  server.appendChild(serverInfo);
-  server.appendChild(el('span', { class: 'chev', html: ic('chevronRight', 14) }));
-  side.appendChild(server);
+  const brand = el('div', { class: 'd-side-brand' });
+  brand.appendChild(el('span', { class: 'logo', html: logoMark(30) }));
+  brand.appendChild(el('span', { html: 'Never<span class="accent">Land</span>' }));
+  brand.appendChild(el('a', { class: 'back', href: '/dashboard', html: `${ic('chevronRight', 13)} السيرفرات` }));
+  side.appendChild(brand);
 
   const search = el('div', { class: 'd-search' });
   search.appendChild(el('span', { class: 'ico', html: ic('search', 16) }));
-  const searchInput = el('input', { type: 'text', placeholder: 'ابحث عن وحدة...' });
+  const searchInput = el('input', { type: 'text', placeholder: 'ابحث عن إعداد...' });
   search.appendChild(searchInput);
   side.appendChild(search);
 
-  const nav = el('nav', { class: 'd-nav' });
+  const nav = el('nav');
   const items = [];
-  const used = new Set();
 
-  const paintGroup = (title, entries) => {
+  GROUP_ORDER.forEach((group) => {
+    const entries = Object.entries(SECTIONS).filter(([, s]) => {
+      if (s.group !== group) return false;
+      if (s.ownerOnly && !state.isOwner) return false; // أقسام المالك لا تظهر لغيره
+      return true;
+    });
     if (!entries.length) return;
     const groupWrap = el('div', { class: 'd-group' });
-    const titleBtn = el('button', { class: 'd-group-title', type: 'button' });
-    titleBtn.appendChild(el('span', { class: 'chev', html: ic('chevronRight', 12) }));
-    titleBtn.appendChild(el('span', { text: title }));
-    titleBtn.addEventListener('click', () => groupWrap.classList.toggle('collapsed'));
-    groupWrap.appendChild(titleBtn);
+    groupWrap.appendChild(el('div', { class: 'd-group-title', text: group }));
     entries.forEach(([id, section]) => {
       const item = el('div', { class: 'd-nav-item', 'data-id': id, title: section.label });
       item.appendChild(el('span', { class: 'ico', html: ic(SECTION_ICONS[id] || 'circle', 18) }));
       item.appendChild(el('span', { class: 'd-nav-label', text: section.label }));
-      item.appendChild(el('span', { class: 'dot', html: ic('check', 11) }));
+      const dot = el('span', { class: 'dot' });
+      item.appendChild(dot);
       item.addEventListener('click', () => {
         state.section = id;
         renderSection(id);
+        /* الرابط يتحدّث (#اسم-القسم) — يسمح بفتح قسم معيّن مباشرة من رابط البوت */
         if (window.history?.replaceState) window.history.replaceState(null, '', `#${id}`);
-        if (drawerMode()) closeSide();
+        if (window.innerWidth <= 900) item.scrollIntoView({ behavior: 'smooth', inline: 'center' });
       });
       groupWrap.appendChild(item);
-      items.push({ item, id, label: section.label, group: title });
+      items.push({ item, id, label: section.label, group, dot });
     });
     nav.appendChild(groupWrap);
-  };
-
-  NAV_GROUPS.forEach((group) => {
-    if (group.ownerOnly && !state.isOwner) return;
-    const entries = group.ids
-      .filter((id) => {
-        const s = SECTIONS[id];
-        if (!s) return false;
-        if (s.ownerOnly && !state.isOwner) return false;
-        return true;
-      })
-      .map((id) => {
-        used.add(id);
-        return [id, SECTIONS[id]];
-      });
-    paintGroup(group.title, entries);
   });
-  const rest = Object.entries(SECTIONS).filter(([id, section]) => !used.has(id) && !(section.ownerOnly && !state.isOwner));
-  paintGroup('أخرى', rest);
 
   side.appendChild(nav);
 
@@ -1440,21 +3659,35 @@ function buildSidebar() {
     });
   });
 
+  side.appendChild(
+    el('div', {
+      class: 'd-side-foot',
+      html: `كل الإعدادات متاحة هنا، ولكل إعداد أمر سلاش مكافئ في ديسكورد.`,
+    }),
+  );
+
   return { side, items };
 }
 
 function buildHeader() {
-  const head = el('div', { class: 'd-head d-topbar' });
-  const menuBtn = el('button', { class: 'd-btn ghost sm d-side-toggle', type: 'button', title: 'الأقسام', html: `${ic('lines', 16)} الأقسام` });
-  menuBtn.addEventListener('click', toggleSide);
-  head.appendChild(menuBtn);
-  const brand = el('a', { class: 'd-top-brand', href: '/', html: `${logoMark(22)} <span>Never<span class="accent">Land</span></span>` });
-  head.appendChild(brand);
-  const status = el('span', {
-    class: `d-top-status ${state.guild.botOnline ? 'state-on' : 'state-off'}`,
-    text: state.guild.botOnline ? 'البوت متصل' : 'البوت غير متصل',
-  });
-  head.appendChild(status);
+  const head = el('div', { class: 'd-head' });
+  const headIcon = guildIconUrl(state.guild.id, state.guild.icon);
+  if (headIcon) {
+    const img = el('img', { class: 'guild-icon', src: headIcon, alt: '' });
+    img.addEventListener('error', () => img.replaceWith(iconFallback(state.guild.name)));
+    head.appendChild(img);
+  } else {
+    head.appendChild(iconFallback(state.guild.name));
+  }
+  const info = el('div');
+  info.appendChild(el('h1', { text: state.guild.name }));
+  info.appendChild(
+    el('div', {
+      class: 'sub',
+      html: `${(state.guild.memberCount || 0).toLocaleString('ar-EG')} عضو · <span class="${state.guild.botOnline ? 'state-on' : 'state-off'}">${state.guild.botOnline ? 'البوت متصل' : 'البوت غير متصل'}</span> · آخر تحديث ${new Date().toLocaleTimeString('ar-EG')}`,
+    }),
+  );
+  head.appendChild(info);
 
   const actions = el('div', { class: 'd-head-actions' });
   const themeBtn = el('button', { class: 'd-btn ghost sm' });
@@ -1513,46 +3746,38 @@ function renderSection(id) {
   const content = document.getElementById('d-content');
   content.innerHTML = '';
   const iconName = SECTION_ICONS[id] || 'circle';
-  const moduleHead = el('div', { class: 'd-module-head' });
-  moduleHead.appendChild(el('h2', { class: 'd-page-title', html: `${ic(iconName, 22)} <span>${esc(section.title)}</span>` }));
-  const toggleKey = MODULE_TOGGLE[id];
-  if (toggleKey && state.canEdit) {
-    const toggleBox = el('div', { class: 'd-module-switch' });
-    const toggleLabel = el('span', { text: getPath(toggleKey) ? 'مفعّل' : 'متوقف' });
-    toggleBox.appendChild(toggleLabel);
-    toggleBox.appendChild(dSwitch(toggleKey, (on) => {
-      toggleLabel.textContent = on ? 'مفعّل' : 'متوقف';
-      updateDots(window.__dashItems || []);
-    }));
-    moduleHead.appendChild(toggleBox);
-  }
-  content.classList.remove('is-entering');
-  void content.offsetWidth;
-  content.classList.add('is-entering');
-  content.appendChild(moduleHead);
+  content.appendChild(el('h2', { class: 'd-page-title', html: `${ic(iconName, 22)} <span>${esc(section.title)}</span>` }));
   /* الوصف يقدر يكون نصًا ثابتًا أو دالة (لعدّادات تتغيّر مثل عدد الأحداث) */
   content.appendChild(el('p', { class: 'd-page-desc', html: typeof section.desc === 'function' ? section.desc() : section.desc }));
 
   // كل قسم يقدر يرجّع عنصرًا واحدًا أو مصفوفة عناصر أو Fragment
   const output = section.render();
   (Array.isArray(output) ? output : [output]).filter(Boolean).forEach((node) => content.appendChild(node));
-  scrubVisibleIds(content);
-  if (typeof window.scrollTo === 'function') window.scrollTo(0, 0);
-  if (window.NL && window.NL.refresh) window.NL.refresh();
+  if (typeof window.scrollTo === 'function') window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function updateDots(items) {
+  const map = {
+    overview: null,
+    general: null,
+    welcome: 'welcome.enabled',
+    autorole: 'autorole.enabled',
+    leveling: 'leveling.enabled',
+    automod: 'automod.enabled',
+    moderation: null,
+    autoline: 'autoline.enabled',
+    autoreact: 'autoreact.enabled',
+    tickets: 'tickets.enabled',
+    staffapp: 'staffApplication.enabled',
+    logs: 'logs.enabled',
+    data: null,
+  };
   items.forEach(({ item, id }) => {
     const dot = item.querySelector('.dot');
-    if (!dot) return;
-    const key = MODULE_TOGGLE[id];
-    if (!key) {
-      dot.style.display = 'none';
-      return;
-    }
-    const on = Boolean(getPath(key));
-    dot.style.display = on ? '' : 'none';
-    dot.classList.toggle('off', !on);
+    const key = map[id];
+    dot.classList.toggle('off', key ? !getPath(key) : true);
+    if (!key) dot.style.display = 'none';
+    else dot.style.display = '';
   });
 }
 
@@ -1563,10 +3788,7 @@ function updateDots(items) {
  * يمنع تكرار البادئة الذي كان يُنتج صورة مكسورة.
  */
 function guildIconUrl(guildId, icon, size = 128) {
-  if (!icon) return null;
-  const value = String(icon);
-  if (value.startsWith('/')) return value.includes('size=') ? value.replace(/size=\d+/, `size=${size}`) : value;
-  if (/\d{15,25}/.test(value) || /\d{15,25}/.test(String(guildId || ''))) return `/api/guild-icon?size=${size}`;
+  if (!icon || !guildId) return null;
   const v = String(icon).trim();
   if (!v) return null;
   if (/^https?:\/\//i.test(v)) return v;
@@ -1608,7 +3830,13 @@ function buildSyncBar() {
 
   const paint = (st) => {
     const s = st || state.sync || {};
-    info.innerHTML = `${ic('refresh', 15)} <b>آخر مزامنة مع ديسكورد:</b> <span class="sync-when">${esc(sinceText(s.at))}</span>`;
+    const parts = [`${ic('refresh', 15)} <b>آخر مزامنة مع ديسكورد:</b> <span class="sync-when">${esc(sinceText(s.at))}</span>`];
+    if (s.botOnline) parts.push('<span class="sync-ok">البوت متّصل — البيانات لحظية</span>');
+    else if (s.hasToken) parts.push('<span class="sync-warn">البوت متوقّف — نعرض آخر مزامنة محفوظة</span>');
+    else parts.push('<span class="sync-warn">لم يُربط توكن البوت بعد</span>');
+    if (s.guildsKnown) parts.push(`<span class="sync-count">${esc(String(s.guildsKnown))} سيرفر</span>`);
+    parts.push(`<span class="sync-live"><i class="live-dot"></i> تغييرات فورية: الموقع ← البوت · وديسكورد ← اللوحة</span>`);
+    info.innerHTML = parts.join(' · ');
   };
   paint();
   bar.appendChild(info);
@@ -1635,8 +3863,10 @@ function buildSyncBar() {
 
   /* وميض خفيف على شارة الربط الحيّ كل ما يوصل تغيير من مكان تاني */
   window.__livePaint = () => {
-    bar.classList.add('flash');
-    setTimeout(() => bar.classList.remove('flash'), 1400);
+    const badge = bar.querySelector('.sync-live');
+    if (!badge) return;
+    badge.classList.add('flash');
+    setTimeout(() => badge.classList.remove('flash'), 1400);
   };
 
   window.__syncPaint = paint;
@@ -1662,9 +3892,7 @@ async function refreshAfterExternalChange(payload) {
     state.guild = data.guild;
     state.stats = data.stats;
     state.meta = data.meta;
-    state.premium = data.premium || state.premium;
     state.dirty = false;
-    paintPremiumBadge();
     if (state.section && SECTIONS[state.section]) renderSection(state.section);
     toast(payload?.source === 'bot'
       ? 'تغيّر الإعدادات من ديسكورد — حُدّثت اللوحة تلقائيًا'
@@ -1706,313 +3934,14 @@ function connectLive() {
   } catch { /* المتصفح لا يدعم البث الحيّ */ }
 }
 
-/* الرابط ما يبقي رقم السيرفر في شريط العنوان */
-function hideGuildFromAddressBar() {
-  try {
-    let path = String(location.pathname || '');
-    while (path.endsWith('/')) path = path.slice(0, -1);
-    const parts = path.split('/');
-    if (parts.length !== 3 || parts[1] !== 'dashboard' || !/^\d{15,25}$/.test(parts[2] || '')) return;
-    history.replaceState(null, '', '/dashboard/server' + (location.search || '') + (location.hash || ''));
-  } catch { /* المتصفح منع تعديل الرابط */ }
-}
-
-const SNOWFLAKE = /\d{15,25}/;
-
-/** يشيل أي رقم طويل من النص الظاهر في كل أقسام اللوحة */
-function scrubVisibleIds(root) {
-  if (!root || !root.querySelectorAll) return;
-  const skip = new Set(['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'OPTION', 'SELECT']);
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      const parent = node.parentElement;
-      if (!parent || skip.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
-      return SNOWFLAKE.test(node.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-    },
-  });
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  nodes.forEach((node) => {
-    const next = String(node.nodeValue || '').replace(/\d{15,25}/g, '');
-    if (next !== node.nodeValue) node.nodeValue = next;
-  });
-  root.querySelectorAll('[title]').forEach((el) => {
-    const title = el.getAttribute('title') || '';
-    if (!SNOWFLAKE.test(title)) return;
-    el.setAttribute('title', title.replace(/\d{15,25}/g, ''));
-  });
-}
-
-let idsWatched = false;
-function watchVisibleIds(root) {
-  if (!root || idsWatched) return;
-  idsWatched = true;
-  scrubVisibleIds(root);
-  const observer = new MutationObserver(() => scrubVisibleIds(root));
-  observer.observe(root, { childList: true, subtree: true, characterData: true });
-}
-
-async function resolveGuildId(root) {
-  const fromPage = String(root?.dataset?.guild || '').trim();
-  if (fromPage) return fromPage;
-  const data = await api('/active-guild');
-  return data.id;
-}
-
-function paintPremiumBadge() {
-  const server = document.querySelector('.d-side .d-server, .d-server');
-  if (!server) return;
-  const on = Boolean(state.premium?.active);
-  const tier = Number(state.premium?.tier) === 1 ? 1 : 2;
-  server.classList.toggle('is-premium', on);
-  server.classList.toggle('tier-1', on && tier === 1);
-  server.classList.toggle('tier-2', on && tier !== 1);
-  const info = server.querySelector('.d-server-info');
-  if (!info) return;
-  let tag = info.querySelector('.prem-tag');
-  if (on) {
-    const label = state.premium?.tierLabel || (tier === 1 ? 'درجة أولى' : 'درجة ثانية');
-    if (!tag) {
-      tag = el('span', { class: 'prem-tag', html: `${ic('crown', 12)} ${label}` });
-      info.appendChild(tag);
-    } else {
-      tag.className = 'prem-tag';
-      tag.innerHTML = `${ic('crown', 12)} ${label}`;
-    }
-    tag.classList.toggle('tier-1', tier === 1);
-  } else if (tag) {
-    tag.remove();
-  }
-}
-
-function paintRequestBadge(count) {
-  const item = document.querySelector('.d-nav-item[data-id="subscriptions"]');
-  if (!item) return;
-  let badge = item.querySelector('.prem-count');
-  const n = Number(count) || 0;
-  if (n < 1) {
-    if (badge) badge.remove();
-    return;
-  }
-  if (!badge) {
-    badge = el('span', { class: 'prem-count' });
-    const dot = item.querySelector('.dot');
-    if (dot) item.insertBefore(badge, dot);
-    else item.appendChild(badge);
-  }
-  badge.textContent = String(n);
-}
-
-function paintRequestBadgeFromApi() {
-  if (!state.isOwner) return;
-  api('/admin/premium')
-    .then((data) => paintRequestBadge(data.waiting ?? (data.servers || []).filter((s) => s.requested).length))
-    .catch(() => {});
-}
-
-async function loadSubscriptions(box) {
-  try {
-    const data = await api('/admin/premium');
-    const servers = Array.isArray(data.servers) ? data.servers : [];
-    const orders = Array.isArray(data.orders) ? data.orders : [];
-    const payout = data.payout || {};
-    const waiting = Number(data.waiting ?? (orders.length + servers.filter((s) => s.requested).length));
-    const active = servers.filter((s) => s.active).length;
-    paintRequestBadge(waiting);
-    box.innerHTML = '';
-
-    const cards = el('div', { class: 'd-stats' });
-    [
-      ['crown', active, 'خطط شغّالة'],
-      ['star', waiting, 'تحويلات معلّقة'],
-      ['server', servers.length, 'سيرفر'],
-    ].forEach(([iconName, value, label]) => {
-      const card = el('div', { class: 'd-stat' });
-      card.appendChild(el('b', { text: Number(value || 0).toLocaleString(numLoc()) }));
-      card.appendChild(el('span', { html: `${ic(iconName, 15)} ${label}` }));
-      cards.appendChild(card);
-    });
-    box.appendChild(cards);
-
-    box.appendChild(el('div', {
-      class: 'd-readonly-note',
-      text: 'الأسعار ثابتة. درجة ٢: 4 يورو بالشهر و25 بالسنة. درجة ١: 7 يورو بالشهر و60 بالسنة، وميزاتها أقوى.',
-    }));
-    const payBox = el('div', { class: 'd-pay-box' });
-    const fields = {};
-    [
-      ['method', 'طريقة التحويل', '40'],
-      ['holder', 'اسم صاحب الحساب', '60'],
-      ['bank', 'اسم البنك', '40'],
-      ['account', 'رقم الحساب أو الآيبان', '64'],
-      ['payUrl', 'رابط الدفع https', '180'],
-      ['note', 'ملاحظة للزبون', '180'],
-    ].forEach(([key, label, max]) => {
-      const input = el('input', {
-        class: 'd-input',
-        type: 'text',
-        maxlength: max,
-        placeholder: label,
-        value: payout[key] || '',
-      });
-      fields[key] = input;
-      payBox.appendChild(input);
-    });
-    const savePay = el('button', { class: 'd-btn sm primary', type: 'button', text: 'حفظ حساب التحويل' });
-    savePay.addEventListener('click', async () => {
-      savePay.disabled = true;
-      try {
-        const saved = await api('/admin/premium', {
-          method: 'POST',
-          body: {
-            action: 'payout',
-            payout: {
-              method: fields.method.value,
-              holder: fields.holder.value,
-              bank: fields.bank.value,
-              account: fields.account.value,
-              payUrl: fields.payUrl.value,
-              note: fields.note.value,
-            },
-          },
-        });
-        toast(saved.message || 'تم حفظ حساب التحويل.');
-      } catch (err) {
-        toast(err.message || 'تعذّر حفظ حساب التحويل.', true);
-      } finally {
-        savePay.disabled = false;
-      }
-    });
-    payBox.appendChild(savePay);
-    box.appendChild(dCard('حساب التحويل', 'يظهر للسيرفر لما يختار درجة ويدفع. الأسعار ما تتغير.', 'ticket', [payBox]));
-
-    if (orders.length) {
-      const pending = el('div', { class: 'd-prem-list' });
-      orders.forEach((order) => {
-        const row = el('div', { class: 'd-prem-row is-request' });
-        const info = el('div', { class: 'd-prem-who' });
-        info.appendChild(el('b', { text: order.name || 'سيرفر', 'data-nl-raw': '1' }));
-        info.appendChild(el('span', { text: [order.label, order.price, order.statusLabel, order.createdLabel].filter(Boolean).join(' · ') }));
-        if (order.proof) {
-          const proof = el('input', { class: 'd-input', type: 'text', readonly: 'readonly', value: order.proof });
-          info.appendChild(proof);
-        }
-        row.appendChild(info);
-        const actions = el('div', { class: 'd-prem-actions' });
-        const ok = el('button', { class: 'd-btn sm primary', type: 'button', text: 'وصل المبلغ' });
-        ok.addEventListener('click', () => actPremium('', { action: 'confirm', orderId: order.id }));
-        const no = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'ما وصل' });
-        no.addEventListener('click', () => actPremium('', { action: 'reject', orderId: order.id }));
-        actions.appendChild(ok);
-        actions.appendChild(no);
-        row.appendChild(actions);
-        pending.appendChild(row);
-      });
-      box.appendChild(dCard('تحويلات بانتظار التأكيد', 'الخطة تتفعل فقط بعد وصول المبلغ.', 'check', [pending]));
-    }
-
-    if (!servers.length) {
-      box.appendChild(el('div', { class: 'd-empty', text: 'ما في سيرفرات معروفة بعد. حدّث بعد المزامنة.' }));
-      return;
-    }
-
-    const list = el('div', { class: 'd-prem-list' });
-    servers.forEach((server) => {
-      const row = el('div', { class: `d-prem-row${server.requested ? ' is-request' : ''}${server.active ? ' is-on' : ''}` });
-      const info = el('div', { class: 'd-prem-who' });
-      info.appendChild(el('b', { text: server.name || 'سيرفر', 'data-nl-raw': '1' }));
-      const bits = [];
-      if (state.guildId && server.guildId === state.guildId) bits.push('هذا السيرفر');
-      bits.push(server.statusLabel || 'مجاني');
-      if (server.planLabel) bits.push(server.planLabel);
-      if (server.untilLabel) bits.push(server.untilLabel);
-      if (server.members != null && Number.isFinite(Number(server.members))) {
-        bits.push(`${Number(server.members).toLocaleString(numLoc())} عضو`);
-      }
-      info.appendChild(el('span', { text: bits.filter(Boolean).join(' · ') }));
-      if (server.note) info.appendChild(el('span', { class: 'd-prem-note', text: server.note, 'data-nl-raw': '1' }));
-      row.appendChild(info);
-      const actions = el('div', { class: 'd-prem-actions' });
-      [
-        ['g2m', 'درجة ٢ شهر', '4 يورو · 30 يوم'],
-        ['g2y', 'درجة ٢ سنة', '25 يورو · 365 يوم'],
-        ['g1m', 'درجة ١ شهر', '7 يورو · 30 يوم'],
-        ['g1y', 'درجة ١ سنة', '60 يورو · 365 يوم'],
-        ['lifetime', 'دائم', 'بلا تاريخ انتهاء، وما ينقصر'],
-      ].forEach(([plan, label, title]) => {
-        const btn = el('button', { class: 'd-btn sm', type: 'button', text: label, title });
-        btn.addEventListener('click', () => actPremium(server.guildId, { action: 'grant', plan }));
-        actions.appendChild(btn);
-      });
-      if (server.active) {
-        const cancel = el('button', { class: 'd-btn sm ghost', type: 'button', text: 'إلغاء البريميوم' });
-        cancel.addEventListener('click', () => actPremium(server.guildId, { action: 'revoke' }));
-        actions.appendChild(cancel);
-      }
-      row.appendChild(actions);
-      list.appendChild(row);
-    });
-    box.appendChild(list);
-  } catch (err) {
-    box.innerHTML = '';
-    box.appendChild(el('div', { class: 'd-empty', text: err.message || 'تعذّر تحميل الاشتراكات.' }));
-  }
-}
-
-async function startCheckout(offer) {
-  try {
-    const data = await api(`/guilds/${state.guildId}/premium/checkout`, { method: 'POST', body: { offer } });
-    state.premium = data.premium || state.premium;
-    toast(data.message || 'انعمل طلب التحويل.');
-    renderSection('premium');
-    paintPremiumBadge();
-  } catch (err) {
-    toast(err.message || 'تعذّر بدء التحويل.', true);
-  }
-}
-
-async function sendProof(orderId, proof) {
-  try {
-    const data = await api(`/guilds/${state.guildId}/premium/proof`, { method: 'POST', body: { orderId, proof } });
-    state.premium = data.premium || state.premium;
-    toast(data.message || 'وصل رقم العملية.');
-    renderSection('premium');
-  } catch (err) {
-    toast(err.message || 'تعذّر إرسال الإثبات.', true);
-  }
-}
-
-async function actPremium(guildId, body) {
-  try {
-    const data = await api('/admin/premium', { method: 'POST', body: { ...body, guildId } });
-    toast(data.message || 'تم.');
-    if (state.guildId && state.guildId === guildId && data.premium) {
-      state.premium = data.premium;
-      paintPremiumBadge();
-    }
-    if (state.section === 'subscriptions') renderSection('subscriptions');
-    else if (state.section === 'premium') renderSection('premium');
-    paintRequestBadgeFromApi();
-  } catch (err) {
-    toast(err.message || 'تعذّر تنفيذ الطلب.', true);
-  }
-}
-
 /* ============================ الإقلاع ============================ */
 async function boot() {
-  hideGuildFromAddressBar();
   const root = document.getElementById('app');
-  if (!root) return;
+  state.guildId = root.dataset.guild;
   root.innerHTML = '<div class="d-loading"><div class="d-spinner"></div><div>جارٍ تحميل إعدادات السيرفر…</div></div>';
-  watchVisibleIds(document.body);
 
   try {
-    state.guildId = await resolveGuildId(root);
     const data = await api(`/guilds/${state.guildId}`);
-    if (data.viewer?.locked) {
-      root.innerHTML = `<div class="d-loading"><div class="d-empty-ico">${ic('lock', 34)}</div><div>بيانات السيرفر والأعضاء ما تنعرض إلا بعد تسجيل الدخول.</div><a class="d-btn primary" href="/auth/login">تسجيل الدخول</a></div>`;
-      return;
-    }
     state.viewer = data.viewer || null;
     state.canEdit = data.viewer ? Boolean(data.viewer.canEdit) : root.dataset.edit !== '0';
     /* حالة المالك/المشاهدة فقط: تأتي مع بيانات السيرفر، وإن غابت نقرأها من الصفحة */
@@ -2025,7 +3954,6 @@ async function boot() {
     state.guild = data.guild;
     state.stats = data.stats;
     state.daily = data.daily || [];
-    state.premium = data.premium || null;
     state.meta = data.meta;
     state.sync = data.sync || null;
     state.dirty = false;
@@ -2045,7 +3973,7 @@ async function boot() {
           class: 'd-readonly-note',
           html:
             state.viewer && state.viewer.loginRequired
-              ? `${ic('shield', 17)} <b>الوصول مقيّد</b> — ${esc(state.viewer.reason || 'تحتاج تسجيل دخول بحساب Discord، وموافقة مالك الموقع.')}
+              ? `${ic('shield', 17)} <b>الوصول مقيّد</b> — ${esc(state.viewer.reason || 'تحتاج تسجيل دخول بحساب Discord والرول المطلوب.')}
                  <a class="d-btn primary sm" href="/auth/login">${ic('login', 15)} تسجيل الدخول</a>`
               : `${ic('shield', 17)} <b>عرض عام</b> — تقدر تتصفّح الإعدادات بحرية، أما التعديل فيحتاج تسجيل دخول بحساب Discord.
                  <a class="d-btn primary sm" href="/auth/login">${ic('login', 15)} تسجيل الدخول</a>`,
@@ -2054,20 +3982,15 @@ async function boot() {
     }
     const { side, items } = buildSidebar();
     window.__dashItems = items;
-    shell.appendChild(buildHeader());
     shell.appendChild(side);
 
     const main = el('div', { class: 'd-main' });
+    main.appendChild(buildHeader());
     main.appendChild(buildSyncBar());
     const content = el('div', { class: 'd-content', id: 'd-content' });
     main.appendChild(content);
     shell.appendChild(main);
     root.appendChild(shell);
-    paintPremiumBadge();
-    paintRequestBadgeFromApi();
-    const backdrop = el('div', { class: 'd-side-backdrop' });
-    backdrop.addEventListener('click', closeSide);
-    root.appendChild(backdrop);
 
     /* شريط الحفظ (للمسجّلين فقط) */
     if (state.canEdit) {
@@ -2098,11 +4021,9 @@ async function boot() {
 
     /* لو الرابط فيه #قسم (مثل ما يرسله البوت) نفتحه مباشرة */
     const wanted = (window.location.hash || '').replace('#', '');
-    if (wanted && SECTIONS[wanted] && !(SECTIONS[wanted].ownerOnly && !state.isOwner)) state.section = wanted;
+    if (wanted && SECTIONS[wanted]) state.section = wanted;
 
     items.forEach(({ item }) => item.classList.toggle('active', item.dataset.id === state.section));
-    if (drawerMode()) closeSide();
-    bindMobileShell();
     renderSection(state.section);
     updateDots(items);
     connectLive();
@@ -2111,5 +4032,4 @@ async function boot() {
   }
 }
 
-hideGuildFromAddressBar();
 document.addEventListener('DOMContentLoaded', boot);
