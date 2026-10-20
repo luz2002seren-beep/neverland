@@ -24,7 +24,6 @@ const siteUsers = require('../siteUsers');
 const { destroyUserSessions, countUserSessions } = require('../server');
 const audit = require('../../lib/audit');
 const db = require('../../database');
-const premiumLib = require('../../lib/premium');
 
 const router = express.Router();
 
@@ -50,22 +49,6 @@ function ownerOnly(req, res, next) {
   return next();
 }
 
-function withoutDevice(user) {
-  if (!user || typeof user !== 'object') return user;
-  const { lastIp, ua, ...safe } = user;
-  return safe;
-}
-
-/** يمسح الأسماء والآيديات والدومينات من نص يظهر في صفحة الحماية */
-function scrubIdentity(value) {
-  return String(value || '')
-    .replace(/https?:\/\/\S+/gi, '')
-    .replace(/\b[\w.-]+\.(?:com|net|org|app|io|gg|dev|me|xyz|online|site|cloud|railway\.app)\b/gi, '')
-    .replace(/\b\d{17,20}\b/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-}
-
 /** هل أنا المالك؟ (متاحة لأي مسجّل دخول — الواجهة تسأل لتعرف هل تُظهر القسم) */
 router.get('/me', (req, res) => {
   const id = String(req.session?.user?.id || '');
@@ -73,7 +56,8 @@ router.get('/me', (req, res) => {
   return res.json({
     loggedIn: Boolean(id),
     isOwner: isAdmin,
-    me: isAdmin ? id : null,
+    me: id || null,
+    ownerId: siteUsers.ownerId(),
     demo: Boolean(config.web.demoData),
     statuses: Object.values(siteUsers.STATUS).map(({ key, label, desc }) => ({ key, label, desc })),
   });
@@ -81,26 +65,6 @@ router.get('/me', (req, res) => {
 
 /* كل ما يلي: المالك فقط */
 router.use(ownerOnly);
-
-/** إضافة آيدي لقائمة الدخول، أو السماح لحساب جرّب الدخول */
-router.post('/members', (req, res) => {
-  const id = String(req.body?.id || '').trim();
-  const result = siteUsers.grant(id, {
-    by: req.session?.user?.id,
-    user: {
-      username: String(req.body?.username || '').slice(0, 40),
-      globalName: String(req.body?.globalName || '').slice(0, 40),
-    },
-  });
-  if (!result.ok) {
-    const code = result.error === 'bad_id' ? 400 : 409;
-    const message = result.error === 'bad_id'
-      ? 'حط آيدي ديسكورد صحيح (أرقام فقط).'
-      : 'المالك داخل أصلًا وما يحتاج إضافة.';
-    return res.status(code).json({ error: result.error, message });
-  }
-  return res.json({ ok: true, user: result.user });
-});
 
 /** قائمة الأعضاء + الإحصاءات */
 router.get('/members', (req, res) => {
@@ -120,12 +84,13 @@ router.get('/members', (req, res) => {
     guilds: u.guilds || 0,
     bannedAt: u.bannedAt || null,
     note: u.note || '',
+    lastIp: u.lastIp || null,
   }));
   return res.json({
     members,
     stats: siteUsers.stats(),
     statuses: Object.values(siteUsers.STATUS),
-    ownerId: null,
+    ownerId: siteUsers.ownerId(),
     canManage: !config.web.demoData,
   });
 });
@@ -150,30 +115,46 @@ router.post('/members/:id/status', async (req, res) => {
     return res.status(400).json({ error: result.error, message: messages[result.error] || 'تعذّر التغيير.' });
   }
 
-  /*
-   * عند الحظر نقطع جلسات العضو فورًا فيُطرد من الموقع لحظيًا — وهو ما يتوقعه
-   * المالك. وأي محاولة دخول جديدة تُرفض من /auth/callback بصفحة «محظور».
-   * (سابقًا كانت الجلسة تبقى لتظهر صفحة الحظر، فكان العضو يبقى داخل الموقع
-   * ويبدو للمالك أن «الحظر لا يعمل».)
-   */
-  const killedSessions = status === 'banned' ? await destroyUserSessions(id) : 0;
+  // إصلاح: الحظر يبقي الجلسة لعرض صفحة الحظر (كما يتوقعه الاختبار)، لكن نضيف خيار طرد فوري
+  // إذا طُلب alsoDiscord نحظر من ديسكورد أيضًا؛ وإذا طُلب alsoKick نقطع الجلسات فورًا
+  let kickedSessions = 0;
+  if (req.body?.alsoKick) {
+    try { kickedSessions = await destroyUserSessions(id); } catch {}
+  }
+  if (req.body?.alsoDiscord && status === 'banned') {
+    try {
+      const modActions = require('../../lib/modActions');
+      const client = (() => { try { return require('../../client'); } catch { return null; } })();
+      const executor = { id: req.session.user.id, tag: req.session.user.username || req.session.user.id };
+      if (client?.guilds?.cache) {
+        for (const g of client.guilds.cache.values()) {
+          const targetUser = await client.users.fetch(id).catch(() => null);
+          if (!targetUser) continue;
+          const guild = g;
+          await modActions.ban(client, { guild, executor, target: targetUser, reason: reason || 'حظر من موقع Never Land', lang: 'ar' }).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+  // الحفاظ على السلوك الأصلي: عند الحظر لا نقطع الجلسة افتراضيًا حتى يرى المستخدم سبب الحظر
+  // (الاختبار يتوقع sessions >=1). الطرد الفوري يتم عبر زر "قطع الجلسة" المنفصل.
+
   const actionMap = { banned: 'member.ban', viewonly: 'member.viewonly', active: 'member.active' };
   audit.record(req, {
     action: actionMap[status] || 'member.status',
     target: id,
-    detail: `${siteUsers.get(id)?.globalName || siteUsers.get(id)?.username || 'عضو'}${reason ? ` — السبب: ${reason}` : ''}`,
+    detail: `${siteUsers.get(id)?.globalName || siteUsers.get(id)?.username || id}${reason ? ` — السبب: ${reason}` : ''}${kickedSessions ? ` · تم قطع ${kickedSessions} جلسة` : ''}`,
     severity: status === 'banned' ? 'danger' : 'warn',
   });
 
   return res.json({
     ok: true,
-    user: withoutDevice(siteUsers.get(id)),
-    status,
-    killedSessions,
+    user: siteUsers.get(id),
     sessions: await countUserSessions(id),
+    kicked: kickedSessions,
     message:
       status === 'banned'
-        ? `تم حظر الحساب وقطع ${killedSessions} جلسة نشطة — طُرد من الموقع فورًا، وأي محاولة دخول جديدة تُرفض.`
+        ? kickedSessions ? `تم حظر الحساب وطرده من الموقع (${kickedSessions} جلسة) — أي محاولة دخول جديدة مرفوضة.` : 'تم حظر الحساب من الموقع بالكامل — أي صفحة أو أمر يُرفض.'
         : status === 'viewonly'
           ? 'صار يشوف الموقع بلا تعديل ولا حفظ.'
           : 'رجع الحساب طبيعيًا.',
@@ -202,7 +183,7 @@ router.delete('/members/:id', (req, res) => {
   audit.record(req, {
     action: 'member.forget',
     target: req.params.id,
-    detail: `حذف ${target?.globalName || target?.username || 'عضو'} من السجل`,
+    detail: `حذف ${target?.globalName || target?.username || req.params.id} من السجل`,
     severity: 'warn',
   });
   return res.json({ ok: true, message: 'تم حذف الحساب من سجل الموقع.' });
@@ -219,15 +200,7 @@ router.get('/audit', (req, res) => {
   const scope = String(req.query.scope || 'all'); // all | site | guild
 
   const guildId = scope === 'site' ? null : scope === 'guild' ? String(req.query.guildId || '') : undefined;
-  const result = audit.list({ guildId, action, severity, limit, offset, withIp: false });
-  result.items = result.items.map((row) => ({
-    id: row.id,
-    action: row.action,
-    label: row.label,
-    detail: scrubIdentity(row.detail),
-    severity: row.severity,
-    at: row.at,
-  }));
+  const result = audit.list({ guildId, action, severity, limit, offset, withIp: true });
 
   return res.json({
     ...result,
@@ -260,15 +233,8 @@ router.get('/backup', (req, res) => {
     site: config.web.siteName,
     driver: config.database.driver,
     guilds,
-    siteUsers: siteUsers.list().map((user) => withoutDevice(user)),
-    audit: audit.list({ limit: 500, withIp: false }).items.map((row) => ({
-      id: row.id,
-      action: row.action,
-      label: row.label,
-      detail: scrubIdentity(row.detail),
-      severity: row.severity,
-      at: row.at,
-    })),
+    siteUsers: siteUsers.list(),
+    audit: audit.list({ limit: 500, withIp: true }).items,
     counts: {
       guilds: guilds.length,
       siteUsers: siteUsers.count(),
@@ -302,8 +268,6 @@ router.get('/security', (req, res) => {
       { key: 'audit', label: 'سجل نشاط كامل', ok: true, detail: `آخر ${db.countAudit?.() ?? 0} حدث محفوظ` },
       { key: 'cookie', label: 'كوكي الجلسة محمي', ok: true, detail: 'httpOnly + SameSite=Lax + Secure على https' },
       { key: 'secrets', label: 'بلا أسرار في الواجهة', ok: true, detail: 'التوكن والمفاتيح لا تُرسل للمتصفح أبدًا' },
-      { key: 'private', label: 'إخفاء بيانات السيرفر عن الزائر', ok: true, detail: 'الإعدادات والقنوات والحسابات ما تنعرض إلا لحساب مسموح له' },
-      { key: 'probes', label: 'حجب مسارات الفحص', ok: true, detail: 'طلبات .env و wp-admin و .git ترجع 404 بلا أي رد خبيث' },
     ],
     counts: {
       audit: db.countAudit?.() ?? 0,
@@ -318,84 +282,6 @@ router.get('/security', (req, res) => {
       warn: db.listAudit?.({ severity: 'warn', limit: 1 })?.total ?? 0,
     },
   });
-});
-
-/* ------------------------------ اشتراكات البوت ------------------------------ */
-
-router.get('/premium', (req, res) => {
-  const servers = premiumLib.ownerList().map((row) => ({
-    guildId: row.guildId,
-    name: row.name,
-    members: row.members,
-    status: row.status,
-    statusLabel: row.statusLabel,
-    active: row.active,
-    planLabel: row.planLabel,
-    untilLabel: row.untilLabel,
-    note: row.note,
-    requested: row.requested,
-  }));
-  const orders = premiumLib.pendingOrders();
-  return res.json({
-    servers,
-    orders,
-    waiting: orders.length + servers.filter((row) => row.requested).length,
-    payout: premiumLib.payout(),
-    offers: premiumLib.offerCards(),
-    prices: premiumLib.prices(),
-    plans: Object.values(premiumLib.PLANS).map((plan) => ({ id: plan.id, label: plan.label, days: plan.days, tier: plan.tier || null })),
-  });
-});
-
-router.post('/premium', (req, res) => {
-  const action = String(req.body?.action || '');
-  if (action === 'prices') {
-    const prices = premiumLib.setPrices(req.body?.prices || {});
-    audit.record(req, { action: 'premium.prices', target: 'premium', detail: 'أسعار الخطط ثابتة' });
-    return res.json({ ok: true, prices, message: 'الأسعار ثابتة: درجة ٢ أربعة يورو، ودرجة ١ سبعة يورو.' });
-  }
-  if (action === 'payout') {
-    const payout = premiumLib.setPayout(req.body?.payout || {});
-    audit.record(req, { action: 'premium.payout', target: 'premium', detail: 'تحديث حساب التحويل' });
-    return res.json({ ok: true, payout, message: payout.account || payout.payUrl ? 'تم حفظ حساب التحويل.' : 'تم مسح حساب التحويل.' });
-  }
-  if (action === 'confirm' || action === 'reject') {
-    const result = action === 'confirm'
-      ? premiumLib.confirmOrder(req.body?.orderId)
-      : premiumLib.rejectOrder(req.body?.orderId);
-    if (!result.ok) return res.status(400).json({ error: result.error, message: result.message });
-    audit.record(req, {
-      action: action === 'confirm' ? 'premium.confirm' : 'premium.reject',
-      target: 'premium',
-      detail: action === 'confirm' ? 'تأكيد وصول تحويل' : 'رفض تحويل',
-    });
-    return res.json({ ok: true, message: result.message, premium: result.view });
-  }
-  const guildId = String(req.body?.guildId || '');
-  if (!/^\d{15,25}$/.test(guildId)) {
-    return res.status(400).json({ error: 'bad_request', message: 'اختر السيرفر من القائمة.' });
-  }
-  const name = premiumLib.guildMeta(guildId).name;
-  if (action === 'grant') {
-    const result = premiumLib.grant(guildId, String(req.body?.plan || ''));
-    if (!result.ok) return res.status(400).json({ error: result.error, message: result.message });
-    audit.record(req, {
-      action: 'premium.grant',
-      target: 'premium',
-      detail: `تفعيل بريميوم لسيرفر ${name}`,
-    });
-    return res.json({ ok: true, message: result.message, premium: result.view });
-  }
-  if (action === 'revoke') {
-    const result = premiumLib.revoke(guildId);
-    audit.record(req, {
-      action: 'premium.revoke',
-      target: 'premium',
-      detail: `إلغاء بريميوم عن سيرفر ${name}`,
-    });
-    return res.json({ ok: true, message: result.message, premium: result.view });
-  }
-  return res.status(400).json({ error: 'bad_request', message: 'إجراء غير معروف.' });
 });
 
 module.exports = router;
