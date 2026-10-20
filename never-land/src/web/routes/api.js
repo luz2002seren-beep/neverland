@@ -32,7 +32,6 @@ const { mergeSettings } = require('../../database/defaults');
 const sync = require('../../sync');
 const webGuilds = require('../guilds');
 const { guildIconUrl, initials } = require('../../lib/discordIcon');
-const premiumLib = require('../../lib/premium');
 
 const router = express.Router();
 
@@ -58,7 +57,7 @@ function safeClient() {
   }
 }
 
-/** هل المستخدم يملك صلاحية الوصول لهذا السيرفر؟ (مالك/إدارة/قائمة الدخول) */
+/** هل المستخدم يملك صلاحية الوصول لهذا السيرفر؟ (مالك/إدارة/الرول المطلوب) */
 async function canAccess(req, guildId) {
   return webGuilds.canAccessGuild(req, guildId);
 }
@@ -109,20 +108,24 @@ router.use(async (req, res, next) => {
     if (!siteUsers.isOwner(req.session.user.id) && siteUsers.isBanned(req.session.user.id)) {
       return res.status(403).json({ error: 'banned', message: 'حسابك محظور من الموقع.' });
     }
-    if (!siteUsers.isAllowed(req.session.user.id)) {
-      return res.status(403).json({
-        error: 'not_allowed',
-        message: 'حسابك مسجّل وبانتظار ما يسمح لك مالك الموقع بالدخول.',
-      });
-    }
-    if (siteUsers.isViewOnly(req.session.user.id)) {
+    // المشاهدة فقط: القراءة مسموحة والكتابة ممنوعة
+    if (!siteUsers.isOwner(req.session.user.id) && siteUsers.isViewOnly(req.session.user.id)) {
       req.roleOk = !isWrite;
       req.viewOnly = true;
       req.roleResult = { ok: !isWrite, reason: 'view_only', checked: true };
       return next();
     }
+    const result = await access.checkAccess(req.session, req.session.user.id);
+    req.roleResult = result;
+    if (!result.ok) {
+      return res.status(403).json({
+        error: 'role_required',
+        message: access.explain(result),
+        requiredRoleId: config.web.requiredRoleId,
+        reason: result.reason,
+      });
+    }
     req.roleOk = true;
-    req.roleResult = { ok: true, reason: 'allowed', checked: true };
     return next();
   }
 
@@ -135,61 +138,21 @@ router.use(async (req, res, next) => {
 });
 
 /* ------------------------------------ بيانات المستخدم ------------------------------------ */
-function canSeePrivate(req) {
-  if (config.web.demoData) return true;
-  const id = req.session?.user?.id;
-  if (!id) return false;
-  return siteUsers.isAllowed(id) || Boolean(req.roleOk);
-}
-
-function publicSync(status) {
-  return {
-    ok: Boolean(status?.ok),
-    botOnline: Boolean(status?.botOnline),
-    at: status?.at || null,
-  };
-}
-
 router.get('/me', async (req, res) => {
-  const trusted = canSeePrivate(req);
-  const status = sync.getStatus();
   res.json({
     user: currentUser(req),
     guilds: await availableGuilds(req),
     loginRequired: config.web.loginRequired,
-    requiredRoleId: trusted ? (config.web.requiredRoleId || null) : null,
+    requiredRoleId: config.web.requiredRoleId || null,
     roleOk: config.web.demoData ? true : Boolean(req.roleOk),
     isOwner: Boolean(req.session?.user && siteUsers.isOwner(req.session.user.id)),
     viewOnly: Boolean(req.session?.user && siteUsers.isViewOnly(req.session.user.id)),
-    sync: trusted ? status : publicSync(status),
+    sync: sync.getStatus(),
   });
 });
 
 router.get('/guilds', async (req, res) => {
   res.json({ guilds: await availableGuilds(req) });
-});
-
-/** السيرفر المفتوح في الجلسة — الرقم ما ينحط في ملف الصفحة */
-router.get('/active-guild', async (req, res) => {
-  const guildId = String(req.session?.activeGuildId || '');
-  if (!/^\d{15,25}$/.test(guildId)) return res.status(404).json({ error: 'none' });
-  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
-  return res.json({ id: guildId });
-});
-
-/** صورة السيرفر المفتوح بلا رقم في رابط الصفحة */
-router.get('/guild-icon', async (req, res) => {
-  const guildId = String(req.session?.activeGuildId || '');
-  if (!/^\d{15,25}$/.test(guildId)) return res.status(404).end();
-  if (!(await canAccess(req, guildId))) return res.status(403).end();
-  const client = safeClient();
-  const discordGuild = client?.guilds?.cache?.get(guildId);
-  const snapshot = sync.getSnapshot(guildId);
-  const icon = discordGuild?.icon || snapshot?.icon || null;
-  const size = Math.min(4096, Math.max(16, Number(req.query.size) || 128));
-  const url = guildIconUrl(guildId, icon, size);
-  if (!url) return res.status(404).end();
-  return res.redirect(url);
 });
 
 /* ------------------------------------ بيانات سيرفر ------------------------------------ */
@@ -220,35 +183,23 @@ router.get('/guilds/:guildId', async (req, res) => {
 
   const loggingSystem = require('../../systems/logging');
 
-  const trusted = canSeePrivate(req);
-  const payload = {
+  return res.json({
     guild: {
       id: guildId,
       name: discordGuild?.name ?? snapshot?.name ?? guildId,
-      icon: (discordGuild?.icon || snapshot?.icon) ? '/api/guild-icon?size=128' : null,
+      icon: guildIconUrl(guildId, discordGuild?.iconURL?.({ size: 128, extension: 'png' }) || discordGuild?.icon) || guildIconUrl(guildId, snapshot?.icon) || null,
       memberCount: discordGuild?.memberCount ?? snapshot?.memberCount ?? null,
-      ownerId: trusted ? (discordGuild?.ownerId ?? snapshot?.ownerId ?? null) : null,
+      ownerId: discordGuild?.ownerId ?? snapshot?.ownerId ?? null,
       botPresent: Boolean(discordGuild) || Boolean(snapshot),
       botOnline: Boolean(client?.isReady?.()),
-      createdAt: trusted ? (discordGuild?.createdTimestamp ?? snapshot?.createdAt ?? null) : null,
-      syncedAt: trusted ? (snapshot?.syncedAt ?? null) : null,
-      syncSource: trusted ? (snapshot?.source ?? null) : null,
+      createdAt: discordGuild?.createdTimestamp ?? snapshot?.createdAt ?? null,
+      syncedAt: snapshot?.syncedAt ?? null,
+      syncSource: snapshot?.source ?? null,
     },
     sync: sync.getStatus(),
     settings: guild.settings,
     stats: { ...stats, discordMembers: discordGuild?.memberCount ?? snapshot?.memberCount ?? null, botReady: Boolean(client?.isReady?.()) },
-    // سلسلة ١٤ يومًا كاملة (تعبئة الأصفار للأيام بلا نشاط) حتى يرسم المخطط
-    // ١٤ عمودًا حقيقيًا بدل عمودين أو أربعة لأيام النشاط فقط.
-    daily: (() => {
-      const rows = new Map((db.getDailyStats(guildId, 14) || []).map((r) => [String(r.day), r]));
-      const out = [];
-      for (let i = 13; i >= 0; i--) {
-        const key = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
-        const r = rows.get(key) || {};
-        out.push({ day: key, messages: r.messages || 0, joins: r.joins || 0, leaves: r.leaves || 0 });
-      }
-      return out;
-    })(),
+    daily: db.getDailyStats(guildId, 14),
     meta: {
       channels,
       roles,
@@ -268,7 +219,6 @@ router.get('/guilds/:guildId', async (req, res) => {
       })(),
       autolineStyles: Object.entries(require('../../systems/autoline').GIF_STYLES).map(([key, meta]) => ({ key, ...meta })),
     },
-    premium: premiumLib.publicView(guildId),
     viewer: {
       canEdit: canEdit(req),
       isOwner: Boolean(req.session?.user && siteUsers.isOwner(req.session.user.id)),
@@ -277,38 +227,11 @@ router.get('/guilds/:guildId', async (req, res) => {
       demo: config.web.demoData,
       publicAccess: config.web.publicAccess,
       loginRequired: config.web.loginRequired,
-      requiredRoleId: trusted ? (config.web.requiredRoleId || null) : null,
-      roleReason: trusted ? (req.roleResult?.reason || null) : null,
-      roleMessage: trusted && req.roleResult && !req.roleResult.ok ? access.explain(req.roleResult) : null,
-      locked: !trusted,
+      requiredRoleId: config.web.requiredRoleId || null,
+      roleReason: req.roleResult?.reason || null,
+      roleMessage: req.roleResult && !req.roleResult.ok ? access.explain(req.roleResult) : null,
     },
-  };
-  if (!trusted) {
-    payload.settings = {};
-    payload.stats = {};
-    payload.daily = [];
-    payload.meta = {
-      channels: [],
-      roles: [],
-      members: 0,
-      emojis: [],
-      logGroups: payload.meta.logGroups,
-      logEvents: payload.meta.logEvents,
-      cardAvailable: false,
-      frameCardAvailable: false,
-      autolineStyles: [],
-    };
-    payload.sync = publicSync(payload.sync);
-  }
-  return res.json(payload);
-});
-
-/* بيانات السيرفر الداخلية (قنوات، رتب، سجل، أعضاء) ما تنعرض لزائر */
-router.use((req, res, next) => {
-  if (!['GET', 'HEAD'].includes(req.method)) return next();
-  if (!/^\/guilds\/[^/]+\/.+/.test(req.path || '')) return next();
-  if (canSeePrivate(req)) return next();
-  return res.status(403).json({ error: 'login_required', message: 'سجّل الدخول لعرض بيانات السيرفر.' });
+  });
 });
 
 /* ---------------------------------- شكل الردود ---------------------------------- */
@@ -471,59 +394,15 @@ router.post('/guilds/:guildId/settings', async (req, res) => {
   return res.json({ ok: true, settings: db.getGuild(guildId).settings, savedAt: Date.now() });
 });
 
-/* ------------------------------- اشتراك البوت ------------------------------- */
-
-router.post('/guilds/:guildId/premium/request', async (req, res) => {
-  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
-  const { guildId } = req.params;
-  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
-  const result = premiumLib.request(guildId, premiumLib.hideIds(req.body?.note || ''));
-  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
-  audit.guild(req, guildId, {
-    action: 'premium.request',
-    target: 'premium',
-    detail: 'طلب اشتراك بريميوم',
-  });
-  return res.json({ ok: true, message: result.message, premium: result.view });
-});
-
-router.post('/guilds/:guildId/premium/checkout', async (req, res) => {
-  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
-  const { guildId } = req.params;
-  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
-  const result = premiumLib.checkout(guildId, String(req.body?.offer || ''));
-  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
-  audit.guild(req, guildId, {
-    action: 'premium.checkout',
-    target: 'premium',
-    detail: 'طلب تحويل لاشتراك البوت',
-  });
-  return res.json({ ok: true, message: result.message, premium: result.view });
-});
-
-router.post('/guilds/:guildId/premium/proof', async (req, res) => {
-  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord.' });
-  const { guildId } = req.params;
-  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
-  const result = premiumLib.submitProof(guildId, req.body?.orderId, req.body?.proof);
-  if (!result.ok) return res.status(400).json({ error: result.error, message: result.message, premium: result.view });
-  audit.guild(req, guildId, {
-    action: 'premium.proof',
-    target: 'premium',
-    detail: 'إثبات تحويل لاشتراك البوت',
-  });
-  return res.json({ ok: true, message: result.message, premium: result.view });
-});
-
 /* ------------------------------- معاينة صورة الترحيب ------------------------------- */
 
 /**
  * يرجّع صورة الترحيب (PNG) حسب إعدادات السيرفر الحالية — تُعرض مباشرة في اللوحة.
  * الصورة تُبنى بنفس كود البوت تمامًا (src/lib/welcomeCard.js).
  */
-async function sendWelcomeCard(req, res, next) {
+router.get('/guilds/:guildId/welcome/card', async (req, res, next) => {
   try {
-  const guildId = String(req.params.guildId || req.session?.activeGuildId || '');
+  const { guildId } = req.params;
   if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden' });
 
   require('../../systems/welcome').ensureStyle(guildId);
@@ -600,9 +479,7 @@ async function sendWelcomeCard(req, res, next) {
   } catch (err) {
     return next(err);
   }
-}
-router.get('/welcome-card', sendWelcomeCard);
-router.get('/guilds/:guildId/welcome/card', sendWelcomeCard);
+});
 
 /* ------------------------------- مكتبة الأوامر ------------------------------- */
 
@@ -988,6 +865,94 @@ router.get('/guilds/:guildId/members', async (req, res) => {
   return res.json({ members });
 });
 
+/* ------------------------- إشراف ديسكورد من الموقع (بان/كيك/تايم أوت) ------------------------- */
+router.post('/guilds/:guildId/moderation/:action', async (req, res) => {
+  if (!canEdit(req)) return res.status(403).json({ error: 'readonly', message: 'هذا الإجراء يحتاج تسجيل دخول Discord وصلاحية تعديل.' });
+  const { guildId, action } = req.params;
+  if (!(await canAccess(req, guildId))) return res.status(403).json({ error: 'forbidden', message: 'ما عندك صلاحية لهذا السيرفر.' });
+  const allowed = ['ban', 'kick', 'timeout', 'untimeout', 'unban', 'warn'];
+  if (!allowed.includes(action)) return res.status(400).json({ error: 'bad_action', message: 'إجراء غير معروف.' });
+
+  const client = safeClient();
+  const guild = client?.guilds?.cache?.get(guildId);
+  if (!guild) return res.status(409).json({ ok: false, message: 'البوت غير متصل بديسكورد حاليًا — لا يمكن تنفيذ العقوبة.' });
+
+  const targetId = String(req.body?.targetId || req.body?.userId || '').trim();
+  if (!/^\d{15,25}$/.test(targetId)) return res.status(400).json({ ok: false, message: 'آيدي العضو غير صحيح.' });
+
+  const reason = String(req.body?.reason || 'عقوبة من لوحة التحكم').slice(0, 400);
+  const rawDuration = String(req.body?.duration || req.body?.durationMs || '').trim();
+  const { parseDuration } = require('../../lib/utils');
+  let durationMs = null;
+  if (rawDuration) {
+    if (/^\d+$/.test(rawDuration)) durationMs = Number(rawDuration) * 1000;
+    else durationMs = parseDuration(rawDuration);
+    if (!durationMs) return res.status(400).json({ ok: false, message: 'صيغة المدة غير صحيحة (مثال: 10m · 2h · 7d).' });
+  }
+
+  const modActions = require('../../lib/modActions');
+  const executor = { id: req.session?.user?.id || 'dashboard', tag: req.session?.user?.username || req.session?.user?.globalName || 'لوحة التحكم' };
+
+  // جلب الهدف
+  let target = null;
+  let user = null;
+  try {
+    if (['ban', 'unban'].includes(action)) {
+      // الحظر/فك الحظر بالآيدي يشتغل حتى لو خارج السيرفر
+      user = await client.users.fetch(targetId).catch(() => null);
+      const member = await guild.members.fetch(targetId).catch(() => null);
+      target = member || user;
+      if (!target) return res.status(404).json({ ok: false, message: 'ما قدرت ألاقي المستخدم بهذا الآيدي.' });
+    } else {
+      target = await guild.members.fetch(targetId).catch(() => null);
+      if (!target) return res.status(404).json({ ok: false, message: 'العضو غير موجود في السيرفر (الطرد والإسكات يحتاج وجود العضو). استخدم الحظر للعضو الخارجي.' });
+    }
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: `فشل جلب العضو: ${e.message}` });
+  }
+
+  // استدعاء طبقة العقوبات الموحدة (فحص هرمية + تنفيذ + سجل)
+  try {
+    let result = null;
+    if (action === 'ban') {
+      const deleteDays = Math.min(7, Math.max(0, Number(req.body?.deleteDays ?? 0)));
+      result = await modActions.ban(client, { guild, executor, target, reason, lang: 'ar', deleteMessageSeconds: deleteDays * 86400, durationMs: durationMs || null });
+    } else if (action === 'kick') {
+      result = await modActions.kick(client, { guild, executor, target, reason, lang: 'ar' });
+    } else if (action === 'timeout') {
+      if (!durationMs) return res.status(400).json({ ok: false, message: 'حدد مدة الإسكات (مثال: 10m · 1h · 7d).' });
+      result = await modActions.timeout(client, { guild, executor, target, reason, durationMs, lang: 'ar' });
+    } else if (action === 'untimeout') {
+      result = await modActions.untimeout(client, { guild, executor, target, reason });
+    } else if (action === 'unban') {
+      result = await modActions.unban(client, { guild, executor, userId: targetId, reason });
+    } else if (action === 'warn') {
+      result = await modActions.warn(client, { guild, executor, target, reason, lang: 'ar' });
+    }
+
+    if (!result?.ok) {
+      const failMsg = modActions.failure('ar', result?.reason) || 'فشل تنفيذ العقوبة.';
+      return res.status(403).json({ ok: false, message: failMsg, reason: result?.reason });
+    }
+
+    audit.guild(req, guildId, {
+      action: `moderation.${action}`,
+      target: targetId,
+      detail: `${action} · ${target?.user?.tag || targetId} · السبب: ${reason}${result.caseId ? ` · حالة #${result.caseId}` : ''}`,
+      severity: ['ban', 'kick'].includes(action) ? 'danger' : 'warn',
+    });
+
+    return res.json({ ok: true, message: action === 'ban' ? `🔨 تم حظر <@${targetId}>${result.caseId ? ` · حالة #${result.caseId}` : ''}` : action === 'kick' ? `👢 تم طرد <@${targetId}>` : action === 'timeout' ? `⏱️ تم إسكات <@${targetId}>` : `✅ تم تنفيذ ${action} على <@${targetId}>`, caseId: result.caseId || null, result });
+  } catch (err) {
+    // كشف حجب Cloudflare 429 من ديسكورد
+    const msg = String(err?.message || err);
+    if (msg.includes('429') || msg.toLowerCase().includes('cloudflare')) {
+      return res.status(503).json({ ok: false, message: 'ديسكورد حاجب IP السيرفر مؤقتًا (Cloudflare 429) — جرّب بعد ساعات أو غيّر region السيرفر.' });
+    }
+    return res.status(500).json({ ok: false, message: `خطأ داخلي: ${msg.slice(0, 300)}` });
+  }
+});
+
 /* ------------------------- ردود الأوامر (صفحة «ردود أوامر») ------------------------- */
 /**
  * GET /api/guilds/:guildId/command-replies
@@ -1262,9 +1227,8 @@ router.post('/guilds/:guildId/presence', async (req, res) => {
 /* ---------------------------- المزامنة الحقيقية ---------------------------- */
 
 /** حالة المزامنة: آخر مزامنة، عدد السيرفرات، مصدرها، حالة البوت */
-router.get('/sync/status', (req, res) => {
-  const status = sync.getStatus();
-  res.json(canSeePrivate(req) ? status : publicSync(status));
+router.get('/sync/status', (_req, res) => {
+  res.json(sync.getStatus());
 });
 
 /** مزامنة فورية لكل السيرفرات (يحتاج صلاحية تعديل) */
@@ -1296,7 +1260,6 @@ router.post('/guilds/:guildId/sync', async (req, res) => {
  * يُستخدم في اللوحة ليعرض «آخر مزامنة» والقوائم الحقيقية بدون تحديث الصفحة.
  */
 router.get('/events', (req, res) => {
-  const trusted = canSeePrivate(req);
   res.set({
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
@@ -1304,13 +1267,11 @@ router.get('/events', (req, res) => {
     'X-Accel-Buffering': 'no',
   });
   res.flushHeaders?.();
-  const hello = trusted ? sync.getStatus() : publicSync(sync.getStatus());
-  res.write(`event: hello\ndata: ${JSON.stringify(hello)}\n\n`);
+  res.write(`event: hello\ndata: ${JSON.stringify(sync.getStatus())}\n\n`);
 
   const off = sync.onEvent((event, payload) => {
     try {
-      const body = trusted ? payload : publicSync(payload);
-      res.write(`event: ${event}\ndata: ${JSON.stringify(body)}\n\n`);
+      res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
     } catch { /* انقطع الاتصال */ }
   });
 
@@ -1318,10 +1279,7 @@ router.get('/events', (req, res) => {
   const live = require('../../lib/live');
   const offSettings = live.onSettings((payload) => {
     try {
-      const body = trusted
-        ? payload
-        : { guildId: payload?.guildId || null, source: payload?.source || null, at: payload?.at || null };
-      res.write(`event: settings\ndata: ${JSON.stringify(body)}\n\n`);
+      res.write(`event: settings\ndata: ${JSON.stringify(payload)}\n\n`);
     } catch { /* انقطع الاتصال */ }
   });
 
@@ -1340,9 +1298,6 @@ router.get('/events', (req, res) => {
 
 router.get('/status', (req, res) => {
   const client = safeClient();
-  if (!canSeePrivate(req)) {
-    return res.json({ ok: true, botReady: Boolean(client?.isReady?.()) });
-  }
   res.json({
     botReady: Boolean(client?.isReady?.()),
     botsTag: client?.user?.tag ?? null,
